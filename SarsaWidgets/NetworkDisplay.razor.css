@@ -1,0 +1,100 @@
+﻿.outer-theming {
+    background-color: var(--background-theme-color);
+    color: var(--foreground-theme-color);
+}
+
+.no-network-message {
+    font-style: italic;
+    font-weight: bold;
+    padding: 10px;
+    margin: 10px;
+    text-align: center;
+    background-color: salmon;
+    color: var(--background-theme-color);
+}
+
+.no-main-process-message {
+    background-color: salmon;
+    color: var(--background-theme-color);
+    font-weight: bold;
+}
+
+.outer {
+    border: solid 1px var(--foreground-theme-color);
+    padding: 10px;
+    margin: 2px;
+}
+
+/* --- Upper level network display --- */
+
+.queries {
+    padding: 10px;
+    margin: 10px;
+    background-color: cornflowerblue;
+    color: var(--background-theme-color);
+    text-align: center;
+    font-weight: bold;
+}
+
+.section-grouping {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.constructor-destructor {
+    min-width: 300px;
+}
+
+.let-grouping {
+    display: flex;
+    flex-direction: column;
+    margin: 5px;
+}
+
+/* --- Sections --- */
+
+.section {
+    border: solid 1px var(--foreground-theme-color);
+    margin: 5px;
+    min-width: 150px;
+}
+
+.section-header {
+    background-color: var(--foreground-theme-color);
+    color: var(--background-theme-color);
+    font-weight: bold;
+    padding: 5px;
+    text-align: center;
+}
+
+.entry {
+    margin: 5px;
+}
+
+.process-section {
+    margin: 10px;
+}
+
+/* --- Keyword formatting --- */
+
+.name {
+    color: deepskyblue;
+}
+
+.op {
+    font-weight: bold;
+}
+
+.type {
+    color: orange;
+}
+
+.item::after {
+    content: ", ";
+}
+
+.item:last-of-type::after {
+    content: "";
+}

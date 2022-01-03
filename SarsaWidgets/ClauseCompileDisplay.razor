@@ -1,0 +1,184 @@
+﻿@* 
+ * Component dedicated to displaying the progress and result of compiling a set of Stateful Horn
+ * clauses into their in-memory representations (a StatefulHorn.Universe).
+ *@
+
+@using StatefulHorn
+
+<div class='outer'>
+    @if (CurrentStatus == Status.AwaitingCompile)
+    {
+        <div class='general-message'>Awaiting compile.</div>
+    }
+    else
+    {
+        @if (CurrentStatus == Status.FinishedCompile)
+        {
+            int errCount = ErrorCount;
+            @if (errCount == 0)
+            {
+                <div class='good-summary'>All rules compiled successfully.</div>
+            }
+            else
+            {
+                <div class='error-summary'>Compilation complete - @errCount rules failed to compile.</div>
+            }
+        }
+        @foreach (string warn in Warnings)
+        {
+            <div class='warning'>@warn</div>
+        }
+        @foreach ((int lineNumber, RuleLine rl) in Lines)
+        {
+            <div class='rule-line'>
+                @{ string lineStatusClass = RuleLineStatusClass(rl); }
+                <div class='line-status @lineStatusClass'>
+                    <div class='line-number'>@lineNumber</div>
+                </div>
+                <div class='line-details'>
+                    @if (rl.CompiledRule != null)
+                    {
+                        <RuleDisplay Rule=@rl.CompiledRule/>
+                    }
+                    else if (rl.Error != null)
+                    {
+                        <div class='rule-source'>@rl.Source</div>
+                        <div class='error-message'>@rl.Error</div>
+                    }
+                    else 
+                    {
+                        <div class='rule-source'>@rl.Source</div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+
+    #region Compiler management.
+
+    private IClauseCompiler? _Compiler = null;
+
+    [Parameter, EditorRequired]
+    public IClauseCompiler? Compiler
+    {
+        get => _Compiler;
+        set
+        {
+            // The following test is required as Compiler may be set again by the higher-level
+            // component after a run.
+            if (_Compiler == value)
+            {
+                return;
+            }
+
+            if (_Compiler != null)
+            {
+                _Compiler.OnReset -= CompilerReset;
+                _Compiler.OnRuleAddition -= CompilerRuleAddition;
+                _Compiler.OnRuleUpdate -= CompilerRuleUpdate;
+                _Compiler.OnGeneralWarning -= CompilerGeneralWarning;
+                _Compiler.OnComplete -= CompilerComplete;
+            }
+
+            CurrentStatus = Status.AwaitingCompile;
+            _Compiler = value;
+
+            if (_Compiler != null)
+            {
+                _Compiler.OnReset += CompilerReset;
+                _Compiler.OnRuleAddition += CompilerRuleAddition;
+                _Compiler.OnRuleUpdate += CompilerRuleUpdate;
+                _Compiler.OnGeneralWarning += CompilerGeneralWarning;
+                _Compiler.OnComplete += CompilerComplete;
+            }
+        }
+    }
+
+    private void CompilerReset(IClauseCompiler cc)
+    {
+        CurrentStatus = Status.AwaitingCompile;
+        Lines.Clear();
+        Warnings.Clear();
+        StateHasChanged();
+    }
+
+    private void CompilerRuleAddition(IClauseCompiler cc, RuleAddedArgs args)
+    {
+        CurrentStatus = Status.Compiling;
+        Lines[args.Line] = new(args.ClauseSource, null, null);
+        StateHasChanged();
+    }
+
+    private void CompilerRuleUpdate(IClauseCompiler cc, RuleUpdateArgs args)
+    {
+        CurrentStatus = Status.Compiling;
+        Lines[args.Line] = Lines[args.Line] with { CompiledRule = args.CompiledRule, Error = args.Error };
+        StateHasChanged();
+    }
+
+    private void CompilerGeneralWarning(IClauseCompiler cc, string warning)
+    {
+        CurrentStatus = Status.Compiling;
+        Warnings.Add(warning);
+        StateHasChanged();
+    }
+
+    private void CompilerComplete(IClauseCompiler cc, Universe u) 
+    {
+        CurrentStatus = Status.FinishedCompile;
+        StateHasChanged();
+    }
+
+    #endregion
+
+    public enum Status
+    {
+        AwaitingCompile,
+        Compiling,
+        FinishedCompile
+    }
+
+    public Status CurrentStatus { get; private set; } = Status.AwaitingCompile;
+
+    #region Line management
+
+    private record RuleLine(string Source, Rule? CompiledRule, string? Error);
+
+    private string RuleLineStatusClass(RuleLine rl)
+    {
+        if (rl.CompiledRule == null)
+        {
+            if (rl.Error == null)
+            {
+                return "awaiting-status";
+            }
+            return "error-status";
+        }
+        return "compiled-status";
+    }
+
+    private Dictionary<int, RuleLine> Lines { get; init; } = new();
+
+    private int ErrorCount {
+        get
+        {
+            int errCount = 0;
+            foreach ((int _, RuleLine rl) in Lines)
+            {
+                if (rl.Error != null)
+                {
+                    errCount += 1;
+                }
+            }
+            return errCount;
+        }
+    }
+
+    #endregion
+
+    private List<string> Warnings { get; init; } = new();
+
+}

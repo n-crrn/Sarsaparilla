@@ -1,0 +1,61 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.32014.148
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AppliedPi", "AppliedPiParser\AppliedPi.csproj", "{3C7BFD44-0EC2-4CF7-A437-0F7715F2496C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SarsaparillaTests", "AppliedPiTest\SarsaparillaTests.csproj", "{700D1A7A-8461-4632-AE31-A9C4EDA42E2A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StatefulHorn", "StatefulHorn\StatefulHorn.csproj", "{D9F33668-3B41-4460-8A01-60BB694686C7}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sarsaparilla", "Sarsaparilla\Sarsaparilla.csproj", "{DFBAE7DD-3886-4878-B8C9-F4D9D68E16C4}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SarsaWidgets", "SarsaWidgets\SarsaWidgets.csproj", "{96A25C9D-BF2E-46AB-AD34-0AFEB8546F7A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SarsaWidgetTests", "SarsaWidgetTests\SarsaWidgetTests.csproj", "{014A2E60-A47F-4540-82A5-A99D684B6B0F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{9C7ED298-D20E-43D9-ABE6-36AF1AFF6846}"
+	ProjectSection(SolutionItems) = preProject
+		COPYING.txt = COPYING.txt
+		README.md = README.md
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3C7BFD44-0EC2-4CF7-A437-0F7715F2496C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3C7BFD44-0EC2-4CF7-A437-0F7715F2496C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3C7BFD44-0EC2-4CF7-A437-0F7715F2496C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3C7BFD44-0EC2-4CF7-A437-0F7715F2496C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{700D1A7A-8461-4632-AE31-A9C4EDA42E2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{700D1A7A-8461-4632-AE31-A9C4EDA42E2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{700D1A7A-8461-4632-AE31-A9C4EDA42E2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{700D1A7A-8461-4632-AE31-A9C4EDA42E2A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D9F33668-3B41-4460-8A01-60BB694686C7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D9F33668-3B41-4460-8A01-60BB694686C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D9F33668-3B41-4460-8A01-60BB694686C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D9F33668-3B41-4460-8A01-60BB694686C7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DFBAE7DD-3886-4878-B8C9-F4D9D68E16C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DFBAE7DD-3886-4878-B8C9-F4D9D68E16C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DFBAE7DD-3886-4878-B8C9-F4D9D68E16C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DFBAE7DD-3886-4878-B8C9-F4D9D68E16C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{96A25C9D-BF2E-46AB-AD34-0AFEB8546F7A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{96A25C9D-BF2E-46AB-AD34-0AFEB8546F7A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{96A25C9D-BF2E-46AB-AD34-0AFEB8546F7A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{96A25C9D-BF2E-46AB-AD34-0AFEB8546F7A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{014A2E60-A47F-4540-82A5-A99D684B6B0F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{014A2E60-A47F-4540-82A5-A99D684B6B0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{014A2E60-A47F-4540-82A5-A99D684B6B0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{014A2E60-A47F-4540-82A5-A99D684B6B0F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {145468C3-CADB-45C9-9921-81BBE82229CB}
+	EndGlobalSection
+EndGlobal

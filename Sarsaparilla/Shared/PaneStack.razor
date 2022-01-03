@@ -1,0 +1,70 @@
+﻿@*
+ * Provides a container for a series of panes, and manages the interactions between the panes.
+ *@
+
+<div class='pane-stack'>
+    <CascadingValue Value=this>
+        @ChildContent
+    </CascadingValue>
+</div>
+
+@code {
+    #region Parameters.
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    #endregion
+    #region Pane Management.
+
+    private List<Pane> Panes = new();
+
+    internal void AddPane(Pane p)
+    {
+        Panes.Add(p);
+        p.OnMinimise += PaneOnMinimise;
+        p.OnMaximise += PaneOnMaximise;
+    }
+
+    private void PaneOnMinimise(Pane p)
+    {
+        // The aim is to ensure that at least one pane is left open.
+        int afterPane = -1;
+        bool oneIsOpen = false;
+        for (int i = 0; i < Panes.Count; i++)
+        {
+            Pane thisPane = Panes[i];
+            if (thisPane == p)
+            {
+                afterPane = i + 1;
+            }
+            else
+            {
+                oneIsOpen |= thisPane.IsOpen;
+            }
+        }
+        if (!oneIsOpen)
+        {
+            if (afterPane == Panes.Count)
+            {
+                afterPane = 0; // Doesn't matter if p == Panes[0].
+            }
+            Panes[afterPane].IsOpen = true;
+        }
+        StateHasChanged();
+    }
+
+    private void PaneOnMaximise(Pane paneToMaximise)
+    {
+        foreach (Pane p in Panes)
+        {
+            if (p != paneToMaximise)
+            {
+                p.IsOpen = false;
+            }
+        }
+        StateHasChanged();
+    }
+
+    #endregion
+}

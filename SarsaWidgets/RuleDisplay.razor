@@ -1,0 +1,249 @@
+﻿@*
+ * A component dedicated to displaying a single rule in a visually-pleasing manner.
+ *@
+@using System.Text
+@using System.Net
+@using StatefulHorn
+
+<div class='outer'>
+    @if (Rule != null)
+    {
+        <div class='label-sep'>
+            @if (ShowLabel)
+            {
+                <div class='rule-label'>
+                    <div class='rule-label-inner'>
+                        @FormatLabel(Rule.Label)
+                    </div>
+                </div>
+            }
+            <div class='inner'>
+                @{
+                    RuleDescription rd = new(Rule);
+                }
+                @* Guard *@
+                @if (rd.HasGuard)
+                {
+                    <div class='guard'>
+                        [
+                            @foreach ((IMessage msg1, RuleDescription.GuardOp op, IMessage msg2) in rd.GuardStatements) {
+                                string opStr = op == RuleDescription.GuardOp.CannotBeUnifiedTo ? "~/⤳" : "≠";
+                                <span class='linear-element'>@msg1 <span class='op'>@opStr</span> @msg2</span>
+                            }
+                        ]
+                    </div>
+                }
+                
+                @* Premises *@
+                @if (rd.HasPremises)
+                {
+                    <div class='premise'>
+                        @if (rd.HasPremiseMappings) {
+                            <span>
+                            @foreach ((string label, Event prem) in rd.Premises)
+                            {
+                                <span class='event'>
+                                    @EventTemplate(prem)
+                                    <span class='premise-label'>@label</span>
+                                </span>
+                            }
+                            </span>
+                            <span class='op'>:</span>
+                            <span class='op'>{</span>
+                            <span>
+                            @foreach ((string label, List<string> ssMappings) in rd.PremiseSnapshotMapping)
+                            {
+                                @foreach (string ssLabel in ssMappings)
+                                {
+                                    <span class='linear-element'>
+                                        <span class='premise-label'>@label</span>
+                                        <span class='operator'>::</span>
+                                        @FormatLabel(ssLabel)
+                                    </span>
+                                }
+                            }
+                            </span>
+                            <span class='op'>}</span>
+                        }
+                        else
+                        {
+                            @foreach ((string _, Event prem) in rd.Premises)
+                            {
+                                <span class='event'>@EventTemplate(prem)</span>
+                            }
+                        }
+                    </div>
+                }
+                
+                @* States & Snapshots *@
+                <LeftStateOperator/>
+                @if (rd.HasSnapshots)
+                {
+                    <div class='snapshots'>
+                        <span>
+                        @foreach (Snapshot ss in rd.Snapshots)
+                        {
+                            <span class='linear-element'>
+                                <span class='op'>(</span>
+                                @StateTemplate(ss.Condition), @FormatLabel(ss.Label)
+                                <span class='op'>)</span>
+                            </span>
+                        }
+                        </span>
+                        @if (rd.HasSnapshotOrderings)
+                        {
+                            <span class='orderings'>
+                                <span class='op'>:</span>
+                                <span class='op'>{</span>
+                                <span>
+                                @foreach ((string ss1, Snapshot.Ordering so, string ss2) in rd.OrderingStatements)
+                                {
+                                    <span class='linear-element'>
+                                        @FormatLabel(ss1)
+                                        <span class='op'>@so.OperatorString()</span>
+                                        @FormatLabel(ss2)
+                                    </span>
+                                }
+                                </span>
+                                <span class='op'>}</span>
+                            </span>
+                        }
+                    </div>
+                }
+                <RightStateOperator/>
+
+                @* Result *@
+                <div class='result'>
+                    @if (rd.ResultIsEvent)
+                    {
+                        @EventTemplate(rd.ResultEvent!)
+                    }
+                    else 
+                    {
+                        @foreach ((Snapshot after, State cond) in rd.ResultTransformations!.Transformations)
+                        {
+                            <span class='linear-element'>
+                                <span class='op'>&lt;</span>
+                                @FormatLabel(after.Label)
+                                <span class='op'>:</span>
+                                @StateTemplate(cond)
+                                <span class='op'>&gt;</span>
+                            </span>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class='no-rule-message'>No rule has been set.</div>
+    }
+</div>
+
+@code {
+
+    private string RuleText { get; set; } = "";
+
+    private Rule? _Rule;
+
+    [Parameter]
+    public Rule? Rule {
+        get => _Rule;
+        set
+        {
+            RuleText = value == null ? "" : value.ToString();
+            _Rule = value;
+        }
+    }
+
+    [Parameter]
+    public bool ShowLabel { get; set; } = true;
+
+    public RenderFragment FormatRule(Rule r)
+    {
+        // The following is a check on how far we can push the custom control creation.
+        string rAsStr = r.ToString();
+        string[] parts = rAsStr.Split("-[");
+        string[] latterParts = parts[1].Split("]->");
+
+        return @<div>@parts[0]<LeftStateOperator/>@latterParts[0]<RightStateOperator/>@latterParts[1]</div>
+    ;
+    }
+
+    public RenderFragment EventTemplate(Event ev)
+    {
+        return
+            @<span class='@ev.EventType.ToString().ToLower()'>
+                <span class='event-name'>@ev.EventType.ToString().ToLower()</span>
+                (
+                    <span>
+                        @foreach(IMessage msg in ev.Messages)
+                        {
+                            <span class='linear-element'>@FormatLabel(msg.ToString())</span>
+                        }
+                    </span>
+                )
+            </span>;
+    }
+
+    public RenderFragment StateTemplate(State s)
+    {
+        return 
+            @<span class='state'>
+                <span class='state-name'>@FormatLabel(s.Name)</span>
+                (
+                    <span>@FormatLabel(s.Value.ToString())</span>
+                )
+            </span>;
+    }
+
+    private static MarkupString FormatLabel(string? label) {
+        if (label == null)
+        {
+            return new MarkupString("");
+        }
+
+        StringBuilder wholeBuffer = new();
+        StringBuilder tokenBuffer = new();
+
+        for (int i = 0; i < label.Length; i++)
+        {
+            char c = label[i];
+            if (c == '_')
+            {
+                i++;
+                if (i < label.Length)
+                {
+                    if (label[i] == '{')
+                    {
+                        for (i++; i < label.Length && label[i] != '}'; i++)
+                        {
+                            tokenBuffer.Append(label[i]);
+                        }
+                    }
+                    else
+                    {
+                        tokenBuffer.Append(label[i]);
+                        for (i++; i < label.Length && !CharEndsSub(label[i]); i++)
+                        {
+                            tokenBuffer.Append(label[i]);
+                        }
+                        i--; // For consideration on next pass.
+                    }
+                }
+                wholeBuffer.Append("<sub>" + FormatLabel(tokenBuffer.ToString()) + "</sub> ");
+                tokenBuffer.Clear();
+            }
+            else
+            {
+                wholeBuffer.Append(WebUtility.HtmlEncode(c.ToString()));
+            }
+        }
+
+        return new MarkupString(wholeBuffer.ToString());
+    }
+
+    private static bool CharEndsSub(char c) => char.IsWhiteSpace(c) || c == '[' || c == ']' || c == '(' || c == ')' || c == ',';
+
+}

@@ -1,0 +1,86 @@
+﻿.outer {
+    border: solid 1px var(--subtle-border-theme-color, darkgrey);
+}
+
+.general-message {
+    text-align: center;
+    font-style: italic;
+}
+
+.good-summary {
+    background-color: darkgreen;
+    color: white;
+    text-align: center;
+    padding: 5px;
+}
+
+.error-summary {
+    background-color: darkred;
+    color: white;
+    text-align: center;
+    padding: 5px;
+}
+
+.warning {
+    background-color: darkgoldenrod;
+    color: black;
+    padding: 5px;
+}
+
+    .warning::before {
+        content: "⚠";
+        margin-right: 10px;
+    }
+
+.warning:last-of-type {
+    margin-bottom: 10px;
+}
+
+.rule-line {
+    border-top: solid 1px var(--subtle-border-theme-color, darkgrey);
+    display: flex;
+    flex-direction: row;
+}
+
+.line-status {
+    padding: 5px;
+    min-width: 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.line-number {
+    text-align: center;
+}
+
+.line-details {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.awaiting-status {
+    background-color: darkorange;
+}
+
+.error-status {
+    background-color: darkred;
+}
+
+.compiled-status {
+    background-color: darkgreen;
+}
+
+.line-details {
+    padding: 5px;
+}
+
+.rule-source {
+    font-family: monospace;
+    font-size: large;
+}
+
+.error-message {
+    margin-top: 5px;
+}

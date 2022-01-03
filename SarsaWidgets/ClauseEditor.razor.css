@@ -1,0 +1,20 @@
+﻿.outer {
+    padding: 0px;
+    margin: 0px;
+    display: flex;
+    flex-direction: row;
+    min-height: 150px;
+    flex-grow: 1;
+}
+
+textarea {
+    flex-grow: 1;
+    padding: 5px;
+    background-color: var(--background-theme-color);
+    color: var(--foreground-theme-color);
+    border: solid 1px var(--foreground-theme-color, black);
+}
+
+textarea:focus {
+    background-color: var(--highlight-background-theme-color);
+}

@@ -1,0 +1,106 @@
+﻿@page "/"
+
+@*
+ * Demonstration of the SarsaWidgets used for the Stateful Horn related matters.
+ *@
+
+@using StatefulHorn
+@using SarsaWidgets
+@using SarsaWidgetTests.Mocks
+
+<PageTitle>Index</PageTitle>
+
+<h1>SarsaWidget Tests</h1>
+
+<p>
+    The purpose of this project is to allow widgets used within Sarsaparilla to be quickly 
+    checked in various states. These checks are not intended to be automated, as there is
+    an aspect of human opinion for the checks.
+</p>
+
+<section>
+    <h2>Clause Editor</h2> 
+    <p>Blank:</p>
+    <ClauseEditor/>
+    <p>Preset text:</p>
+    <ClauseEditor Text="k(x), k(y) -[ ]-> k(enc(x, y))"/>
+</section>
+
+<section>
+    <h2>Individual Rule Display</h2>
+    <p>The purpose of this control is to allow the user to visually inspect a rule.</p>
+    @foreach (Rule r in DemoRules)
+    {
+        <p>
+            <RuleDisplay Rule=r/>
+        </p>
+    }
+</section>
+
+<section>
+    <h2>Rule Composition Display</h2>
+    <p>
+        <button @onclick=GoodCompile>Compile Good Rules</button>
+        <button @onclick=BadCompile>Compile Bad Rules</button>
+        <button @onclick=BadCompileWithWarnings>Compile Bad Rules with Warning</button>
+    </p>
+    <ClauseCompileDisplay Compiler=TestCompiler/>
+</section>
+
+<section>
+    <h2>Rule Set Display</h2>
+    <RuleSetDisplay Universe=TestUniverse/>
+</section>
+
+<section>
+    <h2>Rule Change Display</h2>
+    <RuleChangeSetDisplay Entries=ChangeEntries/>
+</section>
+
+@code {
+    private Rule DemonstrationRule1;
+
+    private List<Rule> DemoRules;
+
+    private List<Universe.ChangeLogEntry> ChangeEntries;
+
+    private Universe TestUniverse;
+
+    private TestCompiler TestCompiler;
+
+    public Index()
+    {
+        RuleParser parser = new();
+        DemonstrationRule1 = parser.Parse("k(x), k(y) -[ ]-> k(enc(x, y))");
+
+        DemoRules = new()
+        {
+            DemonstrationRule1,
+            parser.Parse("R_1 = k(x)(a3) -[ (SD(init[]), a0), (SD(m), a3) : {a0 =< a3} ]-> <a3: SD(h(m, x))>"),
+            parser.Parse("R_2 ⋈_{know(x_1, y)} R_3 = n([bob_l], l_sl[]), n([bob_r], l_sr[]), k(m_f) -[ ]-> k(enc_a((m_f, [bob_l], [bob_r]), pk(sksd[])))"),
+            parser.Parse("k(x), k(y) -[ ]-> a(x, y)"),
+            parser.Parse("i(value)(a0) -[ (SD(init[]), a0) ]-> <a0: SD(value)>"),
+            parser.Parse("k(bob_l[]), k(bob_r[]) -[ ]-> l((bob_l[], bob_r[]))")
+        };
+
+        TestUniverse = new Universe(DemoRules);
+
+        Rule otherRule1 = parser.Parse("k(x), k(y), k(z) -[ ]-> k(enc(enc(x, y), z))");
+
+        ChangeEntries = new()
+        {
+            new(DemonstrationRule1, Universe.AddDecision.IsNew, null),
+            new(DemonstrationRule1, Universe.AddDecision.IsImplied, new() { otherRule1 }),
+            new(DemonstrationRule1, Universe.AddDecision.ImpliesAnother, new() { otherRule1 })
+        };
+
+        TestCompiler = new TestCompiler();
+    }
+
+    private Task GoodCompile() => TestCompiler.ConductSuccessfulRun();
+
+    private Task BadCompile() => TestCompiler.ConductFailureRun();
+
+    private Task BadCompileWithWarnings() => TestCompiler.ConductFailureWithWarningRun();
+
+}

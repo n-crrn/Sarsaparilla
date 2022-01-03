@@ -1,0 +1,9 @@
+﻿.outer {
+    border: solid 1px var(--subtle-border-theme-colour, darkgray);
+}
+
+.no-universe-message {
+    font-style: italic;
+    text-align: center;
+    padding: 10px;
+}

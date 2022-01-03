@@ -1,0 +1,88 @@
+﻿@* 
+ * Presents a pane with a title bar. The title bar provides buttons to either minimise the pane
+ * or maximise it over other panes in the enclosing pane container.
+ *@
+
+<div class='pane-title'>
+    <h2 class=@TitleEnableClass>@Title</h2>
+    <div class='button-bar-section'>
+        <button class=@ButtonEnableClass @onclick=Minimise>🗕</button>
+        <button class=@ButtonEnableClass @onclick=Maximise>🗖</button>
+    </div>
+    <div class='button-bar-section'>
+        @ButtonBarItems
+    </div>
+</div>
+<div class='@PaneClass'>
+    @Body
+</div>
+
+@code {
+    #region Parameters.
+
+    [Parameter]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public RenderFragment? ButtonBarItems { get; set; }
+
+    [Parameter]
+    public RenderFragment? Body { get; set; }
+
+    internal bool IsOpen { get; set; } = true;
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [CascadingParameter]
+    private PaneStack? Parent { get; set; }
+
+    #endregion
+    #region Pane callbacks.
+
+    protected override void OnInitialized()
+    {
+        if (Parent == null)
+        {
+            throw new ArgumentNullException(nameof(Parent), "Parent PaneStack must be set for a Pane.");
+        }
+        else
+        {
+            Parent.AddPane(this);
+        }
+        base.OnInitialized();
+    }
+
+    internal event Action<Pane>? OnMinimise;
+
+    private void Minimise()
+    {
+        IsOpen = !IsOpen;
+        if (!IsOpen)
+        {
+            OnMinimise?.Invoke(this);
+        }
+    }
+
+    internal event Action<Pane>? OnMaximise;
+
+    private void Maximise()
+    {
+        IsOpen = true;
+        OnMaximise?.Invoke(this);
+    }
+
+    #endregion
+    #region Formatting.
+
+    private static readonly string OpenPaneCSSClass = "open-pane";
+    private static readonly string ShutPaneCSSClass = "shut-pane";
+
+    private string PaneClass => IsOpen && !Disabled ? OpenPaneCSSClass : ShutPaneCSSClass;
+
+    private string ButtonEnableClass => Disabled ? "disabled-button" : "";
+
+    private string TitleEnableClass => Disabled ? "disabled-title" : "";
+
+    #endregion
+}

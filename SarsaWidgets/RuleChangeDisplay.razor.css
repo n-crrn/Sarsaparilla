@@ -1,0 +1,40 @@
+﻿.outer {
+    border-bottom: 1px solid var(--subtle-border-theme-color, lightgrey);
+    display: flex;
+    flex-direction: row;
+    background-color: var(--background-theme-color);
+    color: var(--foreground-theme-color);
+}
+
+.change-desc {
+    min-width: 100px;
+    padding: 10px;
+}
+
+.change-details {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    margin: 0px;
+    padding: 0px;
+}
+
+.change-desc-new {
+    background-color: darkgreen;
+}
+
+.change-desc-implied {
+    background-color: darkgoldenrod;
+}
+
+.change-desc-implies {
+    background-color: darkolivegreen;
+}
+
+.comment {
+    font-style: italic;
+    font-weight: bold;
+    text-align: center;
+    background-color: var(--foreground-theme-color, lightgrey);
+    color: var(--background-theme-color, black);
+}

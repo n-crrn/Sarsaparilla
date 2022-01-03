@@ -1,0 +1,29 @@
+﻿@*
+ * A component dedicated to displaying a set of rules from a StatefulHorn.Universe.
+ *@
+@using StatefulHorn
+
+<div class='outer'>
+    @if (Universe == null)
+    {
+        <div class='no-universe-message'>No universe of rules set.</div>
+    }
+    else
+    {
+        List<Rule> rules = Filter.Filter(Universe.ConsistentRules, Universe.TransferringRules);
+        @foreach (Rule r in rules)
+        {
+            <RuleDisplay Rule=r/>
+        }
+    }
+</div>
+
+@code {
+
+    [Parameter]
+    public Universe? Universe { get; set; }
+
+    [Parameter]
+    public RuleFilter Filter { get; set; } = new();
+
+}

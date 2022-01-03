@@ -1,0 +1,5 @@
+﻿.outer {
+    border-top: solid 1px var(--subtle-border-theme-color, lightgrey);
+    border-left: solid 1px var(--subtle-border-theme-color, lightgrey);
+    border-right: solid 1px var(--subtle-border-theme-color, lightgrey);
+}

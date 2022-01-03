@@ -1,0 +1,150 @@
+﻿@*
+ * Provides users with a view of a group of connected processes.
+ *@
+
+@using AppliedPi
+@using AppliedPi.Processes
+
+@if (Processes == null) 
+{
+    <div class='no-processes-message'>No process to display.</div>
+}
+else if (Processes.Processes.Count == 0)
+{
+    <div class='empty-processes-message'>The process group is empty.</div>
+}
+else 
+{
+    <div class='outer'>
+        @foreach ((IProcess process, bool replicated) in Processes.Processes)
+        {
+            <div class='entry'>
+                @if (replicated)
+                {
+                    <span class='op'>!</span>
+                }
+                @Template(process)
+            </div>
+        }
+    </div>
+}
+
+@code {
+    #region Parameters
+
+    [Parameter]
+    public ProcessGroup? Processes { get; set; }
+
+    #endregion
+    #region Process templates.
+
+    private RenderFragment Template(IProcess proc)
+    {
+        return proc switch
+        {
+            CallProcess cp => CallTemplate(cp),
+            EventProcess ep => EventTemplate(ep),
+            GetTableProcess gtp => GetTableTemplate(gtp),
+            IfProcess ip => IfTemplate(ip),
+            InChannelProcess icp => InChannelTemplate(icp),
+            InsertTableProcess itp => InsertTableTemplate(itp),
+            LetProcess lp => LetTemplate(lp),
+            NewProcess np => NewTemplate(np),
+            OutChannelProcess ocp => OutChannelTemplate(ocp),
+            ParallelCompositionProcess pcp => ParallelCompositionTemplate(pcp),
+            _ => throw new NotImplementedException($"Unrecognised process type {proc.GetType()}")
+        };
+    }
+
+    private RenderFragment CallTemplate(CallProcess cp)
+    {
+        return
+            @<div class='cell-process'>@cp.CallSpecification</div>
+        ;
+    }
+
+    private RenderFragment EventTemplate(EventProcess ep)
+    {
+        return
+            @<div class='event-process'>@ep.Event</div>
+        ;
+    }
+
+    private RenderFragment GetTableTemplate(GetTableProcess gtp)
+    {
+        return
+            @<div class='get-table-process'>@gtp</div>
+        ;
+    }
+
+    private RenderFragment IfTemplate(IfProcess ip)
+    {
+        return
+            @<div class='if-process'>@ip</div>
+        ;
+    }
+
+    private RenderFragment InChannelTemplate(InChannelProcess icp)
+    {
+        return
+            @<div class='in-channel-process'>@icp</div>
+        ;
+    }
+
+    private RenderFragment InsertTableTemplate(InsertTableProcess itp)
+    {
+        return
+            @<div class='insert-table-process'>@itp</div>
+        ;
+    }
+
+    private RenderFragment LetTemplate(LetProcess ltp)
+    {
+        return
+            @<div class='let-process'>@ltp</div>
+        ;
+    }
+
+    private RenderFragment NewTemplate(NewProcess np)
+    {
+        return
+            @<div class='new-process'>
+                ν @np.Variable 
+                <span class='op'>:</span>
+                <span class='type'>@np.PiType</span>
+            </div>
+            ;
+    }
+
+    private RenderFragment OutChannelTemplate(OutChannelProcess ocp)
+    {
+        return
+            @<div class='out-channel-process'>
+                @ocp.Channel
+                <span class='op'>(</span>
+                @ocp.SentTerm
+                <span class='op'>)</span>
+            </div>
+            ;
+    }
+
+    private RenderFragment ParallelCompositionTemplate(ParallelCompositionProcess pcp)
+    {
+        return
+            @<div class='parallel-process'>
+                @foreach ((IProcess ip, bool replicated) in pcp.Processes)
+                {
+                    <div class='parallel-process-inner'>
+                        @if(replicated)
+                        {
+                            <span class='op'>!</span>
+                        }
+                        @Template(ip)
+                    </div>
+                }
+            </div>
+            ;
+    }
+
+    #endregion
+}

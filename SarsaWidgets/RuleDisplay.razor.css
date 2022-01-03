@@ -1,0 +1,136 @@
+﻿/*
+ * The following theme values are supported:
+ *   --background-theme-color
+ *   --foreground-theme-color
+ *   --subtle-border-theme-color
+ *   --rule-label-color
+ *   --know-event-color
+ *   --init-event-color
+ *   --new-event-color
+ *   --accept-event-color
+ *   --leak-event-color
+ *   --state-color
+ */
+
+.outer {
+    background-color: var(--background-theme-color, black);
+    color: var(--foreground-theme-color, darkgray);
+}
+
+.inner {
+    flex-grow: 1;
+    flex-shrink: 0;
+    flex-basis: 50%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: right;
+    padding: 5px;
+    padding-right: 15px;
+}
+
+.guard { }
+
+.premise { }
+
+.snapshots { }
+
+.result { }
+
+.no-rule-message {
+    font-style: italic;
+}
+
+.label-sep {
+    border-top: solid 2px var(--rule-label-color, cornflowerblue);
+    display: flex;
+    flex-direction: row;
+}
+
+.rule-label {
+    background-color: var(--rule-label-color, cornflowerblue);
+    color: var(--background-theme-color, black);
+    border-bottom: solid 2px var(--background-theme-color, black);
+    font-weight: bold;
+    padding-left: 10px;
+    padding-right: 10px;
+    flex-grow: 0;
+    flex-shrink: 4;
+    flex-basis: content;
+    display: flex;
+    align-items: center;
+}
+
+.linear-element::after {
+    content: ", ";
+}
+
+.linear-element:last-child::after {
+    content: "";
+}
+
+/* --- Rule components --- */
+
+.op {
+    font-weight: bold;
+    font-family: monospace;
+    margin-left: 2px;
+    margin-right: 2px;
+    font-size: larger;
+}
+
+.state {
+    color: var(--state-color, lightgrey)
+}
+
+.state-name {
+    font-style: italic;
+}
+
+.premise-label {
+    border: solid 1px var(--foreground-theme-color);
+    border-radius: 10px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+/* --- Event display --- */
+
+.event {
+    padding: 2px;
+}
+
+.event::after {
+    content: ", ";
+}
+
+.event:last-of-type::after {
+    content: "";
+}
+
+.event-name {
+    font-style: italic;
+}
+
+.know {
+    color: var(--know-event-color, green);
+}
+
+.init {
+    color: var(--init-event-color, aqua);
+}
+
+.new {
+    color: var(--new-event-color, cyan);
+}
+
+.accept {
+    color: var(--accept-event-color, orange);
+}
+
+.leak {
+    color: var(--leak-event-color, orangered);
+}

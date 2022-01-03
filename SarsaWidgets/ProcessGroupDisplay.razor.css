@@ -1,0 +1,30 @@
+﻿.no-processes-message {
+    font-style: italic;
+    font-weight: bold;
+    margin: 10px;
+    text-align: center;
+    background-color: salmon;
+    color: var(--background-theme-color);
+}
+
+.empty-processes-message {
+    font-style: italic;
+    font-weight: bold;
+    margin: 10px;
+    text-align: center;
+    background-color: yellow;
+    color: var(--background-theme-color);
+}
+
+.outer {
+    background-color: var(--background-theme-color);
+}
+
+.entry {
+    border-bottom: solid 1px var(--subtle-border-theme-color, darkgrey);
+    padding: 5px;
+}
+
+.entry:last-of-type {
+    border-bottom: none;
+}

@@ -1,0 +1,18 @@
+﻿.outer {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-input {
+    flex-grow: 1;
+    color: var(--background-theme-color, black);
+    font-weight: bold;
+}
+
+.invalid-filter {
+    background-color: salmon;
+}
+
+.valid-filter {
+    background-color: var(--foreground-theme-color, lightgrey);
+}

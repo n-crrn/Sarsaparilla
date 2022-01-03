@@ -1,0 +1,14 @@
+﻿.outer {
+    flex-grow: 1;
+    padding: 5px;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+}
+
+textarea {
+    flex-grow: 1;
+    background-color: var(--background-theme-color);
+    color: var(--foreground-theme-color);
+    border: solid 1px var(--foreground-theme-color);
+}

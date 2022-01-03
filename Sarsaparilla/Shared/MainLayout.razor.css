@@ -1,0 +1,47 @@
+.screen {
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+    display: flex;
+    flex-direction: column;
+}
+
+.page-actions {
+    padding: 10px;
+    margin: 0px;
+    background-color: lightgrey;
+
+    float: right;
+    color: black;
+
+    display: flex;
+    flex-direction: row;
+    flex-grow: 0;
+}
+
+.page-actions > * {
+    flex-grow: 0;
+    margin: 5px;
+}
+
+.page-actions > a {
+    color: black;
+}
+
+.page-actions > h1 {
+    flex-grow: 1;
+    padding: 5px;
+    margin: 0px;
+    background-color: lightgrey;
+    color: var(--background-theme-color);
+}
+
+.page {
+    flex-grow: 1;
+    flex-shrink: 2;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+}

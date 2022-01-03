@@ -1,0 +1,161 @@
+﻿@*
+ * Displays the details of a π network.
+*@
+
+@using AppliedPi
+@using AppliedPi.Model
+
+@if (Network == null)
+{
+    <div class='no-network-message outer-theming'>
+        No network to display.
+    </div>
+}
+else
+{
+    <div class='outer outer-theming'>
+        @if (Network.Queries.Count > 0)
+        {
+            <div class='queries'>
+                @* FIXME: Include improved formatting of the query. *@
+                @foreach (Query q in Network.Queries)
+                {
+                    <div class='entry'>@q</div>
+                }
+            </div>
+        }
+
+        <div class='section-grouping'>
+            <div class='section'>
+                <div class='section-header'>Types</div>
+                @foreach (string t in Network.PiTypes)
+                {
+                   <div class='type entry'>@t</div>
+                }
+            </div>
+
+            @if (Network.Constants.Count > 0)
+            {
+                <div class='section'>
+                    <div class='section-header'>Constants</div>
+                    @foreach (Constant c in Network.Constants)
+                    {
+                        <div class='constant entry'>
+                            <span class='name'>@c.Name</span> :
+                            <span class='type'>@c.PiType</span>
+                        </div>
+                    }
+                </div>
+            }
+        
+            @if (Network.Tables.Count > 0)
+            {
+                <div class='section'>
+                    <div class='section-header'>Tables</div>
+                    @foreach (Table t in Network.Tables)
+                    {
+                        <div class='entry'>@t</div>
+                    }
+                </div>
+            }
+
+            @if (Network.Events.Count > 0)
+            {
+                <div class='section'>
+                    <div class='section-header'>Events</div>
+                    @foreach (Event ev in Network.Events)
+                    {
+                        <div class='entry'>
+                            <span class='name'>@ev.Name</span>
+                            <span class='op'>(</span>
+                            @foreach (string t in ev.ParameterTypes)
+                            {
+                                <span class='type'>@t</span>
+                            }
+                            <span class='op'>)</span>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class='section-grouping'>
+            <div class='section constructor-destructor'>
+                <div class='section-header'>Constructors</div>
+                @foreach (Constructor c in Network.Constructors)
+                {
+                    <div class='entry'>
+                        <span class='name'>@c.Name</span>
+                        <span class='op'>(</span>
+                        <span>
+                        @foreach (string pt in c.ParameterTypes)
+                        {
+                            <span class='item'>
+                                <span class='type'>@pt</span>
+                            </span>
+                        }
+                        </span>
+                        <span class='op'>)</span>
+                        <span class='type'>@c.PiType</span>
+                    </div>
+                }
+            </div>
+
+            <div class='section constructor-destructor'>
+                <div class='section-header'>Destructors</div>
+                @foreach (Destructor d in Network.Destructors)
+                {
+                    <div class='entry'>
+                        <span>
+                        @foreach ((string name, string type) in d.ParameterTypes)
+                        {
+                            <span class='item'>
+                                <span class='name'>@name</span>
+                                <span class='op'>:</span>
+                                <span class='type'>@type</span>
+                            </span>
+                        }
+                        </span>
+                        <span class='op'>;</span>
+                        <span class='name'>@d.LeftHandSide</span>
+                        <span class='op'>=</span>
+                        <span class='name'>@d.RightHandSide</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class='let-grouping'>
+            @foreach ((string letName, UserDefinedProcess udp) in Network.LetDefinitions)
+            {
+                <div class='section'>
+                    <div class='section-header'>
+                        @udp.Title
+                    </div>
+                    <ProcessGroupDisplay Processes=udp.Processes/>
+                </div>
+            }
+        </div>
+
+        @if (Network.MainProcess == null)
+        {
+            <div class='no-main-process-message'>
+                There is no main process.
+            </div>
+        }
+        else 
+        {
+            <div class='section process-section'>
+                <div class='section-header'>
+                    Process
+                </div>
+                <ProcessGroupDisplay Processes=Network.MainProcess/>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Network? Network { get; set; }
+}

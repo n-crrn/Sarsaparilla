@@ -1,0 +1,60 @@
+﻿@*
+ * Component to allow the user to input a filter for studying a collection of rules. By having
+ * a separate component, the complexity of determining if the provided filter is valid or not
+ * can isolated.
+ *@
+
+@using StatefulHorn
+
+<div class='outer'>
+    <input class='filter-input
+           @ValidityCSSClass'
+           @bind=FilterText
+           @bind:event=oninput
+           disabled=@Disabled
+           placeholder='Search for event, message or state.'
+           spellcheck="false"/>
+</div>
+
+@code {
+    [Parameter]
+    public bool Disabled { get; set; } = false;
+
+    private string _FilterText = "";
+
+    [Parameter]
+    public string FilterText {
+        get => _FilterText;
+        set
+        {
+            if (_FilterText != value)
+            {
+                _FilterText = value;
+                Filter = RuleFilter.CreateValid(_FilterText);
+            };
+        }
+    }
+
+    private RuleFilter? _Filter = new("");
+
+    [Parameter]
+    public RuleFilter? Filter {
+        get => _Filter;
+        set
+        {
+            if (_Filter != value)
+            {
+                _Filter = value;
+                if (value != null)
+                {
+                    FilterChanged?.InvokeAsync(value);
+                }
+            }
+        }
+    }
+
+    [Parameter]
+    public EventCallback<RuleFilter>? FilterChanged { get; set; }
+
+    private string ValidityCSSClass => Filter == null ? "invalid-filter" : "valid-filter";
+}

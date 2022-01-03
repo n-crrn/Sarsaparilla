@@ -1,0 +1,29 @@
+﻿@*
+ * A component for editing Applied Pi code.
+ *@
+
+<div class='outer'>
+    <textarea placeholder="Type Applied Pi Code here." @bind=Text @bind:event=oninput spellcheck="false"/>
+</div>
+
+@code {
+    private string _Text = "";
+
+    [Parameter]
+    public string Text
+    {
+        get => _Text;
+        set
+        {
+            if (_Text != value)
+            {
+                _Text = value;
+                TextChanged.InvokeAsync(_Text);
+            }
+        }
+    }
+
+    [Parameter]
+    public EventCallback<string> TextChanged { get; set; }
+
+}

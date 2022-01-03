@@ -1,0 +1,61 @@
+﻿@*
+ * Component for display a rule, whether it was added to a rule-set or not, and provide some
+ * explanation why.
+ * Author: Nick Curran
+ *@
+
+@using StatefulHorn;
+
+@if (Entry == null)
+{
+    <i>Universe.ChangeLogEntry is not set for display.</i>
+}
+else
+{
+    <div class='outer'>
+        <div class='change-desc @DescCSSClass'>
+            @ChangeDescription
+            </div>
+        <div class='change-details'>
+            <RuleDisplay Rule=Entry.AttemptedRule/>
+            @if (Entry.Decision == Universe.AddDecision.IsImplied)
+            {
+                <div class='comment'>…was instead implied by…</div>
+                <RuleDisplay Rule=Entry.AffectedRules![0]/>
+            }
+            else if (Entry.Decision == Universe.AddDecision.ImpliesAnother)
+            {
+                <div class='comment'>…implied, and therefore replaced, …</div>
+                foreach (Rule ar in Entry.AffectedRules!)
+                {
+                    <RuleDisplay Rule=ar/>
+                }
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Universe.ChangeLogEntry? Entry { get; set; }
+
+    private string ChangeDescription
+    {
+        get => Entry?.Decision switch
+        {
+            Universe.AddDecision.IsNew => "New",
+            Universe.AddDecision.IsImplied => "Implied",
+            _ => "Implies others"
+        };
+    }
+
+    private string DescCSSClass
+    {
+        get => Entry?.Decision switch
+        {
+            Universe.AddDecision.IsNew => "change-desc-new",
+            Universe.AddDecision.IsImplied => "change-desc-implied",
+            _ => "change-desc-implies"
+        };
+    }
+}

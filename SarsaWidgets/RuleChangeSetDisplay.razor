@@ -1,0 +1,18 @@
+﻿@*
+ * Component for displaying a set of Rule Changes together.
+ *@
+
+@using StatefulHorn
+
+<div class='outer'>
+    @foreach (Universe.ChangeLogEntry e in Entries) {
+        <RuleChangeDisplay Entry=e/>
+    }
+</div>
+
+@code {
+
+    [Parameter]
+    public IReadOnlyList<Universe.ChangeLogEntry> Entries { get; set; } = new List<Universe.ChangeLogEntry>();
+
+}

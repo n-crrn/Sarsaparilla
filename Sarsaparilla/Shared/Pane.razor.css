@@ -1,0 +1,49 @@
+﻿/* --- Pane Title --- */
+
+.pane-title {
+    border-top: solid 1px var(--subtle-border-theme-color, darkgrey);
+    border-bottom: solid 1px var(--subtle-border-theme-color, darkgrey);
+    margin: 0px;
+    padding: 10px;
+    flex-grow: 0;
+    display: flex;
+    flex-direction: row;
+}
+
+    .pane-title > h2 {
+        margin: 0px;
+        padding: 2px;
+        font-size: large;
+        flex-grow: 1;
+    }
+
+    .pane-title > .button-bar-section {
+        flex-grow: 0;
+        margin-left: 10px;
+        display: flex;
+        flex-direction: row;
+    }
+
+.disabled-title {
+    font-style: italic;
+    opacity: 50%;
+}
+
+.disabled-button {
+    display: none;
+}
+
+/* --- Pane Body --- */
+
+.open-pane {
+    flex-grow: 1;
+    flex-shrink: 2;
+    flex-basis: 0;
+    display: flex;
+    overflow-y: auto;
+    min-height: 200px;
+}
+
+.shut-pane {
+    display: none;
+}

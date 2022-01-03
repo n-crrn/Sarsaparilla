@@ -1,0 +1,54 @@
+﻿@page "/pi"
+
+@using AppliedPi
+@using SarsaWidgets
+
+<PageTitle>Applied π Interface</PageTitle>
+
+<PaneStack>
+    <Pane Title="Editor">
+        <ButtonBarItems>
+            <button @onclick=Parse>Parse</button>
+        </ButtonBarItems>
+        <Body>
+            <div class='editor-pane-contents'>
+                <AppliedPiEditor @bind-Text=AppliedPiSource />
+                @if (ErrorMessage != null)
+                {
+                    <div class='compile-error-message'>
+                        @ErrorMessage
+                    </div>
+                }
+            </div>
+        </Body>
+    </Pane>
+    <Pane Title="Parsed π Model">
+        <Body>
+            <div class='parse-pane-contents'>
+                <NetworkDisplay Network=@ParsedNetwork/>
+            </div>
+        </Body>
+    </Pane>
+</PaneStack>
+
+@code {
+    public string AppliedPiSource { get; set; } = "";
+
+    public string? ErrorMessage { get; set; }
+
+    public Network? ParsedNetwork { get; set; }
+
+    private void Parse()
+    {
+        try
+        {
+            ErrorMessage = null;
+            ParsedNetwork = null;
+            ParsedNetwork = Network.CreateFromCode(AppliedPiSource);
+        }
+        catch (NetworkCreationException ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+}
