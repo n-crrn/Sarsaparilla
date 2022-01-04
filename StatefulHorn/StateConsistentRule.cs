@@ -143,9 +143,9 @@ public class StateConsistentRule : Rule
 
         for (int i = 0; i < orderedSnapshots.Count; i++)
         {
+            State c1 = orderedSnapshots[i].Condition;
             for (int j = i + 1; j < orderedSnapshots.Count; j++)
             {
-                State c1 = orderedSnapshots[i].Condition;
                 State c2 = orderedSnapshots[j].Condition;
                 SigmaFactory sf = new();
                 if (c1.CanBeUnifiableWith(c2, GuardStatements, sf))
