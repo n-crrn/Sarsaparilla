@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace StatefulHorn;
 
@@ -191,7 +192,8 @@ public abstract class Rule
                     int idx = _Premises.IndexOf(ev);
                     if (idx < 0)
                     {
-                        throw new InvalidOperationException("Cannot describe premises - snapshot with invalid event.");
+                        string dbgDesc = "Debug description of rule: " + DebugDescription();
+                        throw new InvalidOperationException($"Cannot describe premises - snapshot with invalid event {ev}. {dbgDesc}");
                     }
                     string premiseRef = "(" + (idx + 1) + ")"; /* CircledNumber(idx + 1); */
                     premiseOrdering.Add($"{premiseRef} :: {ss.Label}");
@@ -200,6 +202,21 @@ public abstract class Rule
 
             return string.Join(", ", premiseStrings) + " : {" + string.Join(", ", premiseOrdering) + "}";
         }
+    }
+
+    /// <summary>
+    /// Provides a last-ditch attempt to describe a rule, without attempting to be consistent.
+    /// </summary>
+    /// <returns>String description of rule that is suitable for programmer consideration.</returns>
+    protected string DebugDescription()
+    {
+        StringBuilder buffer = new();
+        buffer.Append("LABEL: ");
+        buffer.Append(Label);
+        buffer.Append("PREMISES: {").Append(string.Join(", ", Premises)).Append("}, ");
+        buffer.Append("SNAPSHOTS: {").Append(string.Join(", ", Snapshots.OrderedList)).Append("}");
+        buffer.Append("RESULT: {").Append(Result).Append(" }");
+        return buffer.ToString();
     }
 
     private string FreePremisesDescription => string.Join(", ", from p in _Premises select p.ToString());
