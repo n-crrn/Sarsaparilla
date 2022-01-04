@@ -36,8 +36,9 @@ public class ModelTests
             "fun sencrypt(bitstring,nonce): bitstring.\n" +
             "reduc forall x: bitstring, y: skey; decrypt(encrypt(x, y),y) = x.\n" +
             "table keys(host, pkey).\n" +
-            "query x: host, y: host; inj-event(endB(x)) ==> inj-event(startB(x))." +
-            "const c1: tag [data].";
+            "query x: host, y: host; inj-event(endB(x)) ==> inj-event(startB(x)).\n" +
+            "const c1: tag [data].\n" +
+            "const c2: kitten.\n";
 
         List<string> expectedPiTypes = new() { "bitstring", "kitten", "dog", "host" };
         List<FreeDeclaration> expectedFreeDecls = new()
@@ -73,7 +74,10 @@ public class ModelTests
                 new("inj-event", new() { new("startB", new() { new("x") }) }),
                 new() { { "x", "host" }, { "y", "host" } })
         };
-        List<Constant> expectedConstants = new() { new("c1", "tag", "data") };
+        List<Constant> expectedConstants = new() {
+            new("c1", "tag", "data"),
+            new("c2", "kitten", "")
+        };
 
         Network nw = Network.CreateFromCode(testSource);
 

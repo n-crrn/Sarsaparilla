@@ -62,11 +62,23 @@ public class ConstantStatement : IStatement
         string name = p.ReadNameToken(termType);
         p.ReadExpectedToken(":", termType);
         string type = p.ReadNameToken(termType);
-        p.ReadExpectedToken("[", termType);
-        string tag = p.ReadNameToken(termType);
-        p.ReadExpectedToken("]", termType);
-        p.ReadExpectedToken(".", termType);
-        return ParseResult.Success(new ConstantStatement(name, type, tag));
+
+        string nextToken = p.ReadNextToken();
+        string? tag = null;
+        if (nextToken != ".")
+        {
+            if (nextToken == "[")
+            {
+                tag = p.ReadNameToken(termType);
+                p.ReadExpectedToken("]", termType);
+                p.ReadExpectedToken(".", termType);
+            }
+            else
+            {
+                ParseResult.Failure(p, $"Expected '.' or '[', instead found '{nextToken}'.");
+            }
+        }
+        return ParseResult.Success(new ConstantStatement(name, type, tag ?? ""));
     }
 
 }
