@@ -15,47 +15,37 @@
 
 <PageTitle>Stateful Horn Clause Authoring</PageTitle>
 
-<div class='pane-container'>
-    <div class='pane-title'>
-        <h2>Stateful Horn Editor</h2>
-        <div class='button-bar-section'>
-            <button @onclick=@(() => EditorPaneOpen = !EditorPaneOpen)>🗕</button>
-            <button @onclick=MaximiseEditorPane>🗖</button>
-        </div>
-        <div class='button-bar-section'>
+<PaneStack>
+    <Pane Title="Stateful Horn Editor">
+        <ButtonBarItems>
             <button class='parse-button' @onclick=Parse>Parse</button>
-        </div>
-    </div>
-    <div class='@EditorPaneStateClass'>
-        <div class='pane-button-bar'>
-            <button class='load-source-file'>
-                <InputFile OnChange=@LoadSourceFile/>
-                <div class='load-source-file-inner'>📂 Load Source File</div>
-            </button>
-            <div class='grower'></div>
-            <button @onclick=LoadBasicExample>Load Basic Example</button>
-            <button @onclick=LoadPaperExample1>Load Paper Example 1</button>
-            <button @onclick=LoadPaperExample2>Load Paper Example 2</button>
-            <div class='grower'></div>
-            <button @onclick=SaveSource>💾 Save Source</button>
-        </div>
-        <div class='pane-body'>
-            <ClauseEditor @bind-Text=StatefulHornSource/>
-        </div>
-    </div>
+        </ButtonBarItems>
+        <Body>
+            <div class='outer-pane'>
+                <div class='pane-button-bar'>
+                    <button class='load-source-file'>
+                        <InputFile OnChange=@LoadSourceFile/>
+                        <div class='load-source-file-inner'>📂 Load Source File</div>
+                    </button>
+                    <div class='grower'></div>
+                    <button @onclick=LoadBasicExample>Load Basic Example</button>
+                    <button @onclick=LoadPaperExample1>Load Paper Example 1</button>
+                    <button @onclick=LoadPaperExample2>Load Paper Example 2</button>
+                    <div class='grower'></div>
+                    <button @onclick=SaveSource>💾 Save Source</button>
+                </div>
+                <div class='pane-body'>
+                    <ClauseEditor @bind-Text=StatefulHornSource/>
+                </div>
+            </div>
+        </Body>
+    </Pane>
 
-    <div class='pane-title'>
-        <h2>Compilation &amp; Elaboration</h2>
-        <div class='button-bar-section'>
-            <button @onclick=@(() => ElaborationPaneOpen = !ElaborationPaneOpen)>🗕</button>
-            <button @onclick=MaximiseElaborationPane>🗖</button>
-        </div>
-        <div class='button-bar-section'>
+    <Pane Title='Compilation &amp; Elaboration'>
+        <ButtonBarItems>
             <button disabled=@NotParsed @onclick=Elaborate>Elaborate</button>
-        </div>
-    </div>
-    <div class='@ElaborationPaneStateClass'>
-        <div class='pane-body'>
+        </ButtonBarItems>
+        <Body>
             <div class='elaboration-pane-inner'>
                 <div class='elaboration-column'>
                     <button disabled=@NotParsed @onclick=ExportBasisRules>Export Basis Rules</button>
@@ -78,43 +68,39 @@
                     </div>
                 }
             </div>
-        </div>
-    </div>
+        </Body>
+    </Pane>
 
-    <div class='pane-title'>
-        <h2>Ruleset Inspection and Querying</h2>
-        <div class='button-bar-section'>
-            <button @onclick=@(() => RuleSetQueryPaneOpen = !RuleSetQueryPaneOpen)>🗕</button>
-            <button @onclick=MaximiseRuleSetQueryPane>🗖</button>
-        </div>
-    </div>
-    <div class='@RuleSetQueryPaneStateClass'>
-        <div class='pane-button-bar'>
-            <button disabled=@NotParsed @onclick=ExportRuleSet>Export Ruleset</button>
-            <div class='grower'>
-                <RuleFilterInput Disabled=@NotParsed @bind-Filter=QueryFilter />
-            </div>
-        </div>
-        <div class='pane-body'>
-            @if (NotParsed)
-            {
-                <div class='empty-pane-message'>
-                    <div class='empty-pane-message-inner'>
-                        Click "Parse" in the Editor Pane and "Elaborate" in the Elaboration Pane to query
-                        generated rulesets here.
+    <Pane Title='Ruleset Inspection &amp; Querying'>
+        <Body>
+            <div class='outer-pane'>
+                <div class='pane-button-bar'>
+                    <button disabled=@NotParsed @onclick=ExportRuleSet>Export Ruleset</button>
+                    <div class='grower'>
+                        <RuleFilterInput Disabled=@NotParsed @bind-Filter=QueryFilter />
                     </div>
                 </div>
-            }
-            else if (Universe != null)
-            {
-                <div class='rule-set-query-pane-column'>
-                    <RuleSetDisplay Universe=Universe Filter=QueryFilter />
+                <div class='pane-body'>
+                    @if (NotParsed)
+                    {
+                        <div class='empty-pane-message'>
+                            <div class='empty-pane-message-inner'>
+                                Click "Parse" in the Editor Pane and "Elaborate" in the Elaboration Pane to query
+                                generated rulesets here.
+                            </div>
+                        </div>
+                    }
+                    else if (Universe != null)
+                    {
+                        <div class='rule-set-query-pane-column'>
+                            <RuleSetDisplay Universe=Universe Filter=QueryFilter />
+                        </div>
+                    }
                 </div>
-            }
-        </div>
-    </div>
-
-</div>
+            </div>
+        </Body>
+    </Pane>
+</PaneStack>
 
 @code {
     public Index()
@@ -146,7 +132,6 @@
     {
         NotParsed = false;
         Compiler.Compile(StatefulHornSource);
-        ElaborationPaneOpen = true;
     }
 
     private void ResetWithCode(string src) 
@@ -167,46 +152,6 @@
     {
         await SaveStringToFile(DefaultSourceFilename, StatefulHornSource);
     }
-
-    #endregion
-    #region Pane management.
-
-    public static readonly string OpenPaneCSSClass = "open-pane";
-    public static readonly string ShutPaneCSSClass = "shut-pane";
-
-    private string EditorPaneStateClass = OpenPaneCSSClass;
-
-    public bool EditorPaneOpen 
-    {
-        get => EditorPaneStateClass == OpenPaneCSSClass;
-        set => EditorPaneStateClass = value ? OpenPaneCSSClass : ShutPaneCSSClass;
-    }
-
-    private string ElaborationPaneStateClass = OpenPaneCSSClass;
-
-    public bool ElaborationPaneOpen
-    {
-        get => ElaborationPaneStateClass == OpenPaneCSSClass;
-        set => ElaborationPaneStateClass = value ? OpenPaneCSSClass : ShutPaneCSSClass;
-    }
-
-    private string RuleSetQueryPaneStateClass = OpenPaneCSSClass;
-
-    public bool RuleSetQueryPaneOpen
-    {
-        get => RuleSetQueryPaneStateClass == OpenPaneCSSClass;
-        set => RuleSetQueryPaneStateClass = value ? OpenPaneCSSClass : ShutPaneCSSClass;
-    }
-
-    private void SetAllPaneStatuses(bool editorOpen, bool elaborationOpen, bool queryOpen) {
-        EditorPaneOpen = editorOpen;
-        ElaborationPaneOpen = elaborationOpen;
-        RuleSetQueryPaneOpen = queryOpen;
-    }
-
-    private void MaximiseEditorPane() => SetAllPaneStatuses(true, false, false);
-    private void MaximiseElaborationPane() => SetAllPaneStatuses(false, true, false);
-    private void MaximiseRuleSetQueryPane() => SetAllPaneStatuses(false, false, true);
 
     #endregion
     #region Basic compilation.

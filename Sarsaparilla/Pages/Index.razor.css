@@ -1,51 +1,9 @@
-﻿.pane-container {
-    background-color: var(--background-theme-color);
-    flex-grow: 1;
-    flex-shrink: 2;
+﻿/* --- All Panes --- */
 
+.outer-pane {
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
-}
-
-/* --- Pane Titles --- */
-
-.pane-title {
-    border-bottom: solid 1px var(--subtle-border-theme-color, darkgrey);
-    margin: 0px;
-    padding: 10px;
-    flex-grow: 0;
-    display: flex;
-    flex-direction: row;
-}
-
-.pane-title > h2 {
-    margin: 0px;
-    padding: 2px;
-    font-size: large;
-    flex-grow: 1;
-}
-
-.pane-title > .button-bar-section {
-    flex-grow: 0;
-    margin-left: 10px;
-    display: flex;
-    flex-direction: row;
-}
-
-/* --- Panes --- */
-
-.open-pane {
-    flex-grow: 1;
-    flex-shrink: 2;
-
-    border: solid 1px var(--subtle-border-theme-color, darkgrey);
-    margin: 2px;
-    display: flex;
-    flex-direction: column;
-}
-
-.shut-pane {
-    display: none;
 }
 
 .pane-button-bar {
@@ -98,14 +56,6 @@
 }
 
 /* --- Elaboration Pane --- */
-
-.elaboration-pane {
-    border: solid 1px var(--subtle-border-theme-color, darkgrey);
-}
-
-.ruleset-query-pane {
-    border: solid 1px var(--subtle-border-theme-color, darkgrey);
-}
 
 .elaboration-pane-inner {
     flex-grow: 1;
