@@ -43,7 +43,7 @@
 
     <Pane Title='Compilation &amp; Elaboration'>
         <ButtonBarItems>
-            <button disabled=@NotParsed @onclick=Elaborate>Elaborate</button>
+            <button disabled=@(NotParsed || (Universe != null && Universe.IsExhausted)) @onclick=Elaborate>Elaborate</button>
         </ButtonBarItems>
         <Body>
             <div class='elaboration-pane-inner'>
@@ -64,7 +64,16 @@
                                 }
                             </select>
                         </div>
-                        <RuleChangeSetDisplay Entries=Universe.ChangeLog[GenerationViewed]/>
+                        @if (Universe.ChangeLog[GenerationViewed].Count == 0)
+                        {
+                            <div class='empty-generation-message'>
+                                There were no further rules created in this generation.
+                            </div>
+                        }
+                        else
+                        {
+                            <RuleChangeSetDisplay Entries=Universe.ChangeLog[GenerationViewed]/>
+                        }
                     </div>
                 }
             </div>

@@ -57,6 +57,8 @@ public class Universe
         return allGenEntries;
     }
 
+    public bool IsExhausted => ChangeLog.Count > 0 && ChangeLog[^1].Count == 0;
+
     private readonly List<List<ChangeLogEntry>> _ChangeLog;
 
     public IReadOnlyList<IReadOnlyList<ChangeLogEntry>> ChangeLog => _ChangeLog;
@@ -136,6 +138,11 @@ public class Universe
         // this naively.
         // Note that rules are added in batches - this is to prevent issues with iterators
         // being invalidated by changes to the underlying lists.
+
+        if (IsExhausted)
+        {
+            return _ChangeLog[^1];
+        }
 
         StartGeneration();
 

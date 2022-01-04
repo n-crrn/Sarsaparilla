@@ -76,6 +76,11 @@
     margin: 2px;
 }
 
+.empty-generation-message {
+    text-align: center;
+    font-style: italic;
+}
+
 /* --- Rule Set Query Pane --- */
 
 .rule-set-query-pane-column {
