@@ -244,6 +244,6 @@
         return new MarkupString(wholeBuffer.ToString());
     }
 
-    private static bool CharEndsSub(char c) => char.IsWhiteSpace(c) || c == '[' || c == ']' || c == '(' || c == ')' || c == ',';
+    private static bool CharEndsSub(char c) => char.IsWhiteSpace(c) || c == '[' || c == ']' || c == '(' || c == ')' || c == ',' || c == '>';
 
 }
