@@ -123,9 +123,9 @@ public class StateConsistentRule : Rule
             // Need to merge the SnapshotTrees on the result.
             SnapshotTree correctedOtherTree = r.Snapshots.CloneTreeWithReplacementEvents(updatedPremises, bwdSigma);
             // Remember that e0 was not actually included in updatedPremises.
-            foreach (Snapshot ss in correctedOtherTree.GetSnapshotsAssociatedWith(Result))
+            foreach (Snapshot ss in correctedOtherTree.GetSnapshotsAssociatedWith(e0))
             {
-                ss.ReplacePremises(Result, h);
+                ss.ReplacePremises(e0, h);
             }
             newTree = Snapshots.CloneTreeWithReplacementEvents(updatedPremises, fwdSigma).MergeWith(correctedOtherTree);
         }

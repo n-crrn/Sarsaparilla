@@ -79,6 +79,24 @@ public class CompositionTests
     }
 
     /// <summary>
+    /// Check that two rules (both with snapshots) can be composed.
+    /// </summary>
+    [TestMethod]
+    public void BothSnapshotsCompose()
+    {
+        StateConsistentRule r4 = (StateConsistentRule)Example1.GetRule(4);
+        StateTransferringRule r6 = (StateTransferringRule)Example1.GetRule(6);
+        RuleParser parser = new();
+        Rule expected = parser.Parse("k(enc_a((m_f, x, s_r), pk(sksd[])))(1) : {(1) :: a1, (1) :: a3} -[ " +
+            "(SD(init[]), a0), (SD(h(m_f, left[])), a1), (SD(init[]), a2), (SD(m), a3) : " + 
+            "{ a0 =< a1, a2 =< a3 } ]-> <a1: SD(h(m, x))>");
+        
+        Assert.IsTrue(r4.TryComposeWith(r6, out Rule? derivedRule), "Failed to assess composition correctly.");
+        Assert.IsNotNull(derivedRule);
+        Assert.AreEqual(expected, derivedRule);
+    }
+
+    /// <summary>
     /// It is common for there to be rules with similarly named variables. However, these
     /// variables need to be treated separately for the purpose of composition. This tests
     /// that it is the case.
