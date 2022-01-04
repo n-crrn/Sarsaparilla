@@ -3,6 +3,10 @@ using StatefulHorn;
 
 namespace StatefulHornTest;
 
+/// <summary>
+/// Namespace that provides a set of 12 rules pre-built rules that can be used for testing
+/// algorithms of the Stateful Horn library. These examples come from the paper Li Li et al 2017.
+/// </summary>
 public static class Example1
 {
     private static readonly List<Rule> BasisRules;
@@ -81,11 +85,9 @@ public static class Example1
         factory.SetNextLabel("stateChange");
         Snapshot r6Init = factory.RegisterState(sdInitState);
         Snapshot r6M = factory.RegisterState(sdMState);
-        //Snapshot r6Result = new(sdHVarState, "a_2");
         r6M.SetLaterThan(r6Init);
         factory.RegisterPremises(r6M, Event.Know(xMsg));
         r6M.TransfersTo = sdHVarState;
-        //BasisRules.Add(factory.CreateStateTransferringRule(new() { r6M, r6Result }));
         BasisRules.Add(factory.CreateStateTransferringRule());
 
         // --- Rule 7 - Public key ---
@@ -111,10 +113,10 @@ public static class Example1
     }
 
     /// <summary>
-    /// Get the rule corresponding with the number in the paper Bai et al 2017.
+    /// Get the rule corresponding with the number in the paper Li Li et al 2017.
     /// </summary>
-    /// <param name="id">Number identifying the rule, starting with 1.</param>
-    /// <returns></returns>
+    /// <param name="id">Number identifying the rule, between 1 and 12 inclusive.</param>
+    /// <returns>A Rule object representing the requested rule.</returns>
     public static Rule GetRule(int id)
     {
         return BasisRules[id - 1];
