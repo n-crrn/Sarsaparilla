@@ -14,9 +14,12 @@
 }
 
 .no-main-process-message {
+    font-style: italic;
+    font-weight: bold;
+    padding: 10px;
+    text-align: center;
     background-color: salmon;
     color: var(--background-theme-color);
-    font-weight: bold;
 }
 
 .outer {

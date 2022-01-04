@@ -34,6 +34,21 @@ else
                 }
             </div>
 
+            @if (Network.FreeDeclarations.Count > 0)
+            {
+                <div class='section'>
+                    <div class='section-header'>Frees</div>
+                    @foreach (FreeDeclaration fd in Network.FreeDeclarations)
+                    {
+                        <div class='entry'>
+                            <span class='name'>@fd.Name</span>
+                            <span class='op'>:</span>
+                            <span class='type'>@fd.PiType</span>
+                        </div>
+                    }
+                </div>
+            }
+
             @if (Network.Constants.Count > 0)
             {
                 <div class='section'>
@@ -41,7 +56,8 @@ else
                     @foreach (Constant c in Network.Constants)
                     {
                         <div class='constant entry'>
-                            <span class='name'>@c.Name</span> :
+                            <span class='name'>@c.Name</span>
+                            <span class='op'>:</span>
                             <span class='type'>@c.PiType</span>
                         </div>
                     }
