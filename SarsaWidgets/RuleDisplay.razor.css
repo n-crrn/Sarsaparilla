@@ -10,6 +10,7 @@
  *   --accept-event-color
  *   --leak-event-color
  *   --state-color
+ *   --rule-align - text alignment of the rule (by default "right").
  */
 
 .outer {
@@ -30,13 +31,21 @@
     padding-right: 15px;
 }
 
-.guard { }
+.guard {
+    text-align: var(--rule-align, right);
+}
 
-.premise { }
+.premise {
+    text-align: var(--rule-align, right);
+}
 
-.snapshots { }
+.snapshots {
+    text-align: var(--rule-align, right);
+}
 
-.result { }
+.result {
+    text-align: var(--rule-align, right);
+}
 
 .no-rule-message {
     font-style: italic;
