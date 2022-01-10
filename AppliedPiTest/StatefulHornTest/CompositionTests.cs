@@ -130,4 +130,21 @@ public class CompositionTests
         Assert.IsTrue(r1.TryComposeWith(r2, out Rule? result), "Unable to compose rules.");
         Assert.AreEqual(expectedResult, result, "Composition was not as expected.");
     }
+
+    /// <summary>
+    /// There is a situation where a composition may result in a rule where the result
+    /// is a premise. This check ensures that this situation is caught and rectified.
+    /// </summary>
+    [TestMethod]
+    public void InvalidCompose()
+    {
+        RuleParser parser = new();
+
+        StateConsistentRule r1 = parser.ParseStateConsistentRule("k(m), k(pub) -[ ]-> k(aenc(m, pub))");
+        StateConsistentRule r2 = parser.ParseStateConsistentRule("k(sk), k(aenc(m, pk(sk))) -[ ]-> k(m)");
+
+        string msg = "Should not be able to compose rules where result is in premise.";
+        Assert.IsFalse(r1.TryComposeWith(r2, out Rule? result), msg);
+        Assert.IsNull(result, "Result should be null from failed attempt at composing.");
+    }
 }

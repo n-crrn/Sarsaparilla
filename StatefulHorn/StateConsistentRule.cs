@@ -133,6 +133,19 @@ public class StateConsistentRule : Rule
 
         string lbl = $"({Label}) ○_{{{Result}}} ({r.Label})";
         output = r.CreateDerivedRule(lbl, g, h, newTree, bwdSigma);
+
+        // Final check - if this is a StateConsistentRule, then we need to ensure that the result
+        // is not in the premise. It can only be done at this point.
+        if (output is StateConsistentRule scr)
+        {
+            Event outputEvent = scr.Result;
+            if (h.Contains(outputEvent))
+            {
+                output = null;
+                return false;
+            }
+        }
+
         return true;
     }
 
