@@ -149,4 +149,17 @@ public class ImplicationTests
         Assert.IsFalse(r2.CanImply(r1, out SigmaMap? r2r1Map), $"Rule {r2.Label} should not imply rule {r1.Label}.");
         Assert.IsNull(r2r1Map, "Only a null map should be returned from a failed implication test.");
     }
+
+    /// <summary>
+    /// A test of rules combinations that have been found to work in the past when they should
+    /// not have.
+    /// </summary>
+    [TestMethod]
+    public void EnsureImplicationFailsCheck()
+    {
+        RuleParser parser = new();
+        Rule r1 = parser.Parse("know(sk), know(aenc(m, pk(sk))) -[ ]-> know(m)");
+        Rule r2 = parser.Parse("know(sk), know(aenc(mf, pk(s))) -[ ]-> know(aenc((mf, bob_l[], bob_r[]), pk(sksd[])))");
+        Assert.IsFalse(r1.CanImply(r2, out SigmaMap? _), $"Rule {r1} should not imply {r2}.");
+    }
 }

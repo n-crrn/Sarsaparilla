@@ -111,7 +111,7 @@ public abstract class Rule
     {
         // Can we substitute for the result?
         Guard combinedGuard = GuardStatements.UnionWith(other.GuardStatements);
-        SigmaFactory possReplacements = new();
+        SigmaFactory possReplacements = new(false);
         if (Result.CanBeUnifiedTo(other.Result, combinedGuard, possReplacements))
         {
             List<ISigmaUnifiable> premsStates = new(_Premises);
@@ -122,7 +122,7 @@ public abstract class Rule
 
             if (UnifyUtils.IsUnifiedToSubset(premsStates, otherPremsStates, combinedGuard, possReplacements))
             {
-                sigma = possReplacements.CreateFowardMap();
+                sigma = possReplacements.CreateForwardMap();
                 bool finalCheck = Snapshots.CanImply(other.Snapshots, sigma);
                 if (!finalCheck)
                 {
@@ -214,7 +214,7 @@ public abstract class Rule
         buffer.Append("LABEL: ");
         buffer.Append(Label);
         buffer.Append("PREMISES: {").Append(string.Join(", ", Premises)).Append("}, ");
-        buffer.Append("SNAPSHOTS: {").Append(string.Join(", ", Snapshots.OrderedList)).Append("}");
+        buffer.Append("SNAPSHOTS: {").Append(string.Join(", ", Snapshots.OrderedList)).Append('}');
         buffer.Append("RESULT: {").Append(Result).Append(" }");
         return buffer.ToString();
     }

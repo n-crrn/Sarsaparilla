@@ -61,9 +61,9 @@ public class StateTransferringRule : Rule
         transformDetails.AddRange(Snapshots.States);
         List<ISigmaUnifiable> opDetails = new(r.Premises);
         opDetails.AddRange(r.Snapshots.States);
-        SigmaFactory sf = new();
+        SigmaFactory sf = new(false);
         bool canProceed = UnifyUtils.IsUnifiedToSubset(transformDetails, opDetails, combinedGuard, sf);
-        sigma = sf.CreateFowardMap();
+        sigma = sf.CreateForwardMap();
         return canProceed;
     }
 }

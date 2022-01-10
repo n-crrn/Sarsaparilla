@@ -51,4 +51,5 @@ public class UnificationTests
         List<Rule> unifications = testRule.GenerateStateUnifications();
         Assert.AreEqual(0, unifications.Count, $"Should be no valid unifications, only empty list.");
     }
+
 }

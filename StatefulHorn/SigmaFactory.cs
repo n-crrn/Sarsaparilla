@@ -13,16 +13,14 @@ namespace StatefulHorn;
 /// </summary>
 public class SigmaFactory
 {
-    public SigmaFactory()
+    public SigmaFactory(bool bothDirection = true)
     {
         Forward = new();
         Backward = new();
+        BothWays = bothDirection;
     }
 
-    public SigmaFactory(IMessage from, IMessage to) : this()
-    {
-        TryAdd(from, to);
-    }
+    private readonly bool BothWays;
 
     private readonly Dictionary<VariableMessage, IMessage> Forward;
 
@@ -30,7 +28,7 @@ public class SigmaFactory
 
     #region SigmaMap generation
 
-    public SigmaMap CreateFowardMap()
+    public SigmaMap CreateForwardMap()
     {
         return new(new List<(IMessage Variable, IMessage Value)>(from f in Forward select ((IMessage)f.Key, f.Value)));
     }
@@ -72,78 +70,27 @@ public class SigmaFactory
         return false;
     }
 
-    public bool CanAdd(IMessage msg1, IMessage msg2)
-    {
-        Debug.Assert(msg1 is VariableMessage || msg2 is VariableMessage, "One of the messages must be a variable.");
-        if (msg1 is VariableMessage vMsg1 && ContainsContradictingValue(Forward, vMsg1, msg2))
-        {
-            return false;
-        }
-        else if (msg2 is VariableMessage vMsg2 && ContainsContradictingValue(Backward, vMsg2, msg1))
-        {
-            return false;
-        }
-        return true;
-    }
-
-    public bool CanAdd(List<(IMessage, IMessage)> newSubs)
-    {
-        foreach ((IMessage, IMessage) sub in newSubs)
-        {
-            if (!CanAdd(sub.Item1, sub.Item2))
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
     public bool TryAdd(IMessage msg1, IMessage msg2)
     {
         Debug.Assert(msg1 is VariableMessage || msg2 is VariableMessage, "One of the messages must be a variable.");
-        if (msg1 is VariableMessage vMsg1 && !ContainsContradictingValue(Forward, vMsg1, msg2))
+        bool wasAdded = false;
+
+        if (msg1 is VariableMessage vMsg1 &&
+            !ContainsContradictingValue(Forward, vMsg1, msg2) &&
+            !Backward.ContainsValue(msg1))
         {
             Forward[vMsg1] = msg2;
-            return true;
+            wasAdded = true;
         }
-        else if (msg2 is VariableMessage vMsg2 && !ContainsContradictingValue(Backward, vMsg2, msg1))
+        else if (BothWays && msg2 is VariableMessage vMsg2 &&
+                 !ContainsContradictingValue(Backward, vMsg2, msg1) && 
+                 !Forward.ContainsValue(msg2))
         {
             Backward[vMsg2] = msg1;
-            return true;
+            wasAdded = true;
         }
-        return false;
-    }
-
-    public bool TryAdd(IEnumerable<(IMessage, IMessage)>? newSubs)
-    {
-        if (newSubs == null)
-        {
-            return false;
-        }
-        // Check if can add.
-        List<(IMessage, IMessage)> accepted = new();
-        foreach ((IMessage, IMessage) sub in newSubs)
-        {
-            Debug.Assert(sub.Item1 is VariableMessage || sub.Item2 is VariableMessage, "One of the messages must be a variable.");
-            if (!CanAdd(sub.Item1, sub.Item2))
-            {
-                return false;
-            }
-            accepted.Add(sub);
-        }
-        // Just add them all.
-        foreach ((IMessage, IMessage) sub in newSubs)
-        {
-            if (sub.Item1 is VariableMessage vMsg1)
-            {
-                Forward[vMsg1] = sub.Item2;
-            }
-            else if (sub.Item2 is VariableMessage vMsg2)
-            {
-                Backward[vMsg2] = sub.Item1;
-            }
-        }
-        return true;
+        
+        return wasAdded;
     }
 
     #endregion

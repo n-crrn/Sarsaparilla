@@ -54,7 +54,7 @@ public class StateConsistentRule : Rule
             return false;
         }
         Debug.Assert(substitutions != null);
-        SigmaMap fwdSigma = substitutions.CreateFowardMap();
+        SigmaMap fwdSigma = substitutions.CreateForwardMap();
         SigmaMap bwdSigma = substitutions.CreateBackwardMap();
 
         Guard g = GuardStatements.PerformSubstitution(fwdSigma).UnionWith(r.GuardStatements.PerformSubstitution(bwdSigma));
