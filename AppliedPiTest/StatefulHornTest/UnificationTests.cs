@@ -21,13 +21,13 @@ public class UnificationTests
     {
         string originalSrc = "know(mf)(a5), know(m'f)(a1) -[ " +
             "(SD(init[]), a0), (SD(h(mf, right[])), a5), (SD(init[]), a'0), (SD(h(m'f, left[])), a1) : " +
-            "{ a0 =< a5, a'0 =< a1 } ]-> leak(([bobl], [bobr]))";
+            "{ a0 =< a5, a'0 =< a1 } ]-> leak(<[bobl], [bobr]>)";
         string result1Src = "know(mf)(a5), know(m'f)(a1) -[ " +
             "(SD(init[]), a0), (SD(h(mf, right[])), a5), (SD(init[]), a'0), (SD(h(m'f, left[])), a1) : " +
-            "{ a0 =< a5, a'0 =< a1, a0 ~ a'0 } ]-> leak(([bobl], [bobr]))";
+            "{ a0 =< a5, a'0 =< a1, a0 ~ a'0 } ]-> leak(<[bobl], [bobr]>)";
         string result2Src = "know(mf)(a5), know(m'f)(a1) -[ " +
             "(SD(init[]), a0), (SD(h(mf, right[])), a5), (SD(init[]), a'0), (SD(h(m'f, left[])), a1) : " +
-            "{ a0 =< a5, a'0 =< a1, a'0 ~ a0 } ]-> leak(([bobl], [bobr]))";
+            "{ a0 =< a5, a'0 =< a1, a'0 ~ a0 } ]-> leak(<[bobl], [bobr]>)";
 
         StateConsistentRule original = Parser.ParseStateConsistentRule(originalSrc);
         StateConsistentRule resultExpected1 = Parser.ParseStateConsistentRule(result1Src);
@@ -46,7 +46,7 @@ public class UnificationTests
     [TestMethod]
     public void NonUnificationCheck()
     {
-        string testSrc = "know(mf)(a1) -[ (SD(init[]), a0), (SD((mf, value[])), a1) : {a0 =< a1} ]-> leak(mf)";
+        string testSrc = "know(mf)(a1) -[ (SD(init[]), a0), (SD(<mf, value[]>), a1) : {a0 =< a1} ]-> leak(mf)";
         StateConsistentRule testRule = Parser.ParseStateConsistentRule(testSrc);
         List<Rule> unifications = testRule.GenerateStateUnifications();
         Assert.AreEqual(0, unifications.Count, $"Should be no valid unifications, only empty list.");

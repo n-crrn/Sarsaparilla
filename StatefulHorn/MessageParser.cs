@@ -207,7 +207,7 @@ public static class MessageParser
         // Read the following messages, and construct 
         List<IMessage>? containedMsgs;
         string? errMsg;
-        (containedMsgs, i, errMsg) = TryParseList(input, i + 1, type);
+        (containedMsgs, i, errMsg) = TryParseList(input, i + 1, ')', type);
         if (errMsg == null && !RemainderIsWhiteSpace(input, i))
         {
             errMsg = "Extra text included after input.";
@@ -258,9 +258,9 @@ public static class MessageParser
         }
 
         // Do we have a tuple value? Go through and read the parts of it.
-        if ('(' == input[i])
+        if ('<' == input[i])
         {
-            (innerMsgs, i, errMsg) = TryParseList(input, i + 1, "tuple");
+            (innerMsgs, i, errMsg) = TryParseList(input, i + 1, '>', "tuple");
             return (innerMsgs != null ? new TupleMessage(innerMsgs) : null, i, errMsg);
         }
 
@@ -268,14 +268,14 @@ public static class MessageParser
         // its type.
         buffer.Append(input[i]);
         i++;
-        while (i < input.Length && !('[' == input[i] || '(' == input[i] || ')' == input[i] || ',' == input[i]))
+        while (i < input.Length && !('[' == input[i] || '(' == input[i] || ')' == input[i] || ',' == input[i] || '>' == input[i]))
         {
             buffer.Append(input[i]);
             i++;
         }
 
         // Is it a variable? If so, return it.
-        if (i == input.Length || ')' == input[i] || ',' == input[i])
+        if (i == input.Length || ')' == input[i] || ',' == input[i] || '>' == input[i])
         {
             return (new VariableMessage(buffer.ToString().Trim()), i, null);
         }
@@ -293,7 +293,7 @@ public static class MessageParser
 
         // Only remaining option means that it is a function (input[i] == '(').
         i++;
-        (innerMsgs, i, errMsg) = TryParseList(input, i, "function");
+        (innerMsgs, i, errMsg) = TryParseList(input, i, ')', "function");
         return (innerMsgs != null ? new FunctionMessage(buffer.ToString().Trim(), innerMsgs) : null, i, errMsg);
     }
 
@@ -303,6 +303,7 @@ public static class MessageParser
     /// </summary>
     /// <param name="input">The input source string.</param>
     /// <param name="i">Where to commence the list parsing.</param>
+    /// <param name="endChar">Whether a ')' or '&gt;' is the expected final character.</param>
     /// <param name="type">
     /// Description of the type being parsed, so that any errors can be documented better.
     /// </param>
@@ -313,7 +314,7 @@ public static class MessageParser
     /// Otherwise, Messages is set to the list of messages parsed, Error is set to null and 
     /// the EndPosn is set to the offset immediately after the ")" character.
     /// </returns>
-    private static (List<IMessage>? Messages, int EndPosn, string? Error) TryParseList(string input, int i, string type)
+    private static (List<IMessage>? Messages, int EndPosn, string? Error) TryParseList(string input, int i, char endChar, string type)
     {
         List<IMessage> innerMsgs = new();
         while (i < input.Length)
@@ -335,7 +336,7 @@ public static class MessageParser
                 // There should be a final ')' - if there isn't, then this is malformatted.
                 return (null, i, $"Badly formatted {type} '{input}' - no final bracket.");
             }
-            else if (')' == input[i])
+            else if (endChar == input[i])
             {
                 break;
             }
@@ -348,7 +349,7 @@ public static class MessageParser
                 return (null, i, $"Badly formatted {type} '{input}' - expected closing bracket or comma.");
             }
         }
-        if (i == input.Length || ')' != input[i])
+        if (i == input.Length || endChar != input[i])
         {
             return (null, i, $"Badly formatted {type} '{input}' - function not finished before end of source.");
         }
