@@ -67,7 +67,23 @@ public class ParseTests
         AssertRulesEqual(expectedRule, parser.Parse(shorthandRule), shorthandRule);
     }
 
-    // FIXME: Include additional checks for snapshot ordering constraint specification.
+    /// <summary>
+    /// Ensure that the fancy operators are parsed the same as their non-fancy counterparts.
+    /// </summary>
+    [TestMethod]
+    public void FancyOperatorsCheck()
+    {
+        string plain = "-[ (SD(init[]), a0), (SD(next[]), a1), (SD(further[]), a2), (SD(final), a3) " + 
+            ": {a0 =< a1, a1 <@ a2, a2 ~ a3} ]-> know(final)";
+        string fancy = "-[ (SD(init[]), a0), (SD(next[]), a1), (SD(further[]), a2), (SD(final), a3) " +
+            ": {a0 ≤ a1, a1 ⋖ a2, a2 ～ a3} ]-> know(final)";
+
+        RuleParser parser = new();
+        Rule plainRule = parser.Parse(plain);
+        Rule fancyRule = parser.Parse(fancy);
+
+        Assert.AreEqual(plainRule, fancyRule, "Fancy snapshot relationship operators not parsed correctly.");
+    }
 
     /// <summary>
     /// Check that all event name shortcuts (e.g. "k" for "know") all work.

@@ -58,8 +58,21 @@ public class RuleParser
     public static readonly string LeftState = "-[";           // Separates the premises and snapshot declarations.
     public static readonly string RightState = "]->";         // Separates the snapshot declarations and the results.
     public static readonly string LaterThanOp = "=<";         // Indicates a "later than" snapshot relationship.
-    public static readonly string ModifiedLaterThanOp = "<@"; // Indicates a "modified once" snapshot relationship.
-    public static readonly string UnchangedOp = "~";          // Indicates an "unchanged" snapshot relationship.
+    public static readonly string LaterThanOpFancy = "≤";     // Indicates a machine-output "later than" snapshot relationship.
+    public static readonly string ModifiedLaterThanOp = "<@";     // Indicates a "modified once" snapshot relationship.
+    public static readonly string ModifiedLaterThanOpFancy = "⋖"; // Indicates a machine-output "later than" snapshot relationship.
+    public static readonly string UnchangedOp = "~";              // Indicates an "unchanged" snapshot relationship.
+    public static readonly string UnchangedOpFancy = "～";        // Indicates a machine-output "unchanged" snapshot relationship.
+
+    private static readonly string[] AllSnapshotRelationshipOps =
+    {
+        LaterThanOp,
+        LaterThanOpFancy,
+        ModifiedLaterThanOp,
+        ModifiedLaterThanOpFancy,
+        UnchangedOp,
+        UnchangedOpFancy
+    };
 
     /// <summary>
     /// Intermediate format of an extracted item in a rule guard section. This type is only used
@@ -554,12 +567,12 @@ public class RuleParser
     {
         oDesc = oDesc.Trim().TrimStart('{').TrimEnd('}');
         string[] relationships = oDesc.Split(",");
-        string[] opsToTry = new string[] { LaterThanOp, ModifiedLaterThanOp, UnchangedOp };
+        //string[] opsToTry = new string[] { LaterThanOp, LaterThanOpFancy, ModifiedLaterThanOp, ModifiedLaterThanOpFancy, UnchangedOp, UnchangedOpFancy };
         List<SnapshotRelationship> found = new();
         foreach (string r in relationships)
         {
             bool suitableOpFound = false;
-            foreach (string op in opsToTry)
+            foreach (string op in AllSnapshotRelationshipOps)
             {
                 string[] parts = r.Split(op);
                 if (parts.Length == 2)
@@ -707,15 +720,15 @@ public class RuleParser
                 throw new RuleParseException(whole, consistMsg);
             }
             // Actually set the relationship.
-            if (sr.Op == LaterThanOp)
+            if (sr.Op == LaterThanOp || sr.Op == LaterThanOpFancy)
             {
                 ss2.SetLaterThan(ss1);
             }
-            else if (sr.Op == ModifiedLaterThanOp)
+            else if (sr.Op == ModifiedLaterThanOp || sr.Op == ModifiedLaterThanOpFancy)
             {
                 ss2.SetModifiedOnceLaterThan(ss1);
             }
-            else if (sr.Op == UnchangedOp)
+            else if (sr.Op == UnchangedOp || sr.Op == UnchangedOpFancy)
             {
                 ss2.SetUnifedWith(ss1);
             }
