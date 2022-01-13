@@ -260,7 +260,9 @@ public class SnapshotTree
             bool found = false;
             foreach (Snapshot ot in other._Traces)
             {
-                if (pt.CanImplyTrace(Snapshot.Ordering.LaterThan, ot, Snapshot.Ordering.LaterThan, new HashSet<Event>()))
+                (bool canImply, var _) =
+                    pt.CanImplyTrace(Snapshot.Ordering.LaterThan, ot, Snapshot.Ordering.LaterThan, new());
+                if (canImply)
                 {
                     found = true;
                     break;
@@ -274,60 +276,45 @@ public class SnapshotTree
         return true;
     }
 
-    public SnapshotTree FullMerge(SnapshotTree other, SigmaMap substitutions)
+    public SnapshotTree? TryActivateTransfersUpon(SnapshotTree toActivate, SigmaMap sigma)
     {
-        SnapshotTree thisSubbed = PerformSubstitutions(substitutions);
-        SnapshotTree otherSubbed = other.PerformSubstitutions(substitutions);
-        List<Snapshot> newTreeTraces = new(thisSubbed._Traces);
-        foreach (Snapshot otherTrace in otherSubbed.Traces)
-        {
-            if (!newTreeTraces.Contains(otherTrace))
-            {
-                newTreeTraces.Add(otherTrace);
-            }
-        }
-        return new(newTreeTraces);
-    }
+        SnapshotTree alignedTree = PerformSubstitutions(sigma);
+        SnapshotTree other = toActivate.CloneTree();
 
-    public List<Snapshot> VagueSnapshots => new(from o in FlattenedSnapshotList where o.HasImmediatePredecessor select o);
-
-    public void ActivateTransfers()
-    {
-        Stack<Snapshot> toConsider = new();
-        for (int i = 0; i < _Traces.Count; i++)
+        List<(Snapshot, Snapshot)> correspondences = new();
+        // Check that the tree being used to activate the other implies the other. As part of this
+        // algorithm, the snapshot correspondences will be collected, which will allow us to add
+        // the new activations as required.
+        foreach (Snapshot at in alignedTree._Traces)
         {
-            Snapshot ss = _Traces[i];
-            if (ss.TransfersTo != null)
+            bool found = false;
+            foreach (Snapshot ot in other._Traces)
             {
-                _Traces[i] = ActivateTransferSnapshot(ss.TransfersTo, ss);
-                ss.TransfersTo = null;
-            }
-            toConsider.Push(ss);
-        }
-
-        while (toConsider.Count > 0)
-        {
-            Snapshot ss = toConsider.Pop();
-            for (int i = 0; i < ss._PriorSnapshots.Count; i++)
-            {
-                (Snapshot prevSS, Snapshot.Ordering _) = ss._PriorSnapshots[i];
-                if (prevSS.TransfersTo != null)
+                Snapshot.Ordering lt = Snapshot.Ordering.LaterThan;
+                (bool canImply, List<(Snapshot, Snapshot)> foundCorres) = at.CanImplyTrace(lt, ot, lt, new());
+                if (canImply)
                 {
-                    if (ss.Condition.Equals(prevSS.TransfersTo))
-                    {
-                        ss._PriorSnapshots[i] = (prevSS, Snapshot.Ordering.ModifiedOnceAfter);
-                    }
-                    else
-                    {
-                        Snapshot newSS = ActivateTransferSnapshot(prevSS.TransfersTo, ss);
-                        _Traces.Add(newSS); // Add to top level as not part of trace.
-                        // toConsider.Push(newSS); - not needed.
-                    }
-                    prevSS.TransfersTo = null;
+                    found = true;
+                    correspondences.AddRange(foundCorres);
+                    break;
                 }
-                toConsider.Push(prevSS);
+            }
+            if (!found)
+            {
+                return null;
             }
         }
+
+        foreach ((Snapshot catalyst, Snapshot ot) in correspondences)
+        {
+            if (catalyst.TransfersTo != null)
+            {
+                Snapshot newTrace = ActivateTransferSnapshot(catalyst.TransfersTo, ot);
+                other._Traces.Remove(ot);
+                other._Traces.Add(newTrace);
+            }
+        }
+        return other;
     }
 
     private static Snapshot ActivateTransferSnapshot(State condition, Snapshot prev)

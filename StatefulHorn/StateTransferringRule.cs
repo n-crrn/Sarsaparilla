@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace StatefulHorn;
@@ -34,21 +35,13 @@ public class StateTransferringRule : Rule
         if (CanTransform(r, out SigmaMap? sigma))
         {
             Debug.Assert(sigma != null);
-            Guard g = GuardStatements.UnionWith(r.GuardStatements).PerformSubstitution(sigma);
+            Guard g = GuardStatements.PerformSubstitution(sigma).UnionWith(r.GuardStatements);
 
-            HashSet<Event> updatedPremises = new(Premises.Count + r.Premises.Count);
-            List<Event> allPremises = new(Premises);
-            allPremises.AddRange(r.Premises);
-            foreach (Event ev in allPremises)
+            SnapshotTree? newTree = Snapshots.TryActivateTransfersUpon(r.Snapshots, sigma);
+            if (newTree != null)
             {
-                updatedPremises.Add(ev.PerformSubstitution(sigma));
+                return new StateConsistentRule($"({Label}) ⋈ ({r.Label})", g, new(r.Premises), newTree, r.Result);
             }
-
-            SnapshotTree newTree = Snapshots.FullMerge(r.Snapshots, sigma);
-            newTree.ActivateTransfers();
-
-            Event newResult = r.Result.PerformSubstitution(sigma);
-            return new StateConsistentRule($"({Label}) ⋈ ({r.Label})", g, new(updatedPremises), newTree, newResult);
         }
         return null;
     }

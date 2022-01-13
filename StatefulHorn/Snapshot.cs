@@ -304,17 +304,19 @@ public class Snapshot
     #endregion
     #region Trace implication.
 
-    internal bool CanImplyTrace(Ordering ptOrder, Snapshot ot, Ordering otOrder, HashSet<Event> wp)
+    internal (bool, List<(Snapshot, Snapshot)>) CanImplyTrace(Ordering ptOrder, Snapshot ot, Ordering otOrder, HashSet<Event> wp)
     {
         List<(Snapshot S, Ordering O)> nextPt;
         List<(Snapshot S, Ordering O)> nextOt;
 
+        List<(Snapshot, Snapshot)> correspondences = new();
         if (Condition.Equals(ot.Condition))
         {
             if (!ptOrder.AsOrMoreOrganisedThan(otOrder))
             {
-                return false;
+                return (false, new());
             }
+            correspondences.Add((this, ot));
             wp.UnionWith(_AssociatedPremises);
             nextPt = _PriorSnapshots;
             nextOt = ot._PriorSnapshots;
@@ -325,12 +327,12 @@ public class Snapshot
             {
                 if (otOrder != Ordering.Unchanged)
                 {
-                    return false;
+                    return (false, correspondences); // Correspondences will be empty.
                 }
                 nextOt = new(from os in ot._PriorSnapshots where os.O == Ordering.Unchanged select os);
                 if (nextOt.Count == 0)
                 {
-                    return false;
+                    return (false, correspondences); // Correspondences will be empty.
                 }
                 nextPt = new() { (this, Ordering.Unchanged) };
             }
@@ -350,7 +352,7 @@ public class Snapshot
                 }
                 else
                 {
-                    return false;
+                    return (false, correspondences); // Correspondences will be empty.
                 }
             }
             else // ptOrder == Ordering.LaterThan
@@ -361,22 +363,28 @@ public class Snapshot
         }
         wp.ExceptWith(ot._AssociatedPremises);
 
-        return CheckNextTraceLevel(nextPt, nextOt, wp);
+        (bool nextLevelGood, List<(Snapshot, Snapshot)> nextLevelCorres) = CheckNextTraceLevel(nextPt, nextOt, wp);
+        if (nextLevelGood && correspondences.Count > 0)
+        {
+            nextLevelCorres.AddRange(correspondences);
+        }
+        return (nextLevelGood, nextLevelCorres);
     }
 
-    private static bool CheckNextTraceLevel(
+    private static (bool, List<(Snapshot, Snapshot)>) CheckNextTraceLevel(
         List<(Snapshot S, Ordering O)> nextPt,
         List<(Snapshot S, Ordering O)> nextOt,
         HashSet<Event> wp)
     {
         if (nextPt.Count == 0)
         {
-            return wp.Count == 0;
+            return (wp.Count == 0, new());
         }
         else if (nextOt.Count == 0)
         {
-            return false;
+            return (false, new());
         }
+        List<(Snapshot, Snapshot)> correspondences = new();
         foreach ((Snapshot nptS, Ordering nptO) in nextPt)
         {
             bool found = false;
@@ -384,18 +392,20 @@ public class Snapshot
             {
                 // Duplicate wp as it may be modified during the method call.
                 HashSet<Event> wpCopy = new(wp);
-                if (nptS.CanImplyTrace(nptO, notS, notO, wpCopy))
+                (bool canImply, List<(Snapshot, Snapshot)> nextLevelCorres) = nptS.CanImplyTrace(nptO, notS, notO, wpCopy);
+                if (canImply)
                 {
                     found = true;
+                    correspondences.AddRange(nextLevelCorres);
                     break;
                 }
             }
             if (!found)
             {
-                return false;
+                return (false, new());
             }
         }
-        return true;
+        return (true, correspondences);
     }
 
     #endregion
