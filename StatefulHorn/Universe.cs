@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace StatefulHorn;
 
@@ -112,14 +113,6 @@ public class Universe
         return (AddDecision.IsNew, null);
     }
 
-    private void AddRules(List<Rule> newRules)
-    {
-        foreach (Rule r in newRules)
-        {
-            _ = AddRule(r);
-        }
-    }
-
     private readonly List<StateConsistentRule> _ConsistentRules;
 
     public IReadOnlyList<StateConsistentRule> ConsistentRules => _ConsistentRules;
@@ -130,7 +123,37 @@ public class Universe
 
     #endregion
 
-    public IReadOnlyList<ChangeLogEntry> GenerateNextRuleSet()
+    public record StatusReporter(Action OnStart, Action<Status> OnMessage, Action OnEnd);
+
+    public record Status(string StatusDescription,
+                         int CompositionsAttempted = 0,
+                         int CompositionsFound = 0,
+                         int CompositionsAdded = 0,
+                         int StateUnificationsFound = 0,
+                         int StateUnificationsAdded = 0,
+                         int StateTransformationsFound = 0,
+                         int StateTransformationsAdded = 0);
+
+    private static readonly int ReportEveryCount = 100;
+
+    private async Task AddRules(List<Rule> newRules, Action<int> ruleCountChanged)
+    {
+        int attemptedAdds = 0;
+        foreach (Rule r in newRules)
+        {
+            _ = AddRule(r);
+            attemptedAdds++;
+            if (attemptedAdds % ReportEveryCount == 0)
+            {
+                ruleCountChanged(attemptedAdds);
+                await Task.Delay(1);
+            }
+        }
+        ruleCountChanged(attemptedAdds);
+        await Task.Delay(1);
+    }
+
+    public async Task<IReadOnlyList<ChangeLogEntry>> GenerateNextRuleSet(StatusReporter reporter)
     {
         // FIXME: Ensure that a list of names and nonces is kept for the state instantiation.
         // Such a list will provide options for the SigmaMap to use.
@@ -138,6 +161,12 @@ public class Universe
         // this naively.
         // Note that rules are added in batches - this is to prevent issues with iterators
         // being invalidated by changes to the underlying lists.
+
+        // Note that Task.Delay(1) is used instead of Task.Yield(). I have found that Yield does 
+        // not consistently prompt the user interface.
+
+        // The integration of status notification below is not elegant. I have not refined it as I
+        // intend to completely rework this elaboration algorithm.
 
         if (IsExhausted)
         {
@@ -147,6 +176,9 @@ public class Universe
         StartGeneration();
 
         // 1. Attempt state composition.
+        int compsAttempted = 0;
+        int compsFound = 0;
+        string statusDescription = "Attempting state compositions…";
         List<Rule> newRules = new();
         for (int i = 0; i < _ConsistentRules.Count; i++)
         {
@@ -157,6 +189,13 @@ public class Universe
                 {
                     Debug.Assert(newRule != null);
                     newRules.Add(newRule);
+                    compsFound++;
+                }
+                compsAttempted++;
+                if (compsAttempted % ReportEveryCount == 0)
+                {
+                    reporter.OnMessage(new(statusDescription, compsAttempted, compsFound, 0, 0, 0, 0, 0));
+                    await Task.Delay(1);
                 }
             }
             foreach (StateTransferringRule str in _TransferringRules)
@@ -165,24 +204,66 @@ public class Universe
                 {
                     Debug.Assert(newRule != null);
                     newRules.Add(newRule);
+                    compsFound++;
+                }
+                compsAttempted++;
+                if (compsAttempted % ReportEveryCount == 0)
+                {
+                    reporter.OnMessage(new(statusDescription, compsAttempted, compsFound, 0, 0, 0, 0, 0));
+                    await Task.Delay(1);
                 }
             }
         }
-        AddRules(newRules);
+        Status addRuleStatus = new("Attempting to add to rules", compsAttempted, compsFound, 0, 0, 0, 0, 0);
+        int rulesAddAttemptCount = 0;
+        await AddRules(newRules, (int latestRuleAddAttemptCount) =>
+        {
+            rulesAddAttemptCount = latestRuleAddAttemptCount;
+            reporter.OnMessage(addRuleStatus with { CompositionsAdded = rulesAddAttemptCount });
+        });
 
         // 2. Attempt state unification.
+        Status stateUnifStatus = addRuleStatus with
+        {
+            StatusDescription = "Attempting state unifications…",
+            CompositionsAdded = rulesAddAttemptCount 
+        };
+        int stateUnificationsFound = 0;
         newRules.Clear();
         foreach (StateConsistentRule possUnif in _ConsistentRules)
         {
             if (possUnif.ResultIsTerminating)
             {
                 newRules.AddRange(possUnif.GenerateStateUnifications());
+                stateUnificationsFound++;
+                if (stateUnificationsFound % ReportEveryCount == 100)
+                {
+                    reporter.OnMessage(stateUnifStatus with { StateUnificationsFound = stateUnificationsFound });
+                    await Task.Delay(1);
+                }
             }
         }
-        AddRules(newRules);
+        reporter.OnMessage(stateUnifStatus with { StateUnificationsFound = stateUnificationsFound });
+        Status addUnifiedRulesStatus = stateUnifStatus with 
+        { 
+            StatusDescription = "Attempting to add unifications to rules…",
+            StateUnificationsFound = stateUnificationsFound
+        };
+        rulesAddAttemptCount = 0;
+        await AddRules(newRules, (int latestRuleAddAttemptCount) =>
+        {
+            rulesAddAttemptCount = latestRuleAddAttemptCount;
+            reporter.OnMessage(addUnifiedRulesStatus with { StateUnificationsAdded = rulesAddAttemptCount });
+        });
 
         // 3. Attempt state transformation.
         newRules.Clear();
+        Status stateTransStatus = addUnifiedRulesStatus with
+        {
+            StatusDescription = "Attempting state transformations…",
+            StateUnificationsAdded = rulesAddAttemptCount
+        };
+        int stateTransformationsFound = 0;
         foreach (StateTransferringRule str in _TransferringRules)
         {
             foreach (StateConsistentRule scr in _ConsistentRules)
@@ -191,14 +272,27 @@ public class Universe
                 if (newRule != null)
                 {
                     newRules.Add(newRule);
+                    stateTransformationsFound++;
+                    if (stateTransformationsFound % ReportEveryCount == 100)
+                    {
+                        reporter.OnMessage(stateTransStatus with { StateTransformationsFound = stateTransformationsFound });
+                        await Task.Delay(1);
+                    }
                 }
             }
         }
-        AddRules(newRules);
+        rulesAddAttemptCount = 0;
+        await AddRules(newRules, (int latestRuleAddAttemptCount) =>
+        {
+            rulesAddAttemptCount = latestRuleAddAttemptCount;
+            reporter.OnMessage(stateTransStatus with { StateTransformationsAdded = rulesAddAttemptCount });
+        });
 
         // 4. Attempt state instantiation.
         // FIXME: Actually implement based on the new items in N.
 
+        reporter.OnEnd();
+         
         return EndGeneration();
     }
 

@@ -33,6 +33,8 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    align-content: center;
+    flex-grow: 1;
 }
 
 .empty-pane-message-inner {
@@ -80,6 +82,21 @@
 .empty-generation-message {
     text-align: center;
     font-style: italic;
+}
+
+th {
+    text-align: right;
+    width: 50%;
+}
+
+td {
+    text-align: left;
+    width: 50%;
+}
+
+td.message
+{
+    text-align: center;
 }
 
 /* --- Rule Set Query Pane --- */

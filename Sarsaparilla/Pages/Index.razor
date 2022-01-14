@@ -64,15 +64,53 @@
                                 }
                             </select>
                         </div>
-                        @if (Universe.ChangeLog[GenerationViewed].Count == 0)
+                        @if (ElaborationStatus != null)
                         {
-                            <div class='empty-generation-message'>
-                                There were no further rules created in this generation.
-                            </div>
+                            <p>@ElaborationStatus.StatusDescription</p>
+
+                            <table>
+                                <tr>
+                                    <th>Compositions attempted:</th>
+                                    <td>@ElaborationStatus.CompositionsAttempted</td>
+                                </tr>
+                                <tr>
+                                    <th>Compositions found:</th>
+                                    <td>@ElaborationStatus.CompositionsFound</td>
+                                </tr>
+                                <tr>
+                                    <th>Compositions add attempts:</th>
+                                    <td>@ElaborationStatus.CompositionsAdded</td>
+                                </tr>
+                                <tr>
+                                    <th>State unifications found:</th>
+                                    <td>@ElaborationStatus.StateUnificationsFound</td>
+                                </tr>
+                                <tr>
+                                    <th>State unifications add attempts:</th>
+                                    <td>@ElaborationStatus.StateUnificationsAdded</td>
+                                </tr>
+                                <tr>
+                                    <th>State transformations found:</th>
+                                    <td>@ElaborationStatus.StateTransformationsFound</td>
+                                </tr>
+                                <tr>
+                                    <th>State transformations add attempts:</th>
+                                    <td>@ElaborationStatus.StateTransformationsAdded</td>
+                                </tr>
+                            </table>
                         }
                         else
                         {
-                            <RuleChangeSetDisplay Entries=Universe.ChangeLog[GenerationViewed]/>
+                            @if (Universe.ChangeLog[GenerationViewed].Count == 0)
+                            {
+                                <div class='empty-generation-message'>
+                                    There were no further rules created in this generation.
+                                </div>
+                            }
+                            else
+                            {
+                                <RuleChangeSetDisplay Entries=Universe.ChangeLog[GenerationViewed]/>
+                            }
                         }
                     </div>
                 }
@@ -101,9 +139,20 @@
                     }
                     else if (Universe != null)
                     {
-                        <div class='rule-set-query-pane-column'>
-                            <RuleSetDisplay Universe=Universe Filter=QueryFilter />
-                        </div>
+                        if (ElaborationStatus == null)
+                        {
+                            <div class='rule-set-query-pane-column'>
+                                <RuleSetDisplay Universe=Universe Filter=QueryFilter />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class='empty-pane-message'>
+                                <div class='empty-pane-message-inner'>
+                                    Currently elaborating…
+                                </div>
+                            </div>
+                        }
                     }
                 </div>
             </div>
@@ -199,11 +248,31 @@
     #endregion
     #region Elaboration.
 
-    private void Elaborate()
+    private Universe.Status? ElaborationStatus { get; set; }
+
+    private async void Elaborate()
     {
         if (Universe != null) 
         {
-            Universe.GenerateNextRuleSet();
+            Universe.StatusReporter reporter = new(
+                () => 
+                {
+                    ElaborationStatus = new("Commencing elaboration");
+                    StateHasChanged();
+                },
+                (Universe.Status s) =>
+                {
+                    ElaborationStatus = s;
+                    StateHasChanged();
+                },
+                () =>
+                {
+                    ElaborationStatus = null;
+                    StateHasChanged();
+                }
+            );
+
+            await Universe.GenerateNextRuleSet(reporter);
             GenerationViewed = Universe!.ChangeLog.Count - 1;
         }
     }
