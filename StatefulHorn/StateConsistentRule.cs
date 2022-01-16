@@ -175,10 +175,20 @@ public class StateConsistentRule : Rule
         List<Rule> newRules = new();
         foreach ((int ssIndex1, int ssIndex2, SigmaMap sigma) in matches)
         {
-            Rule newRule1 = PerformSubstitution(sigma);
-            Rule newRule2 = newRule1.Clone();
-            newRules.Add(UnifySnapshots(newRule1, ssIndex1, ssIndex2));
-            newRules.Add(UnifySnapshots(newRule2, ssIndex2, ssIndex1));
+            Rule subsRule1 = PerformSubstitution(sigma);
+            Rule subsRule2 = subsRule1.Clone();
+
+            Rule newRule1 = UnifySnapshots(subsRule1, ssIndex1, ssIndex2);
+            if (!newRule1.Snapshots.HasLoop())
+            {
+                newRules.Add(newRule1);
+            }
+
+            Rule newRule2 = UnifySnapshots(subsRule2, ssIndex2, ssIndex1);
+            if (!newRule2.Snapshots.HasLoop())
+            {
+                newRules.Add(newRule2);
+            }
         }
         return newRules;
     }

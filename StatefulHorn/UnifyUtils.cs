@@ -59,10 +59,6 @@ public static class UnifyUtils
                 _ = constList.Add(u);
             }
         }
-
-        // Now sort the variable list such that there are an ascending number of variables. The 
-        // point is to ensure the best matches are encountered first.
-        varList.Sort((ISigmaUnifiable s1, ISigmaUnifiable s2) => s1.Variables.Count.CompareTo(s2.Variables.Count));
     }
 
     private static void AttemptUnifiedToList(List<ISigmaUnifiable> fromList, List<ISigmaUnifiable> toList, Guard g, SigmaFactory fact)

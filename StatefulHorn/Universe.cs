@@ -121,6 +121,8 @@ public class Universe
 
     public IReadOnlyList<StateTransferringRule> TransferringRules => _TransferringRules;
 
+    public int RuleCount => _ConsistentRules.Count + _TransferringRules.Count;
+
     #endregion
 
     public record StatusReporter(Action OnStart, Action<Status> OnMessage, Action OnEnd);
@@ -214,7 +216,7 @@ public class Universe
                 }
             }
         }
-        Status addRuleStatus = new("Attempting to add to rules", compsAttempted, compsFound, 0, 0, 0, 0, 0);
+        Status addRuleStatus = new($"Attempting to add {newRules.Count} to rules ({RuleCount})…", compsAttempted, compsFound, 0, 0, 0, 0, 0);
         int rulesAddAttemptCount = 0;
         await AddRules(newRules, (int latestRuleAddAttemptCount) =>
         {
@@ -246,7 +248,7 @@ public class Universe
         reporter.OnMessage(stateUnifStatus with { StateUnificationsFound = stateUnificationsFound });
         Status addUnifiedRulesStatus = stateUnifStatus with 
         { 
-            StatusDescription = "Attempting to add unifications to rules…",
+            StatusDescription = $"Attempting to add {newRules.Count} unifications to rules ({RuleCount})…",
             StateUnificationsFound = stateUnificationsFound
         };
         rulesAddAttemptCount = 0;
@@ -281,6 +283,11 @@ public class Universe
                 }
             }
         }
+        stateTransStatus = stateTransStatus with
+        {
+            StatusDescription = $"Adding {newRules.Count} state transformations to ruleset ({RuleCount})…",
+            StateTransformationsFound = stateTransformationsFound
+        };
         rulesAddAttemptCount = 0;
         await AddRules(newRules, (int latestRuleAddAttemptCount) =>
         {

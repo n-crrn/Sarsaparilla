@@ -64,7 +64,7 @@ public class SnapshotTree
     public SnapshotTree CloneTree()
     {
         SnapshotTree newTree = new();
-        newTree._Traces.AddRange(from t in _Traces select t.Clone());
+        newTree._Traces.AddRange(CloneTraces());
         return newTree;
     }
 
@@ -96,11 +96,35 @@ public class SnapshotTree
         return CloneTreeWithReplacementEvents(replacements, substitutions);
     }
 
+    private List<Snapshot> CloneTraces()
+    {
+        Dictionary<string, Snapshot> ssByRef = new();
+
+        // Create the new structures.
+        foreach (Snapshot ss in OrderedList)
+        {
+            ssByRef[ss.Label!] = new(ss);
+        }
+
+        // Stitch the new structures together.
+        foreach (Snapshot ss in OrderedList)
+        {
+            Snapshot newSS = ssByRef[ss.Label!];
+            foreach ((Snapshot prevItem, Snapshot.Ordering ord) in ss._PriorSnapshots)
+            {
+                newSS._PriorSnapshots.Add((ssByRef[prevItem.Label!], ord));
+            }
+        }
+
+        return new(from t in _Traces select ssByRef[t.Label!]);
+    }
+
     public SnapshotTree MergeWith(SnapshotTree otherTree)
     {
         SnapshotTree newTree = new();
-        newTree._Traces.AddRange(from t in _Traces select t.Clone());
-        newTree._Traces.AddRange(from t in otherTree._Traces select t.Clone());
+        newTree._Traces.AddRange(CloneTraces());
+        newTree._Traces.AddRange(otherTree.CloneTraces());
+
         // NOTE: State unification is a separate operation. In order to comply with
         // Li et al 2017 as closely as possible, states are not unified here.
         return newTree;
@@ -176,34 +200,6 @@ public class SnapshotTree
                 return _OrderedList;
             }
 
-            // The commented-out code is the original ordering. I am retaining the comment while I
-            // trial the more basic ordering of just using a Flattened list.
-
-            // We use a list instead of a set as the ordering of retrieval from the roots is
-            // important.
-            /*List<Snapshot> allSSFlat = FlattenedSnapshotList;
-
-            List<Snapshot> ssOrdered = new();
-            // Collect the snapshots without predecessors, and remove them from the flat list.
-            ssOrdered.AddRange(from s in allSSFlat where !s.HasPredecessor select s);
-            foreach (Snapshot s in ssOrdered)
-            {
-                allSSFlat.Remove(s);
-            }
-            // Go through the list continually adding snapshots if all of their predecessors
-            // are in the list.
-            while (allSSFlat.Count > 0)
-            {
-                for (int i = 0; i < allSSFlat.Count; i++)
-                {
-                    if (allSSFlat[i].AllPredecessorsContainedIn(ssOrdered))
-                    {
-                        ssOrdered.Add(allSSFlat[i]);
-                        allSSFlat.RemoveAt(i);
-                        i--;
-                    }
-                }
-            }*/
             List<Snapshot> ssOrdered = FlattenedSnapshotList;
             // Ensure the snapshots are labelled.
             Snapshot.AutolabelOrderedSnapshots(ssOrdered);
@@ -241,6 +237,36 @@ public class SnapshotTree
         return found;
     }
 
+    internal bool HasLoop()
+    {
+        List<Snapshot> flattened = FlattenedSnapshotList;
+        for (int i = 0; i < flattened.Count; i++)
+        {
+            flattened[i].Tag = i;
+        }
+        foreach (Snapshot startSS in flattened)
+        {
+            bool[] found = new bool[flattened.Count];
+            Stack<Snapshot> toProcess = new();
+            toProcess.Push(startSS);
+            while (toProcess.Count > 0)
+            {
+                Snapshot ss = toProcess.Pop();
+                if (found[ss.Tag])
+                {
+                    // Has been encountered before.
+                    return true;
+                }
+                found[ss.Tag] = true;
+                foreach ((Snapshot prevSS, Snapshot.Ordering _) in ss._PriorSnapshots)
+                {
+                    toProcess.Push(prevSS);
+                }
+            }
+        }
+        return false;
+    }
+
     #endregion
     #region Snapshot Tree Operations
 
@@ -260,9 +286,7 @@ public class SnapshotTree
             bool found = false;
             foreach (Snapshot ot in other._Traces)
             {
-                (bool canImply, var _) =
-                    pt.CanImplyTrace(Snapshot.Ordering.LaterThan, ot, Snapshot.Ordering.LaterThan, new());
-                if (canImply)
+                if(pt.CanImplyTrace(Snapshot.Ordering.LaterThan, ot, Snapshot.Ordering.LaterThan, new()))
                 {
                     found = true;
                     break;
@@ -291,7 +315,7 @@ public class SnapshotTree
             foreach (Snapshot ot in other._Traces)
             {
                 Snapshot.Ordering lt = Snapshot.Ordering.LaterThan;
-                (bool canImply, List<(Snapshot, Snapshot)> foundCorres) = at.CanImplyTrace(lt, ot, lt, new());
+                (bool canImply, List<(Snapshot, Snapshot)> foundCorres) = at.CanImplyTraceWithCorrespondences(lt, ot, lt, new());
                 if (canImply)
                 {
                     found = true;

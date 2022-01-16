@@ -98,7 +98,7 @@ public class FunctionMessage : IMessage
         return obj is FunctionMessage fMsg && Name.Equals(fMsg.Name) && _Parameters.SequenceEqual(fMsg._Parameters);
     }
 
-    public override int GetHashCode() => Name.GetHashCode();
+    public override int GetHashCode() => Name.GetHashCode() ^ _Parameters[0].GetHashCode();
 
     #endregion
 }

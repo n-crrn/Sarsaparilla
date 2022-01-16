@@ -109,6 +109,13 @@ public abstract class Rule
 
     public bool CanImply(Rule other, out SigmaMap? sigma)
     {
+        if (_Premises.Count > other._Premises.Count)
+        {
+            // This rule simply cannot imply the other.
+            sigma = null;
+            return false;
+        }
+
         // Can we substitute for the result?
         Guard combinedGuard = GuardStatements.UnionWith(other.GuardStatements);
         SigmaFactory possReplacements = new(false);

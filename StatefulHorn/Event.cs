@@ -17,15 +17,20 @@ public class Event : ISigmaUnifiable
 
     #region Constructors
 
-    private Event(Type t, IEnumerable<IMessage>? messages = null)
+    private Event(Type t, IEnumerable<IMessage> messages)
     {
         EventType = t;
-        _Messages = new();
-        if (messages != null)
+        _Messages = new(messages);
+        // There must be at least one message.
+        Debug.Assert(_Messages.Count > 0);
+
+        foreach (IMessage msg in Messages)
         {
-            _Messages.AddRange(messages);
-            // If an enumerable is provided, there must be AT LEAST one message.
-            Debug.Assert(_Messages.Count > 0);
+            if (msg.ContainsVariables)
+            {
+                ContainsVariables = true;
+                break;
+            }
         }
     }
 
@@ -87,20 +92,7 @@ public class Event : ISigmaUnifiable
     #endregion
     #region Unification determination
 
-    public bool ContainsVariables
-    {
-        get
-        {
-            foreach (IMessage msg in Messages)
-            {
-                if (msg.ContainsVariables)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
+    public bool ContainsVariables { get; init; }
 
     private HashSet<IMessage>? _Variables;
 
@@ -140,7 +132,7 @@ public class Event : ISigmaUnifiable
         return obj is Event ev && EventType == ev.EventType && _Messages.SequenceEqual(ev._Messages) && NameMessage.Equals(LocationId, ev.LocationId);
     }
 
-    public override int GetHashCode() => (EventType, _Messages[0]).GetHashCode();
+    public override int GetHashCode() => _Messages[0].GetHashCode();
 
     public static bool operator ==(Event? ev1, Event? ev2) => Equals(ev1, ev2);
 

@@ -31,22 +31,21 @@ public class Snapshot
     public Snapshot(State condDefinition, string? lbl = null)
     {
         Condition = condDefinition;
-        _AssociatedPremises = new List<Event>();
-        _PriorSnapshots = new List<(Snapshot S, Ordering O)>();
+        _AssociatedPremises = new();
+        _PriorSnapshots = new();
         Label = lbl;
     }
 
-    public Snapshot Clone()
+    internal Snapshot(Snapshot ss)
     {
-        Snapshot newSS = new(Condition, Label);
-        newSS.TransfersTo = TransfersTo;
-        newSS._AssociatedPremises.AddRange(_AssociatedPremises);
-        foreach ((Snapshot s, Snapshot.Ordering o) in _PriorSnapshots)
-        {
-            newSS._PriorSnapshots.Add((s.Clone(), o));
-        }
-        return newSS;
+        Condition = ss.Condition;
+        _AssociatedPremises = new(ss._AssociatedPremises);
+        _PriorSnapshots = new();
+        TransfersTo = ss.TransfersTo;
+        Label = ss.Label;
     }
+
+    internal int Tag; // Used for Loop detection by SnapshotTree.
 
     private readonly List<Event> _AssociatedPremises;
 
@@ -304,7 +303,101 @@ public class Snapshot
     #endregion
     #region Trace implication.
 
-    internal (bool, List<(Snapshot, Snapshot)>) CanImplyTrace(Ordering ptOrder, Snapshot ot, Ordering otOrder, HashSet<Event> wp)
+    internal bool CanImplyTrace(Ordering ptOrder, Snapshot ot, Ordering otOrder, HashSet<Event> wp)
+    {
+        List<(Snapshot S, Ordering O)> nextPt;
+        List<(Snapshot S, Ordering O)> nextOt;
+
+        if (Condition.Equals(ot.Condition))
+        {
+            if (!ptOrder.AsOrMoreOrganisedThan(otOrder))
+            {
+                return false;
+            }
+            wp.UnionWith(_AssociatedPremises);
+            nextPt = _PriorSnapshots;
+            nextOt = ot._PriorSnapshots;
+        }
+        else
+        {
+            if (ptOrder == Ordering.Unchanged)
+            {
+                if (otOrder != Ordering.Unchanged)
+                {
+                    return false;
+                }
+                nextOt = new(from os in ot._PriorSnapshots where os.O == Ordering.Unchanged select os);
+                if (nextOt.Count == 0)
+                {
+                    return false;
+                }
+                nextPt = new() { (this, Ordering.Unchanged) };
+            }
+            else if (ptOrder == Ordering.ModifiedOnceAfter)
+            {
+                if (otOrder == Ordering.Unchanged)
+                {
+                    nextOt = new(from os in ot._PriorSnapshots
+                                 where os.O == Ordering.Unchanged || os.O == Ordering.ModifiedOnceAfter
+                                 select os);
+                    nextPt = new() { (this, Ordering.ModifiedOnceAfter) };
+                }
+                else if (otOrder == Ordering.ModifiedOnceAfter)
+                {
+                    nextOt = new(from os in ot._PriorSnapshots where os.O == Ordering.Unchanged select os);
+                    nextPt = new() { (this, Ordering.Unchanged) };
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else // ptOrder == Ordering.LaterThan
+            {
+                nextOt = ot._PriorSnapshots;
+                nextPt = new() { (this, Ordering.LaterThan) };
+            }
+        }
+        wp.ExceptWith(ot._AssociatedPremises);
+
+        return CheckNextTraceLevel(nextPt, nextOt, wp);
+    }
+
+    private static bool CheckNextTraceLevel(
+        List<(Snapshot S, Ordering O)> nextPt,
+        List<(Snapshot S, Ordering O)> nextOt,
+        HashSet<Event> wp)
+    {
+        if (nextPt.Count == 0)
+        {
+            return wp.Count == 0;
+        }
+        else if (nextOt.Count == 0)
+        {
+            return false;
+        }
+        foreach ((Snapshot nptS, Ordering nptO) in nextPt)
+        {
+            bool found = false;
+            foreach ((Snapshot notS, Ordering notO) in nextOt)
+            {
+                // Duplicate wp as it may be modified during the method call.
+                HashSet<Event> wpCopy = new(wp);
+                if (nptS.CanImplyTrace(nptO, notS, notO, wpCopy))
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    internal (bool, List<(Snapshot, Snapshot)>) CanImplyTraceWithCorrespondences(Ordering ptOrder, Snapshot ot, Ordering otOrder, HashSet<Event> wp)
     {
         List<(Snapshot S, Ordering O)> nextPt;
         List<(Snapshot S, Ordering O)> nextOt;
@@ -363,7 +456,7 @@ public class Snapshot
         }
         wp.ExceptWith(ot._AssociatedPremises);
 
-        (bool nextLevelGood, List<(Snapshot, Snapshot)> nextLevelCorres) = CheckNextTraceLevel(nextPt, nextOt, wp);
+        (bool nextLevelGood, List<(Snapshot, Snapshot)> nextLevelCorres) = CheckNextTraceLevelWithCorrespondences(nextPt, nextOt, wp);
         if (nextLevelGood && correspondences.Count > 0)
         {
             nextLevelCorres.AddRange(correspondences);
@@ -371,7 +464,7 @@ public class Snapshot
         return (nextLevelGood, nextLevelCorres);
     }
 
-    private static (bool, List<(Snapshot, Snapshot)>) CheckNextTraceLevel(
+    private static (bool, List<(Snapshot, Snapshot)>) CheckNextTraceLevelWithCorrespondences(
         List<(Snapshot S, Ordering O)> nextPt,
         List<(Snapshot S, Ordering O)> nextOt,
         HashSet<Event> wp)
@@ -392,7 +485,7 @@ public class Snapshot
             {
                 // Duplicate wp as it may be modified during the method call.
                 HashSet<Event> wpCopy = new(wp);
-                (bool canImply, List<(Snapshot, Snapshot)> nextLevelCorres) = nptS.CanImplyTrace(nptO, notS, notO, wpCopy);
+                (bool canImply, List<(Snapshot, Snapshot)> nextLevelCorres) = nptS.CanImplyTraceWithCorrespondences(nptO, notS, notO, wpCopy);
                 if (canImply)
                 {
                     found = true;
