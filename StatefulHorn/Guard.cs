@@ -108,11 +108,9 @@ public class Guard
 
     public override bool Equals(object? obj)
     {
-        if (obj is Guard otherGuard)
-        {
-            return _Ununified.SetEquals(otherGuard._Ununified) && _Ununifiable.SetEquals(otherGuard._Ununifiable);
-        }
-        return false;
+        return obj is Guard otherGuard &&
+            ((IsEmpty && otherGuard.IsEmpty) ||
+            ( _Ununified.SetEquals(otherGuard._Ununified) && _Ununifiable.SetEquals(otherGuard._Ununifiable)));
     }
 
     public override int GetHashCode()

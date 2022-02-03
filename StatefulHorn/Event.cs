@@ -114,6 +114,8 @@ public class Event : ISigmaUnifiable
 
     public bool IsKnow => EventType == Type.Know;
 
+    public bool IsNew => EventType == Type.New;
+
     public bool CanBeUnifiedTo(ISigmaUnifiable other, Guard g, SigmaFactory subs)
     {
         return other is Event ev && IsKnow && ev.IsKnow && subs.CanUnifyMessagesOneWay(_Messages, ev._Messages, g);
@@ -129,7 +131,15 @@ public class Event : ISigmaUnifiable
 
     public override bool Equals(object? obj)
     {
-        return obj is Event ev && EventType == ev.EventType && _Messages.SequenceEqual(ev._Messages) && NameMessage.Equals(LocationId, ev.LocationId);
+        if (obj is Event ev && EventType == ev.EventType)
+        {
+            if (EventType == Event.Type.Init || EventType == Event.Type.Accept)
+            {
+                return _Messages.Count == ev._Messages.Count && _Messages.SequenceEqual(ev._Messages);
+            }
+            return _Messages[0].Equals(ev._Messages[0]) && NameMessage.Equals(LocationId, ev.LocationId);
+        }
+        return false;
     }
 
     public override int GetHashCode() => _Messages[0].GetHashCode();

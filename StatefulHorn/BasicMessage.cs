@@ -7,6 +7,7 @@ public abstract class BasicMessage : IMessage
     public BasicMessage(string n)
     {
         Name = n;
+        HashCode = Name.GetHashCode();
     }
 
     public string Name { get; init; }
@@ -40,15 +41,9 @@ public abstract class BasicMessage : IMessage
 
     public override abstract string ToString();
 
-    public override bool Equals(object? obj)
-    {
-        if (obj != null && GetType() == obj.GetType())
-        {
-            BasicMessage other = (BasicMessage)obj;
-            return Name == other.Name;
-        }
-        return false;
-    }
+    public override bool Equals(object? obj) => obj != null && GetType() == obj.GetType() && ((BasicMessage)obj).Name == Name;
 
-    public override int GetHashCode() => Name.GetHashCode();
+    private readonly int HashCode;
+
+    public override int GetHashCode() => HashCode;
 }
