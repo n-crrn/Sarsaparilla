@@ -61,11 +61,44 @@ public class SigmaFactory
     #endregion
     #region Adding new substitutions
 
-    private static bool ContainsContradictingValue(Dictionary<VariableMessage, IMessage> d, VariableMessage vMsg, IMessage sub)
+    private static bool ContainsContradictingValue(Dictionary<VariableMessage, IMessage> oneWay, Dictionary<VariableMessage, IMessage> otherWay, VariableMessage vMsg, IMessage sub)
     {
-        if (d.TryGetValue(vMsg, out IMessage? existing))
+        if (oneWay.TryGetValue(vMsg, out IMessage? existing))
         {
-            return !sub.Equals(existing);
+            if(!sub.Equals(existing))
+            {
+                return true;
+            }
+        }
+
+        if (otherWay.ContainsValue(vMsg))
+        {
+            return true;
+        }
+
+        // Need to check vMsg is not within otherWay.Value.
+        HashSet<IMessage> heldVariables = new();
+        foreach (IMessage heldValue in otherWay.Values)
+        {
+            heldValue.CollectVariables(heldVariables);
+        }
+        if (heldVariables.Contains(vMsg))
+        {
+            return true;
+        }
+
+        HashSet<IMessage> subVariables = new();
+        sub.CollectVariables(subVariables);
+        foreach (IMessage varValue in subVariables)
+        {
+            if (otherWay.ContainsKey((VariableMessage)varValue))
+            {
+                return true;
+            }
+            if (oneWay.ContainsValue((VariableMessage)varValue))
+            {
+                return true;
+            }
         }
         return false;
     }
@@ -76,15 +109,13 @@ public class SigmaFactory
         bool wasAdded = false;
 
         if (msg1 is VariableMessage vMsg1 &&
-            !ContainsContradictingValue(Forward, vMsg1, msg2) &&
-            !Backward.ContainsValue(msg1))
+            !ContainsContradictingValue(Forward, Backward, vMsg1, msg2))
         {
             Forward[vMsg1] = msg2;
             wasAdded = true;
         }
         else if (BothWays && msg2 is VariableMessage vMsg2 &&
-                 !ContainsContradictingValue(Backward, vMsg2, msg1) && 
-                 !Forward.ContainsValue(msg2))
+                 !ContainsContradictingValue(Backward, Forward, vMsg2, msg1))
         {
             Backward[vMsg2] = msg1;
             wasAdded = true;

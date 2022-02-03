@@ -1,4 +1,5 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using System.Diagnostics;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using StatefulHorn;
 
 namespace StatefulHornTest;
@@ -6,13 +7,7 @@ namespace StatefulHornTest;
 [TestClass]
 public class CompositionTests
 {
-    private static StateConsistentRule CreateBasicRule(RuleFactory factory)
-    {
-        factory.SetNextLabel("basic1");
-        factory.RegisterPremise(Event.Know(new NameMessage("m")));
-        factory.RegisterPremise(Event.Know(new NameMessage("pub")));
-        return factory.CreateStateConsistentRule(Event.Know(new NameMessage("msg1")));
-    }
+    private readonly RuleParser Parser = new();
 
     /// <summary>
     /// Checks that no attempt to combine rules is made when there is no chance of success.
@@ -20,16 +15,9 @@ public class CompositionTests
     [TestMethod]
     public void ComposeAvoidCheck()
     {
-        RuleFactory factory = new();
-        StateConsistentRule r1 = CreateBasicRule(factory);
-
-        factory.SetNextLabel("basic2");
-        factory.RegisterPremise(Event.Know(new NameMessage("msg2")));
-        factory.RegisterPremise(Event.Know(new NameMessage("msg3")));
-        StateConsistentRule r2 = factory.CreateStateConsistentRule(Event.Know(new NameMessage("msg4")));
-
-        Assert.IsFalse(r1.TryComposeWith(r2, out Rule? derivedRule));
-        Assert.IsNull(derivedRule);
+        StateConsistentRule r1 = Parser.ParseStateConsistentRule("k(m[]), k(pub[]) -[ ]-> k(msg1[])");
+        StateConsistentRule r2 = Parser.ParseStateConsistentRule("k(msg2[]), k(msg3[]) -[ ]-> k(msg4[])");
+        Assert.IsNull(r1.TryComposeUpon(r2));
     }
 
     /// <summary>
@@ -38,17 +26,13 @@ public class CompositionTests
     [TestMethod]
     public void BasicCompose()
     {
-        RuleFactory factory = new();
-        StateConsistentRule r1 = CreateBasicRule(factory);
+        StateConsistentRule r1 = Parser.ParseStateConsistentRule("k(m[]), k(pub[]) -[ ]-> k(msg1[])");
+        StateConsistentRule r2 = Parser.ParseStateConsistentRule("k(msg1[]), k(msg2[]) -[ ]-> k(msg3[])");
+        StateConsistentRule expected = Parser.ParseStateConsistentRule("k(m[]), k(pub[]), k(msg2[]) -[ ]-> k(msg3[])");
 
-        factory.SetNextLabel("basic2");
-        factory.RegisterPremise(Event.Know(new NameMessage("msg1")));
-        factory.RegisterPremise(Event.Know(new NameMessage("msg2")));
-        StateConsistentRule r2 = factory.CreateStateConsistentRule(Event.Know(new NameMessage("msg3")));
-
-        Assert.IsTrue(r1.TryComposeWith(r2, out Rule? derivedRule));
+        StateConsistentRule? derivedRule = r1.TryComposeUpon(r2);
         Assert.IsNotNull(derivedRule);
-        Assert.AreEqual("know(m[]), know(pub[]), know(msg2[]) -[ ]-> know(msg3[])", derivedRule.Describe());
+        Assert.AreEqual(expected, derivedRule);
     }
 
     /// <summary>
@@ -57,25 +41,23 @@ public class CompositionTests
     [TestMethod]
     public void PartialSnapshotsCompose()
     {
-        // For this test, use the Example1 rules for composition.
-        Rule r3Basic = Example1.GetRule(3);
-        StateConsistentRule r3 = (StateConsistentRule)r3Basic;
-        Assert.AreEqual("new([bob_l], l_sl[]), new([bob_r], l_sr[]), know(m_f) -[ ]-> " + 
-                        "know(enc_a(<m_f, [bob_l], [bob_r]>, pk(sksd[])))",
-                        r3.Describe());
+        string r1Src = "new([bob_l], l_sl[]), new([bob_r], l_sr[]), know(m_f) -[ ]-> " +
+                       "know(enc_a(<m_f, [bob_l], [bob_r]>, pk(sksd[])))";
+        StateConsistentRule r1 = Parser.ParseStateConsistentRule(r1Src);
 
-        Rule r4 = Example1.GetRule(4);
-        Assert.AreEqual("know(enc_a(<m_f, s_l, s_r>, pk(sksd[])))(1) : {(1) :: a_1} -[ " + 
-                        "(SD(init[]), a_0), (SD(h(m_f, left[])), a_1) : {a_0 ≤ a_1} ]-> know(s_l)",
-                        r4.Describe());
+        string r2Src = "know(enc_a(<m_f, s_l, s_r>, pk(sksd[])))(1) : {(1) :: a_1} -[ " +
+                       "(SD(init[]), a_0), (SD(h(m_f, left[])), a_1) : {a_0 ≤ a_1} ]-> know(s_l)";
+        StateConsistentRule r2 = Parser.ParseStateConsistentRule(r2Src);
 
-        Assert.IsTrue(r3.TryComposeWith(r4, out Rule? derivedRule), "Failed to assess composition correctly.");
-        Assert.IsNotNull(derivedRule);
-        string expected = "new([bob_l], l_sl[])(1), new([bob_r], l_sr[])(2), know(m_f)(3) : " +
+        string expectedSrc = "new([bob_l], l_sl[])(1), new([bob_r], l_sr[])(2), know(m_f)(3) : " +
             "{(1) :: a_1, (2) :: a_1, (3) :: a_1} -[ " +
             "(SD(init[]), a_0), (SD(h(m_f, left[])), a_1) : {a_0 ≤ a_1} ]-> " +
             "know([bob_l])";
-        Assert.AreEqual(expected, derivedRule.Describe());
+        StateConsistentRule expected = Parser.ParseStateConsistentRule(expectedSrc);
+
+        StateConsistentRule? derived = r1.TryComposeUpon(r2);
+        Assert.IsNotNull(derived, "Failed to assess composition correctly.");
+        Assert.AreEqual(expected, derived, "Derived rule not as expected.");
     }
 
     /// <summary>
@@ -147,4 +129,45 @@ public class CompositionTests
         Assert.IsFalse(r1.TryComposeWith(r2, out Rule? result), msg);
         Assert.IsNull(result, "Result should be null from failed attempt at composing.");
     }
+
+    [TestMethod]
+    public void InvalidComposeUnification()
+    {
+        // The following is a unification - leading a composition - that has been attempted during
+        // testing and found to be invalid.
+
+        IMessage pksk = new FunctionMessage("pk", new() { new VariableMessage("sk") });
+        IMessage pub = new VariableMessage("pub");
+        IMessage aenc = new FunctionMessage("aenc", new() { pksk, pub });
+        IMessage sk = new VariableMessage("sk");
+        IMessage aencsk = new FunctionMessage("aenc", new() { sk, pksk });
+
+        ShouldNotBeUnifiable(Event.Know(aenc), Event.Know(aencsk));
+
+        // --- Second sub-test ---
+
+        IMessage msg3 = MessageParser.ParseMessage("aenc(<mf, bob_l[], bob_r[]>, pk(sksd[]))");
+        IMessage msg4 = MessageParser.ParseMessage("aenc(<mf, mf, sr>, pk(sksd[]))");
+        ShouldNotBeUnifiable(Event.Know(msg3), Event.Know(msg4));
+
+        // --- Third sub-test ---
+
+        IMessage msg5 = MessageParser.ParseMessage("aenc(pk(aenc(m, pub)), pub)");
+        IMessage msg6 = MessageParser.ParseMessage("aenc(m, pk(left[]))");
+        ShouldNotBeUnifiable(Event.Know(msg5), Event.Know(msg6));
+    }
+
+    private static void ShouldNotBeUnifiable(Event ev1, Event ev2)
+    {
+        SigmaFactory sf = new();
+        bool canBeUnified = ev1.CanBeUnifiableWith(ev2, new(), sf);
+        if (canBeUnified)
+        {
+            Debug.WriteLine("Sigma Maps are as follows:");
+            Debug.WriteLine(sf.CreateForwardMap().ToString());
+            Debug.WriteLine(sf.CreateBackwardMap().ToString());
+        }
+        Assert.IsFalse(canBeUnified);
+    }
+
 }

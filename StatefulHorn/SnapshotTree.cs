@@ -130,6 +130,37 @@ public class SnapshotTree
         return newTree;
     }
 
+    /// <summary>
+    /// Attempts to fold states together to remove unnecessary variables.
+    /// </summary>
+    /// <param name="g">Guard statements.</param>
+    /// <returns>
+    /// If compression is possible, a new tree and the corresponding sigma transformations
+    /// that were required to make the compression possible. Otherwise two null values are
+    /// returned.
+    /// </returns>
+    public (SnapshotTree?, SigmaFactory?) TryCompress(Guard g)
+    {
+        List<Snapshot> flat = new(OrderedList);
+        bool compressFound = false;
+        SigmaFactory sf = new();
+        for (int i = 0; i < flat.Count; i++)
+        {
+            Snapshot current = flat[i];
+            Snapshot? compressed = flat[i].TryCompress(g, sf);
+            if (compressed != null)
+            {
+                // For the compress operation to succeed, there must be a single predecessor.
+                (Snapshot prevSS, Snapshot.Ordering _) = current.PriorSnapshots[0];
+                flat[i] = compressed; // Remove the old and replace with the new.
+                flat.Remove(prevSS);
+                compressFound = true;
+                i--; // flat.Remove would remove an element before i.
+            }
+        }
+        return compressFound ? (new(flat), sf) : (null, null);
+    }
+
     #endregion
 
     private readonly List<Snapshot> _Traces;
@@ -138,7 +169,24 @@ public class SnapshotTree
 
     public bool IsEmpty => _Traces.Count == 0;
 
-    public bool IsUnunified => _Traces.Count > 1;
+    public bool IsUnified
+    {
+        get
+        {
+            if (_Traces.Count <= 1)
+            {
+                return true;
+            }
+            for (int i = 0; i < _Traces.Count - 1; i++)
+            {
+                if (!Snapshot.AreUnified(_Traces[i], _Traces[i + 1]))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
 
     public void AddTrace(Snapshot ss)
     {
@@ -346,6 +394,20 @@ public class SnapshotTree
         Snapshot ss = new(condition);
         ss.SetModifiedOnceLaterThan(prev);
         return ss;
+    }
+
+    internal void ActivateTransfers()
+    {
+        for (int i = 0; i < _Traces.Count; i++)
+        {
+            if (_Traces[i].TransfersTo != null)
+            {
+                Snapshot newSS = new(_Traces[i].TransfersTo!);
+                _Traces[i].TransfersTo = null;
+                newSS.SetModifiedOnceLaterThan(_Traces[i]);
+                _Traces[i] = newSS;
+            }
+        }
     }
 
     #endregion

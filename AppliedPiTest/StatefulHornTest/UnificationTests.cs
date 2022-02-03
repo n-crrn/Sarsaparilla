@@ -33,7 +33,7 @@ public class UnificationTests
         StateConsistentRule resultExpected1 = Parser.ParseStateConsistentRule(result1Src);
         StateConsistentRule resultExpected2 = Parser.ParseStateConsistentRule(result2Src);
 
-        List<Rule> unifications = original.GenerateStateUnifications();
+        List<StateConsistentRule> unifications = original.GenerateStateUnifications();
         Assert.AreEqual(2, unifications.Count, $"Expected two rules to be returned for unification, instead returned {unifications.Count}.");
         Assert.IsTrue(unifications.Contains(resultExpected1), $"Failed to derive following rule: {resultExpected1}");
         Assert.IsTrue(unifications.Contains(resultExpected2), $"Failed to derive following rule: {resultExpected2}");
@@ -48,8 +48,25 @@ public class UnificationTests
     {
         string testSrc = "know(mf)(a1) -[ (SD(init[]), a0), (SD(<mf, value[]>), a1) : {a0 =< a1} ]-> leak(mf)";
         StateConsistentRule testRule = Parser.ParseStateConsistentRule(testSrc);
-        List<Rule> unifications = testRule.GenerateStateUnifications();
+        List<StateConsistentRule> unifications = testRule.GenerateStateUnifications();
         Assert.AreEqual(0, unifications.Count, $"Should be no valid unifications, only empty list.");
+    }
+
+    [TestMethod]
+    public void CompressCheck()
+    {
+        // Test that compression works.
+        string test1Src = "-[ (SD(init[]), c0), (SD(m), c1) : { c0 =< c1} ]-> k(m)";
+        StateConsistentRule test1Rule = Parser.ParseStateConsistentRule(test1Src);
+        string expectedSrc = "-[ (SD(init[]), c0) ]-> k(init[])";
+        StateConsistentRule expectedRule = Parser.ParseStateConsistentRule(expectedSrc);
+        StateConsistentRule? result = test1Rule.TryCompressStates();
+        Assert.AreEqual(expectedRule, result, "Compression did not work correctly.");
+
+        // Check that a compression is not done in an inappropriate circumstance.
+        string test2Src = "k(aenc(<mf, sl, sr>, pk(sksd[])))(b1) -[ (SD(init[]), b0), (SD(h(mf, right[])), b1) : { b0 =< b1} ]-> k(sr)";
+        StateConsistentRule test2Rule = Parser.ParseStateConsistentRule(test2Src);
+        Assert.IsNull(test2Rule.TryCompressStates(), "Compression worked when it should not have.");
     }
 
 }

@@ -8,7 +8,7 @@ using StatefulHorn;
 
 Console.WriteLine("Profiling commenced...");
 
-string[] ruleSet =
+/*string[] ruleSet =
 {
     "(1) = k(sk) -[ ]-> k(pk(sk))",
     "(2) = k(m), k(pub) -[ ]-> k(aenc(m, pub))",
@@ -19,66 +19,79 @@ string[] ruleSet =
     "(11) = -[ ]-> k(init[])",
     "(12) = k(mf) -[ ]-> k(aenc(<mf, bob_l[], bob_r[]>, pk(sksd[])))",
     "(13) = k(aenc(<mf, sl, sr>, pk(sksd[])))(a1) -[ (SD(init[]), a0), (SD(h(mf, left[])), a1) : { a0 =< a1} ]-> k(sl)",
-    "(14) = k(aenc(< mf, sl, sr >, pk(sksd[])))(b1) -[(SD(init[]), b0), (SD(h(mf, right[])), b1) : { b0 =< b1} ]-> k(sr)",
-    "(15) = -[(SD(init[]), c0), (SD(m), c1) : { c0 =< c1} ]-> k(m)",
-    "(16) = k(x)(d1) -[(SD(init[]), d0), (SD(m), d1) : { d0 =< d1} ]-> <d1: SD(h(m, x))>",
-    "(17) = k(bob_l[]), k(bob_r[]) -[ ]->leak(< bob_l[], bob_r[] >)"
+    //"(13a) = k(aenc(<mf, sl, sr>, pk(sksd[]))) -[ ]-> k(sl)",
+    "(14) = k(aenc(<mf, sl, sr>, pk(sksd[])))(b1) -[ (SD(init[]), b0), (SD(h(mf, right[])), b1) : { b0 =< b1} ]-> k(sr)",
+    //"(14a) = k(aenc(<mf, sl, sr>, pk(sksd[]))) -[ ]-> k(sr)",
+    "(15) = -[ (SD(init[]), c0), (SD(m), c1) : { c0 =< c1} ]-> k(m)",
+    "(16) = k(x)(d1) -[ (SD(init[]), d0), (SD(m), d1) : { d0 =< d1} ]-> <d1: SD(h(m, x))>"
+};*/
+// The following is updated to improve support for the new resolver.
+string[] ruleSet =
+{
+    // Globally known facts.
+    "-[]-> k(left[])",
+    "-[]-> k(right[])",
+    "-[]-> k(init[])",
+    // Global derived knowledge.
+    "k(m), k(pub) -[]-> k(enc_a(m, pub))",
+    "k(enc_a(m, pk(sk))), k(sk) -[]-> k(m)",
+    "k(sk) -[]-> k(pk(sk))",
+    "k(p), k(n) -[ ]-> k(h(p, n))",
+    // Session commencement and state transitions - should '_' be added as a variable/message stand-in?
+    "n([bobl])(a0), n([bobr])(a0), k(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k([bobl])",
+    "n([bobl])(a0), n([bobr])(a0), k(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k([bobr])",
+    "k(x)(a0) -[(SD(m), a0)]-> <a0: SD(h(m, x))>",
+    // Reading from states and inputs.
+    //"k(enc_a(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k(sl)",
+    //"k(enc_a(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k(sr)",
+    "-[ (SD(init[]), a0), (SD(m), a1) : {a0 =< a1} ]-> k(m)"
 };
 
 RuleParser parser = new();
 Console.WriteLine("Parsing rules...");
 List<Rule> rules = new(from r in ruleSet select parser.Parse(r));
 
-Universe uni = new(rules);
-Universe.StatusReporter reporter = new(
-    () => Console.WriteLine("--- Starting elaboration ---"),
-    (Universe.Status s) => Console.WriteLine(s.ToString()),
-    () => Console.WriteLine("--- Finished elaboration ---")
-);
+IMessage query = MessageParser.ParseMessage("[bobl]");
+QueryEngine qe = new(query, rules);
 
-Console.WriteLine("Rules compiled, starting elaboration");
-_ = await uni.GenerateNextRuleSet(reporter);
-Console.WriteLine("--- Middle ---");
-_ = await uni.GenerateNextRuleSet(reporter);
-Console.WriteLine("Profiling program complete.");
-
-Console.WriteLine("=== Change Output ===");
-
-for (int i = 0; i < uni.ChangeLog.Count; i++)
+List<StateConsistentRule> matches = qe.MatchingRules;
+if (matches.Count > 0)
 {
-    Console.WriteLine("// --- Elaboration {i} ---");
-    foreach (Universe.ChangeLogEntry entry in uni.ChangeLog[i])
+    Console.WriteLine("--- Immediate match(es) found: ---");
+    foreach (StateConsistentRule m in matches)
     {
-        switch (entry.Decision)
-        {
-            case Universe.AddDecision.IsNew:
-                Console.WriteLine($"NEW: {entry.AttemptedRule}\n");
-                break;
-            case Universe.AddDecision.IsImplied:
-                Console.WriteLine($"IMPLIED: {entry.AttemptedRule}\n");
-                Console.WriteLine("    …was instead implied by…\n");
-                Console.WriteLine($"    {entry.AffectedRules![0]}\n");
-                break;
-            case Universe.AddDecision.ImpliesAnother:
-            default:
-                Console.WriteLine($"IMPLIES OTHER: {entry.AttemptedRule}\n");
-                Console.WriteLine("    …implied, and therefore replaced, …\n");
-                foreach (Rule affected in entry.AffectedRules!)
-                {
-                    Console.WriteLine($"    {affected}\n");
-                }
-                break;
-        }
+        Console.WriteLine(m);
     }
 }
+else
+{
+    Console.WriteLine("No initial match found (as expected).");
+}
 
-Console.WriteLine("=== Final Ruleset ===");
-foreach (StateConsistentRule scr in uni.ConsistentRules)
+qe.Elaborate();
+
+matches = qe.MatchingRules;
+if (matches.Count > 0)
 {
-    Console.WriteLine(scr.ToString());
+    Console.WriteLine("--- Match(es) found after elaboration: ---");
+    foreach (StateConsistentRule m in matches)
+    {
+        Console.WriteLine(m);
+    }
 }
-Console.WriteLine("--- Transferring Rules ---");
-foreach (StateTransferringRule str in uni.TransferringRules)
+else
 {
-    Console.WriteLine(str.ToString());
+    Console.WriteLine("--- No matches found. ---");
 }
+
+Console.WriteLine("--- Found elaborations are as follows: ---");
+foreach (Rule r in qe.Rules())
+{
+    Console.WriteLine(r);
+}
+Console.WriteLine("--- Facts are: ---");
+foreach (IMessage fact in qe.Facts)
+{
+    Console.WriteLine(fact);
+}
+Console.WriteLine("--- End ---");

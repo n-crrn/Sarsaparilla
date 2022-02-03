@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace StatefulHorn;
@@ -136,6 +137,16 @@ public static class MessageParser
             err = "Extra text included after message.";
         }
         return (msg, err);
+    }
+
+    public static IMessage ParseMessage(string input)
+    {
+        (IMessage? m, string? err) = TryParseMessage(input);
+        if (err != null)
+        {
+            throw new ArgumentException($"Invalid message {input}: {err}");
+        }
+        return m!;
     }
 
     #endregion

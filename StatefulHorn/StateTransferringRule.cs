@@ -1,15 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 
 namespace StatefulHorn;
 
 public class StateTransferringRule : Rule
 {
-    public StateTransferringRule(string label, Guard g, List<Event> prems, SnapshotTree ss, StateTransformationSet st) :
+    public StateTransferringRule(string label, Guard g, HashSet<Event> prems, SnapshotTree ss, StateTransformationSet st) :
         base(label, g, prems, ss)
     {
         Result = st;
+        GenerateHashCode();
     }
 
     public override StateTransformationSet Result { get; }
@@ -22,7 +24,7 @@ public class StateTransferringRule : Rule
 
     protected override string DescribeResult() => Result.ToString();
 
-    public override Rule CreateDerivedRule(string label, Guard g, List<Event> prems, SnapshotTree ss, SigmaMap substitutions)
+    public override Rule CreateDerivedRule(string label, Guard g, HashSet<Event> prems, SnapshotTree ss, SigmaMap substitutions)
     {
         // Note that the substitutions are not actually applied to the Result. This is because the
         // StateTransformationSet is deeply tied to the SnapshotTree. Therefore, Result has to be
@@ -32,7 +34,7 @@ public class StateTransferringRule : Rule
 
     public StateConsistentRule? Transform(StateConsistentRule r)
     {
-        if (CanTransform(r, out SigmaMap? sigma))
+        if (CanOldTransform(r, out SigmaMap? sigma))
         {
             Debug.Assert(sigma != null);
             Guard g = GuardStatements.PerformSubstitution(sigma).UnionWith(r.GuardStatements);
@@ -46,7 +48,7 @@ public class StateTransferringRule : Rule
         return null;
     }
 
-    private bool CanTransform(StateConsistentRule r, out SigmaMap? sigma)
+    private bool CanOldTransform(StateConsistentRule r, out SigmaMap? sigma)
     {
         // If the transformation can be implied by r, then we can proceed.
         Guard combinedGuard = GuardStatements.UnionWith(r.GuardStatements);
@@ -59,4 +61,56 @@ public class StateTransferringRule : Rule
         sigma = sf.CreateForwardMap();
         return canProceed;
     }
+
+    #region Updated transformation code.
+
+    public StateConsistentRule? TryTransform(StateConsistentRule r)
+    {
+        // If there is a match for each trace of the transformation, then this is possible.
+        Guard combinedGuard = GuardStatements.UnionWith(r.GuardStatements);
+        SigmaFactory sf = new();
+
+        // The following tuple is of form Snapshot, Trace Index, Offset Index with Trace.
+        List<(Snapshot, int, int)>? overallCorres = DetermineSnapshotCorrespondencesWith(r, combinedGuard, sf);
+        if (overallCorres == null)
+        {
+            return null;
+        }
+        
+        // Having determined that it is possible, the next step is to create the new rule.
+        // Note that assumption that the ordering of traces does not change during substitutions.
+        SigmaMap fwd = sf.CreateForwardMap();
+        SigmaMap bwd = sf.CreateBackwardMap();
+
+        // The transformed rule is used as a template for the construction of the final rule.
+        StateConsistentRule transformedRule = (StateConsistentRule)r.PerformSubstitution(bwd);
+        for (int i = 0; i < overallCorres.Count; i++)
+        {
+            (Snapshot guide, int traceIndex, int offsetIndex) = overallCorres[i];
+            overallCorres[i] = (guide.PerformSubstitutions(fwd), traceIndex, offsetIndex);
+        }
+
+        HashSet<Event> newPremises = new(transformedRule.Premises);
+        foreach ((Snapshot guide, int traceIndex, int offsetIndex) in overallCorres)
+        {
+            Snapshot ss = transformedRule.Snapshots.Traces[traceIndex];
+            for (int oi = offsetIndex; oi > 0; oi--)
+            {
+                ss = ss.PriorSnapshots[0].S;
+            }
+            // Update the template snapshot.
+            ss.AddPremises(guide.AssociatedPremises);
+            ss.TransfersTo = guide.TransfersTo;
+            // Update the premises.
+            foreach (Event premise in guide.AssociatedPremises)
+            {
+                newPremises.Add(premise);
+            }
+        }
+        transformedRule.Snapshots.ActivateTransfers();
+
+        return new StateConsistentRule($"({Label}) ⋈ ({r.Label})", combinedGuard, newPremises, transformedRule.Snapshots, transformedRule.Result);
+    }
+
+    #endregion
 }

@@ -175,6 +175,56 @@ public class Snapshot
         return false;
     }
 
+    public static bool AreUnified(Snapshot ss1, Snapshot ss2)
+    {
+        return
+            (from p1 in ss1._PriorSnapshots where p1.O == Ordering.Unchanged && p1.S.Equals(ss2) select p1).Any() ||
+            (from p2 in ss2._PriorSnapshots where p2.O == Ordering.Unchanged && p2.S.Equals(ss1) select p2).Any();
+    }
+
+    #endregion
+    #region Compression
+
+    public Snapshot? TryCompress(Guard g, SigmaFactory sf)
+    {
+        // First rule - there must only be one predecessor, and it must =< relation.
+        if (_PriorSnapshots.Count != 1)
+        {
+            return null;
+        }
+        (Snapshot prevSS, Ordering prevOrd) = _PriorSnapshots[0];
+        if (prevOrd != Ordering.LaterThan)
+        {
+            return null;
+        }
+        if (prevSS._PriorSnapshots.Count > 0)
+        {
+            return null;
+        }
+        if (prevSS.Condition.CanBeUnifiableWith(Condition, g, sf))
+        {
+            SigmaMap? mergeMap = sf.TryCreateMergeMap();
+            if (mergeMap == null)
+            {
+                return null;
+            }
+            Snapshot newSS = new(prevSS.Condition.CloneWithSubstitution(mergeMap));
+            newSS._AssociatedPremises.AddRange(from p in prevSS._AssociatedPremises select p.PerformSubstitution(mergeMap));
+            newSS._AssociatedPremises.AddRange(from p in _AssociatedPremises select p.PerformSubstitution(mergeMap));
+            // Note: Compressions are usually only conducted for State Consistent Rules.
+            if (TransfersTo != null)
+            {
+                newSS.TransfersTo = TransfersTo.CloneWithSubstitution(mergeMap);
+            }
+            else if (prevSS.TransfersTo != null)
+            {
+                newSS.TransfersTo = prevSS.TransfersTo.CloneWithSubstitution(mergeMap);
+            }
+            return newSS;
+        }
+        return null;
+    }
+
     #endregion
     #region Filtering
 

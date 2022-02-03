@@ -83,7 +83,7 @@ public class RuleDescription
 
     private void GetPremisesFromRule(Rule r)
     {
-        IReadOnlyList<Event> rulePremises = r.Premises;
+        List<Event> rulePremises = r.Premises.ToList();
         for (int i = 0; i < rulePremises.Count; i++)
         {
             Event prem = rulePremises[i];
