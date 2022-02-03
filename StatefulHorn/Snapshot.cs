@@ -9,7 +9,6 @@ public static class SSOrdering
     {
         Snapshot.Ordering.LaterThan => "≤",
         Snapshot.Ordering.ModifiedOnceAfter => "⋖",
-        Snapshot.Ordering.Unchanged => "～",
         _ => "INVALID"
     };
 
@@ -25,35 +24,38 @@ public class Snapshot
     {
         LaterThan,         // Models ≤ relationship.
         ModifiedOnceAfter, // Models ⋖ relationship.
-        Unchanged          // Models ～ relationship.
     }
 
     public Snapshot(State condDefinition, string? lbl = null)
     {
         Condition = condDefinition;
-        _AssociatedPremises = new();
-        _PriorSnapshots = new();
+        Premises = new();
         Label = lbl;
     }
 
     internal Snapshot(Snapshot ss)
     {
         Condition = ss.Condition;
-        _AssociatedPremises = new(ss._AssociatedPremises);
-        _PriorSnapshots = new();
+        Premises = new(ss.Premises);
         TransfersTo = ss.TransfersTo;
         Label = ss.Label;
     }
 
-    internal int Tag; // Used for Loop detection by SnapshotTree.
-
-    private readonly List<Event> _AssociatedPremises;
+    public readonly HashSet<Event> Premises;
 
     public State Condition { get; init; }
 
-    // Note that this keeps track of Snapshots going backwards in time. It is kept accessible
-    // to SnapshotTree as that structure needs to be able to clone itself (see CloneTree()).
-    internal readonly List<(Snapshot S, Ordering O)> _PriorSnapshots;
+    /// <summary>
+    /// This data structure is dedicated to representing the prior snapshot and what its
+    /// relationship is to this snapshot. They are paired as they either need to both 
+    /// be valid, or null. Using a Tuple instead of this Record results in unusual
+    /// syntactic behaviour.
+    /// </summary>
+    /// <param name="S">The Snapshot.</param>
+    /// <param name="O">Whether the Snapshot is immediately before or not.</param>
+    public record PriorLink(Snapshot S, Ordering O);
+
+    public PriorLink? Prior { get; private set; }
 
     public State? TransfersTo { get; set; }
 
@@ -75,152 +77,100 @@ public class Snapshot
         {
             ss.TransfersTo = TransfersTo.CloneWithSubstitution(substitutions);
         }
-        foreach (Event ev in _AssociatedPremises)
+        foreach (Event ev in Premises)
         {
             if (replacements.TryGetValue(ev, out Event? replaceEv))
             {
-                ss._AssociatedPremises.Add(replaceEv);
+                ss.Premises.Add(replaceEv);
             }
             else
             {
-                ss._AssociatedPremises.Add(ev);
+                ss.Premises.Add(ev);
             }
         }
-        foreach ((Snapshot priorSS, Ordering priorOrdering) in _PriorSnapshots)
+        if (Prior != null)
         {
-            ss._PriorSnapshots.Add((priorSS.CloneTraceWithReplacements(replacements, substitutions), priorOrdering));
+            ss.Prior = new(Prior.S.CloneTraceWithReplacements(replacements, substitutions), Prior.O);
         }
         return ss;
+    }
+
+    public Snapshot CloneTrace()
+    {
+        Snapshot ss = new(Condition, Label);
+        ss.TransfersTo = TransfersTo;
+        if (Prior != null)
+        {
+            ss.Prior = new(Prior.S.CloneTrace(), Prior.O);
+        }
+        return ss;
+    }
+
+    internal void CollectSnapshotsAssociatedWith(Event ev, List<Snapshot> foundList)
+    {
+        if (Premises.Contains(ev))
+        {
+            foundList.Add(this);
+        }
+        Prior?.S.CollectSnapshotsAssociatedWith(ev, foundList);
     }
 
     #region Assessing relationships with other snapshots.
 
     public bool IsRelatable(State other) => other.Name == Condition.Name;
 
-    public IReadOnlyList<(Snapshot S, Ordering O)> PriorSnapshots => _PriorSnapshots;
+    public void SetLaterThan(Snapshot other) => Prior = new(other, Ordering.LaterThan);
 
-    public void SetLaterThan(Snapshot other)
-    {
-        _PriorSnapshots.Add((other, Ordering.LaterThan));
-    }
+    public void SetModifiedOnceLaterThan(Snapshot other) => Prior = new(other, Ordering.ModifiedOnceAfter);
+    
+    public bool IsAfter(Snapshot other) => Prior != null && (Prior.S == other || Prior.S.IsAfter(other));
 
-    public void SetModifiedOnceLaterThan(Snapshot other)
-    {
-        _PriorSnapshots.Add((other, Ordering.ModifiedOnceAfter));
-    }
+    public bool HasPredecessor => Prior != null;
 
-    public void SetUnifedWith(Snapshot other)
+    private HashSet<Snapshot> AncestorSet(HashSet<Snapshot> links)
     {
-        _PriorSnapshots.Add((other, Ordering.Unchanged));
-    }
-
-    public bool IsAfter(Snapshot other)
-    {
-        foreach ((Snapshot s, Ordering o) in _PriorSnapshots)
+        if (Prior != null)
         {
-            // The comparison on reference is intentional.
-            if (o != Ordering.Unchanged && other == s)
-            {
-                return true;
-            }
+            Prior.S.AncestorSet(links);
+            links.Add(Prior.S);
         }
-        return false;
+        return links;
     }
-
-    public bool HasPredecessor => _PriorSnapshots.Count > 0;
 
     public bool AllPredecessorsContainedIn(List<Snapshot> predecessorList)
     {
-        bool notFound = false;
-        foreach ((Snapshot ss, Ordering _) in _PriorSnapshots)
+        HashSet<Snapshot> allPriors = AncestorSet(new());
+        foreach (Snapshot ss in predecessorList)
         {
-            if (!predecessorList.Contains(ss))
+            if (!allPriors.Contains(ss))
             {
-                notFound = true;
-                break;
+                return false;
             }
         }
-        return !notFound;
+        return true;
     }
 
-    public bool HasImmediatePredecessor { 
-        get
-        {
-            foreach ((Snapshot _, Ordering o) in _PriorSnapshots)
-            {
-                if (o == Ordering.ModifiedOnceAfter || o == Ordering.Unchanged)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Proceed through the entire predecessor tree to check if the other snapshot is present.
-    /// This method is used to check that rules are being constructed correctly.
-    /// </summary>
-    /// <param name="other">Other snapshot to check.</param>
-    /// <returns>True if the other snapshot is a predecessor, false otherwise.</returns>
-    public bool OccursSometimeAfter(Snapshot other)
-    {
-        foreach ((Snapshot s, Ordering _) in _PriorSnapshots)
-        {
-            if (s == other || s.OccursSometimeAfter(other))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public static bool AreUnified(Snapshot ss1, Snapshot ss2)
-    {
-        return
-            (from p1 in ss1._PriorSnapshots where p1.O == Ordering.Unchanged && p1.S.Equals(ss2) select p1).Any() ||
-            (from p2 in ss2._PriorSnapshots where p2.O == Ordering.Unchanged && p2.S.Equals(ss1) select p2).Any();
-    }
+    public bool HasImmediatePredecessor => Prior != null && Prior.O == Ordering.ModifiedOnceAfter;
 
     #endregion
     #region Compression
 
     public Snapshot? TryCompress(Guard g, SigmaFactory sf)
     {
-        // First rule - there must only be one predecessor, and it must =< relation.
-        if (_PriorSnapshots.Count != 1)
-        {
-            return null;
-        }
-        (Snapshot prevSS, Ordering prevOrd) = _PriorSnapshots[0];
-        if (prevOrd != Ordering.LaterThan)
-        {
-            return null;
-        }
-        if (prevSS._PriorSnapshots.Count > 0)
-        {
-            return null;
-        }
-        if (prevSS.Condition.CanBeUnifiableWith(Condition, g, sf))
+        if (Prior != null && Prior.O == Ordering.ModifiedOnceAfter && Prior.S.Condition.CanBeUnifiableWith(Condition, g, sf))
         {
             SigmaMap? mergeMap = sf.TryCreateMergeMap();
-            if (mergeMap == null)
+            if (mergeMap != null)
             {
-                return null;
+                Snapshot newSS = new(Prior.S.Condition.CloneWithSubstitution(mergeMap));
+                newSS.Premises.UnionWith(from p in Prior.S.Premises select p.PerformSubstitution(mergeMap));
+                newSS.Premises.UnionWith(from p in Premises select p.PerformSubstitution(mergeMap));
+                newSS.TransfersTo = TransfersTo != null ?
+                    TransfersTo!.CloneWithSubstitution(mergeMap) :
+                    Prior.S.TransfersTo?.CloneWithSubstitution(mergeMap);
+                newSS.Prior = Prior.S.Prior;
+                return newSS;
             }
-            Snapshot newSS = new(prevSS.Condition.CloneWithSubstitution(mergeMap));
-            newSS._AssociatedPremises.AddRange(from p in prevSS._AssociatedPremises select p.PerformSubstitution(mergeMap));
-            newSS._AssociatedPremises.AddRange(from p in _AssociatedPremises select p.PerformSubstitution(mergeMap));
-            // Note: Compressions are usually only conducted for State Consistent Rules.
-            if (TransfersTo != null)
-            {
-                newSS.TransfersTo = TransfersTo.CloneWithSubstitution(mergeMap);
-            }
-            else if (prevSS.TransfersTo != null)
-            {
-                newSS.TransfersTo = prevSS.TransfersTo.CloneWithSubstitution(mergeMap);
-            }
-            return newSS;
         }
         return null;
     }
@@ -228,37 +178,9 @@ public class Snapshot
     #endregion
     #region Filtering
 
-    public bool ContainsMessage(IMessage msg)
-    {
-        if (Condition.ContainsMessage(msg))
-        {
-            return true;
-        }
-        foreach ((Snapshot s, Ordering _) in _PriorSnapshots)
-        {
-            if (s.ContainsMessage(msg))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
+    public bool ContainsMessage(IMessage msg) => Condition.ContainsMessage(msg) || (Prior != null && Prior.S.ContainsMessage(msg));
 
-    public bool ContainsState(State sOther)
-    {
-        if (Condition.Equals(sOther))
-        {
-            return true;
-        }
-        foreach ((Snapshot ss, Ordering _) in _PriorSnapshots)
-        {
-            if (ss.ContainsState(sOther))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
+    public bool ContainsState(State sOther) => Condition.Equals(sOther) || (Prior != null && Prior.S.ContainsState(sOther));
 
     #endregion
 
@@ -269,39 +191,29 @@ public class Snapshot
     /// <param name="allSS">List to add found items to.</param>
     public void FlattenToList(List<Snapshot> allSS)
     {
-        foreach ((Snapshot ss, Ordering o) in _PriorSnapshots)
-        {
-            if (o != Ordering.Unchanged)
-            {
-                ss.FlattenToList(allSS);
-            }
-        }
+        Prior?.S.FlattenToList(allSS);
         allSS.Add(this);
     }
 
     #region Premise handling.
-
-    public IReadOnlyList<Event> AssociatedPremises => _AssociatedPremises;
 
     internal void AddPremises(IEnumerable<Event> events)
     {
         foreach (Event ev in events)
         {
             // Duplicated events don't make sense, so only add if not already added.
-            if (!_AssociatedPremises.Contains(ev))
+            if (!Premises.Contains(ev))
             {
-                _AssociatedPremises.Add(ev);
+                Premises.Add(ev);
             }
         }
     }
 
     internal void ReplacePremises(Event toBeReplaced, IEnumerable<Event> replacements)
     {
-        _AssociatedPremises.Remove(toBeReplaced);
+        Premises.Remove(toBeReplaced);
         AddPremises(replacements);
     }
-
-    private HashSet<Event>? _EventsInTrace;
 
     /// <summary>
     /// Returns a set of all the Events that are featured in the premises of the trace.
@@ -310,245 +222,18 @@ public class Snapshot
     {
         get
         {
-            if (_EventsInTrace == null)
+            HashSet<Event> allEvents = new();
+            Snapshot? currentSS = this;
+            while (currentSS != null)
             {
-                // To minimise memory usage, we have a more complicated algorithm here that doesn't
-                // just call each previous trace's EventsInTrace property.
-                _EventsInTrace = new();
-                Stack<Snapshot> ssToCheck = new();
-                foreach (Event ev in _AssociatedPremises)
+                foreach (Event ev in currentSS.Premises)
                 {
-                    _EventsInTrace.Add(ev);
+                    allEvents.Add(ev);
                 }
-                foreach ((Snapshot pt, Ordering _) in _PriorSnapshots)
-                {
-                    ssToCheck.Push(pt);
-                }
-
-                while (ssToCheck.Count > 0)
-                {
-                    Snapshot ss = ssToCheck.Pop();
-                    if (ss._EventsInTrace != null)
-                    {
-                        _EventsInTrace.UnionWith(ss._EventsInTrace);
-                        // No need to check previous snapshots.
-                    }
-                    else
-                    {
-                        foreach (Event ev in ss._AssociatedPremises)
-                        {
-                            _EventsInTrace.Add(ev);
-                        }
-                        foreach ((Snapshot pt, Ordering _) in ss._PriorSnapshots)
-                        {
-                            ssToCheck.Push(pt);
-                        }
-                    }
-                }
+                currentSS = currentSS.Prior?.S;
             }
-            return _EventsInTrace;
+            return allEvents;
         }
-    }
-
-    #endregion
-    #region Trace implication.
-
-    internal bool CanImplyTrace(Ordering ptOrder, Snapshot ot, Ordering otOrder, HashSet<Event> wp)
-    {
-        List<(Snapshot S, Ordering O)> nextPt;
-        List<(Snapshot S, Ordering O)> nextOt;
-
-        if (Condition.Equals(ot.Condition))
-        {
-            if (!ptOrder.AsOrMoreOrganisedThan(otOrder))
-            {
-                return false;
-            }
-            wp.UnionWith(_AssociatedPremises);
-            nextPt = _PriorSnapshots;
-            nextOt = ot._PriorSnapshots;
-        }
-        else
-        {
-            if (ptOrder == Ordering.Unchanged)
-            {
-                if (otOrder != Ordering.Unchanged)
-                {
-                    return false;
-                }
-                nextOt = new(from os in ot._PriorSnapshots where os.O == Ordering.Unchanged select os);
-                if (nextOt.Count == 0)
-                {
-                    return false;
-                }
-                nextPt = new() { (this, Ordering.Unchanged) };
-            }
-            else if (ptOrder == Ordering.ModifiedOnceAfter)
-            {
-                if (otOrder == Ordering.Unchanged)
-                {
-                    nextOt = new(from os in ot._PriorSnapshots
-                                 where os.O == Ordering.Unchanged || os.O == Ordering.ModifiedOnceAfter
-                                 select os);
-                    nextPt = new() { (this, Ordering.ModifiedOnceAfter) };
-                }
-                else if (otOrder == Ordering.ModifiedOnceAfter)
-                {
-                    nextOt = new(from os in ot._PriorSnapshots where os.O == Ordering.Unchanged select os);
-                    nextPt = new() { (this, Ordering.Unchanged) };
-                }
-                else
-                {
-                    return false;
-                }
-            }
-            else // ptOrder == Ordering.LaterThan
-            {
-                nextOt = ot._PriorSnapshots;
-                nextPt = new() { (this, Ordering.LaterThan) };
-            }
-        }
-        wp.ExceptWith(ot._AssociatedPremises);
-
-        return CheckNextTraceLevel(nextPt, nextOt, wp);
-    }
-
-    private static bool CheckNextTraceLevel(
-        List<(Snapshot S, Ordering O)> nextPt,
-        List<(Snapshot S, Ordering O)> nextOt,
-        HashSet<Event> wp)
-    {
-        if (nextPt.Count == 0)
-        {
-            return wp.Count == 0;
-        }
-        else if (nextOt.Count == 0)
-        {
-            return false;
-        }
-        foreach ((Snapshot nptS, Ordering nptO) in nextPt)
-        {
-            bool found = false;
-            foreach ((Snapshot notS, Ordering notO) in nextOt)
-            {
-                // Duplicate wp as it may be modified during the method call.
-                HashSet<Event> wpCopy = new(wp);
-                if (nptS.CanImplyTrace(nptO, notS, notO, wpCopy))
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found)
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    internal (bool, List<(Snapshot, Snapshot)>) CanImplyTraceWithCorrespondences(Ordering ptOrder, Snapshot ot, Ordering otOrder, HashSet<Event> wp)
-    {
-        List<(Snapshot S, Ordering O)> nextPt;
-        List<(Snapshot S, Ordering O)> nextOt;
-
-        List<(Snapshot, Snapshot)> correspondences = new();
-        if (Condition.Equals(ot.Condition))
-        {
-            if (!ptOrder.AsOrMoreOrganisedThan(otOrder))
-            {
-                return (false, new());
-            }
-            correspondences.Add((this, ot));
-            wp.UnionWith(_AssociatedPremises);
-            nextPt = _PriorSnapshots;
-            nextOt = ot._PriorSnapshots;
-        }
-        else
-        {
-            if (ptOrder == Ordering.Unchanged)
-            {
-                if (otOrder != Ordering.Unchanged)
-                {
-                    return (false, correspondences); // Correspondences will be empty.
-                }
-                nextOt = new(from os in ot._PriorSnapshots where os.O == Ordering.Unchanged select os);
-                if (nextOt.Count == 0)
-                {
-                    return (false, correspondences); // Correspondences will be empty.
-                }
-                nextPt = new() { (this, Ordering.Unchanged) };
-            }
-            else if (ptOrder == Ordering.ModifiedOnceAfter)
-            {
-                if (otOrder == Ordering.Unchanged)
-                {
-                    nextOt = new(from os in ot._PriorSnapshots
-                                 where os.O == Ordering.Unchanged || os.O == Ordering.ModifiedOnceAfter
-                                 select os);
-                    nextPt = new() { (this, Ordering.ModifiedOnceAfter) };
-                }
-                else if (otOrder == Ordering.ModifiedOnceAfter)
-                {
-                    nextOt = new(from os in ot._PriorSnapshots where os.O == Ordering.Unchanged select os);
-                    nextPt = new() { (this, Ordering.Unchanged) };
-                }
-                else
-                {
-                    return (false, correspondences); // Correspondences will be empty.
-                }
-            }
-            else // ptOrder == Ordering.LaterThan
-            {
-                nextOt = ot._PriorSnapshots;
-                nextPt = new() { (this, Ordering.LaterThan) };
-            }
-        }
-        wp.ExceptWith(ot._AssociatedPremises);
-
-        (bool nextLevelGood, List<(Snapshot, Snapshot)> nextLevelCorres) = CheckNextTraceLevelWithCorrespondences(nextPt, nextOt, wp);
-        if (nextLevelGood && correspondences.Count > 0)
-        {
-            nextLevelCorres.AddRange(correspondences);
-        }
-        return (nextLevelGood, nextLevelCorres);
-    }
-
-    private static (bool, List<(Snapshot, Snapshot)>) CheckNextTraceLevelWithCorrespondences(
-        List<(Snapshot S, Ordering O)> nextPt,
-        List<(Snapshot S, Ordering O)> nextOt,
-        HashSet<Event> wp)
-    {
-        if (nextPt.Count == 0)
-        {
-            return (wp.Count == 0, new());
-        }
-        else if (nextOt.Count == 0)
-        {
-            return (false, new());
-        }
-        List<(Snapshot, Snapshot)> correspondences = new();
-        foreach ((Snapshot nptS, Ordering nptO) in nextPt)
-        {
-            bool found = false;
-            foreach ((Snapshot notS, Ordering notO) in nextOt)
-            {
-                // Duplicate wp as it may be modified during the method call.
-                HashSet<Event> wpCopy = new(wp);
-                (bool canImply, List<(Snapshot, Snapshot)> nextLevelCorres) = nptS.CanImplyTraceWithCorrespondences(nptO, notS, notO, wpCopy);
-                if (canImply)
-                {
-                    found = true;
-                    correspondences.AddRange(nextLevelCorres);
-                    break;
-                }
-            }
-            if (!found)
-            {
-                return (false, new());
-            }
-        }
-        return (true, correspondences);
     }
 
     #endregion
@@ -574,35 +259,11 @@ public class Snapshot
         return $"({Condition}, {lbl})";
     }
 
-    public override bool Equals(object? obj)
+    public override bool Equals(object? obj) //=> obj is Snapshot ss && Condition.Equals(ss.Condition)
     {
-        // Two snapshots are considered equal if they represent the same state and the previous
-        // states are themselves equal.
-        if (obj is Snapshot ss)
-        {
-            if (Condition.Equals(ss.Condition) && _PriorSnapshots.Count == ss._PriorSnapshots.Count)
-            {
-                // Note that _PriorSnapshots lists may not be in same order.
-                foreach ((Snapshot prevSS, Ordering o) in _PriorSnapshots)
-                {
-                    bool found = false;
-                    foreach ((Snapshot otherPrevSS, Ordering otherO) in ss._PriorSnapshots)
-                    {
-                        if (o == otherO && prevSS.Equals(otherPrevSS))
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found)
-                    {
-                        return false;
-                    }
-                }
-                return true;
-            }
-        }
-        return false;
+        return obj is Snapshot ss &&
+            Condition.Equals(ss.Condition) &&
+            ((Prior == null && ss.Prior == null) || (Prior != null && Prior.Equals(ss.Prior)));
     }
 
     public override int GetHashCode() => Condition.GetHashCode();
@@ -618,46 +279,6 @@ public class Snapshot
     /// <returns>True if the other snapshot is entirely equivalent.</returns>
     public bool EqualsIncludingPremises(Snapshot other)
     {
-        if (Condition.Equals(other.Condition) &&
-            _PriorSnapshots.Count == other._PriorSnapshots.Count && 
-            _AssociatedPremises.Count == other._AssociatedPremises.Count)
-        {
-            // As the ordering of _PriorSnapshots and _Premises may be different, we have to use
-            // an inefficient algorithm.
-            foreach ((Snapshot prevSS, Ordering o) in _PriorSnapshots)
-            {
-                bool prevSSFound = false;
-                foreach ((Snapshot otherPrevSS, Ordering otherO) in other._PriorSnapshots)
-                {
-                    if (o == otherO && prevSS.EqualsIncludingPremises(otherPrevSS))
-                    {
-                        prevSSFound = true;
-                        break;
-                    }
-                }
-                if (!prevSSFound)
-                {
-                    return false;
-                }
-            }
-            foreach (Event premise in _AssociatedPremises)
-            {
-                bool eventFound = false;
-                foreach (Event otherPremise in other._AssociatedPremises)
-                {
-                    if (premise.Equals(otherPremise))
-                    {
-                        eventFound = true;
-                        break;
-                    }
-                }
-                if (!eventFound)
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-        return false;
+        return Equals(other) && Premises.Count == other.Premises.Count && Premises.SetEquals(other.Premises);
     }
 }

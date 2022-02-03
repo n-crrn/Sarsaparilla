@@ -63,9 +63,9 @@ public class RuleDescription
         Snapshots.AddRange(r.Snapshots.OrderedList);
         foreach (Snapshot ss in Snapshots)
         {
-            foreach ((Snapshot prev, Snapshot.Ordering o) in ss.PriorSnapshots)
+            if (ss.Prior != null)
             {
-                OrderingStatements.Add((prev.Label!, o, ss.Label!));
+                OrderingStatements.Add((ss.Prior.S.Label!, ss.Prior.O, ss.Label!));
             }
         }
     }
@@ -92,7 +92,7 @@ public class RuleDescription
             List<string> snapshotIds = new();
             foreach (Snapshot ss in Snapshots)
             {
-                if (ss.AssociatedPremises.Contains(prem))
+                if (ss.Premises.Contains(prem))
                 {
                     snapshotIds.Add(ss.Label ?? "<UNLABELLED>");
                 }

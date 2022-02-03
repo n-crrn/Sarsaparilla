@@ -32,36 +32,6 @@ public class StateTransferringRule : Rule
         return new StateTransferringRule(label, g, prems, ss, ss.ExtractStateTransformations());
     }
 
-    public StateConsistentRule? Transform(StateConsistentRule r)
-    {
-        if (CanOldTransform(r, out SigmaMap? sigma))
-        {
-            Debug.Assert(sigma != null);
-            Guard g = GuardStatements.PerformSubstitution(sigma).UnionWith(r.GuardStatements);
-
-            SnapshotTree? newTree = Snapshots.TryActivateTransfersUpon(r.Snapshots, sigma);
-            if (newTree != null)
-            {
-                return new StateConsistentRule($"({Label}) ⋈ ({r.Label})", g, new(r.Premises), newTree, r.Result);
-            }
-        }
-        return null;
-    }
-
-    private bool CanOldTransform(StateConsistentRule r, out SigmaMap? sigma)
-    {
-        // If the transformation can be implied by r, then we can proceed.
-        Guard combinedGuard = GuardStatements.UnionWith(r.GuardStatements);
-        List<ISigmaUnifiable> transformDetails = new(_Premises);
-        transformDetails.AddRange(Snapshots.States);
-        List<ISigmaUnifiable> opDetails = new(r.Premises);
-        opDetails.AddRange(r.Snapshots.States);
-        SigmaFactory sf = new(false);
-        bool canProceed = UnifyUtils.IsUnifiedToSubset(transformDetails, opDetails, combinedGuard, sf);
-        sigma = sf.CreateForwardMap();
-        return canProceed;
-    }
-
     #region Updated transformation code.
 
     public StateConsistentRule? TryTransform(StateConsistentRule r)
@@ -96,13 +66,13 @@ public class StateTransferringRule : Rule
             Snapshot ss = transformedRule.Snapshots.Traces[traceIndex];
             for (int oi = offsetIndex; oi > 0; oi--)
             {
-                ss = ss.PriorSnapshots[0].S;
+                ss = ss.Prior!.S;
             }
             // Update the template snapshot.
-            ss.AddPremises(guide.AssociatedPremises);
+            ss.AddPremises(guide.Premises);
             ss.TransfersTo = guide.TransfersTo;
             // Update the premises.
-            foreach (Event premise in guide.AssociatedPremises)
+            foreach (Event premise in guide.Premises)
             {
                 newPremises.Add(premise);
             }

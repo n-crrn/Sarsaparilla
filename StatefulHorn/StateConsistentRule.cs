@@ -42,7 +42,7 @@ public class StateConsistentRule : Rule
                         return false;
                     }
                 }
-                return Snapshots.IsUnified;
+                return true;
             }
             return false;
         }
@@ -242,65 +242,6 @@ public class StateConsistentRule : Rule
         return true;
     }
 
-    public List<StateConsistentRule> GenerateStateUnifications()
-    {
-        IReadOnlyList<Snapshot> orderedSnapshots = Snapshots.OrderedList;
-        List<(int, int, SigmaMap)> matches = new();
-
-        for (int i = 0; i < orderedSnapshots.Count; i++)
-        {
-            State c1 = orderedSnapshots[i].Condition;
-            for (int j = i + 1; j < orderedSnapshots.Count; j++)
-            {
-                State c2 = orderedSnapshots[j].Condition;
-                SigmaFactory sf = new();
-                if (c1.CanBeUnifiableWith(c2, GuardStatements, sf))
-                {
-                    SigmaMap? sm = sf.TryCreateMergeMap();
-                    if (sm != null)
-                    {
-                        matches.Add((i, j, sm));
-                    }
-                }
-            }
-        }
-
-        List<StateConsistentRule> newRules = new();
-        foreach ((int ssIndex1, int ssIndex2, SigmaMap sigma) in matches)
-        {
-            StateConsistentRule subsRule1 = (StateConsistentRule)PerformSubstitution(sigma);
-            StateConsistentRule subsRule2 = (StateConsistentRule)subsRule1.Clone();
-
-            StateConsistentRule newRule1 = UnifySnapshots(subsRule1, ssIndex1, ssIndex2);
-            if (!newRule1.Snapshots.HasLoop())
-            {
-                newRules.Add(newRule1);
-            }
-
-            StateConsistentRule newRule2 = UnifySnapshots(subsRule2, ssIndex2, ssIndex1);
-            if (!newRule2.Snapshots.HasLoop())
-            {
-                newRules.Add(newRule2);
-            }
-        }
-        return newRules;
-    }
-
-    /// <summary>
-    /// Convenience method supporting GenerateStateUnifications.
-    /// </summary>
-    /// <param name="newRule"></param>
-    /// <param name="index1"></param>
-    /// <param name="index2"></param>
-    /// <returns></returns>
-    private static StateConsistentRule UnifySnapshots(StateConsistentRule newRule, int index1, int index2)
-    {
-        IReadOnlyList<Snapshot> ss = newRule.Snapshots.OrderedList;
-        ss[index1].SetUnifedWith(ss[index2]);
-        newRule.Label = $"{newRule.Label}[{ss[index1].Label} ~ {ss[index2].Label}]";
-        return newRule;
-    }
-
     // === Updated Transform Code ===
 
     public StateConsistentRule? TryCompressStates()
@@ -326,7 +267,7 @@ public class StateConsistentRule : Rule
         HashSet<Event> newPremises = new();
         foreach (Snapshot ss in newTree.OrderedList)
         {
-            foreach (Event prem in ss.AssociatedPremises)
+            foreach (Event prem in ss.Premises)
             {
                 newPremises.Add(prem);
             }
@@ -461,9 +402,9 @@ public class StateConsistentRule : Rule
                 Snapshot ss = newTree.Traces[traceIndex];
                 for (int oi = offsetIndex; oi > 0; oi--)
                 {
-                    ss = ss.PriorSnapshots[0].S;
+                    ss = ss.Prior!.S;
                 }
-                ss.AddPremises(from ap in guide.AssociatedPremises select ap.PerformSubstitution(fwdSigma));
+                ss.AddPremises(from ap in guide.Premises select ap.PerformSubstitution(fwdSigma));
             }
         }
         foreach (Event ofPremises in otherFilteredPremises)

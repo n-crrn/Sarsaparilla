@@ -102,7 +102,7 @@ public class QueryEngine
 
     private HashSet<IMessage> NextGenFacts = new();
 
-    private HashSet<StateConsistentRule> NextGenSystemRules = new();
+    private readonly HashSet<StateConsistentRule> NextGenSystemRules = new();
 
     private void InitialElaborate()
     {
@@ -397,7 +397,7 @@ public class QueryEngine
         {
             foreach (StateConsistentRule scr in SystemRules)
             {
-                StateConsistentRule? derived = str.Transform(scr);
+                StateConsistentRule? derived = str.TryTransform(scr);
                 if (derived != null)
                 {
                     newRules.Add(derived);

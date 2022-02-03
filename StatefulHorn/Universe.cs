@@ -31,7 +31,7 @@ public class Universe
     /// </summary>
     public bool BasisRulesHaveRedundancy { get; init; }
 
-    #region Change log management.
+#region Change log management.
 
     public enum AddDecision
     {
@@ -64,8 +64,8 @@ public class Universe
 
     public IReadOnlyList<IReadOnlyList<ChangeLogEntry>> ChangeLog => _ChangeLog;
 
-    #endregion
-    #region Rule addition and list management.
+#endregion
+#region Rule addition and list management.
 
     private (AddDecision, List<Rule>?) AddRule(Rule r)
     {
@@ -89,6 +89,7 @@ public class Universe
     private static (AddDecision, List<Rule>?) AddRuleToList<T>(T rule, List<T> ruleList) where T : Rule
     {
         List<Rule> othersImplied = new();
+        /*
         foreach (T rb in ruleList)
         {
             if (rb.CanImply(rule, out SigmaMap? _))
@@ -100,6 +101,7 @@ public class Universe
                 othersImplied.Add(rb);
             }
         }
+        */
         if (othersImplied.Count > 0)
         {
             foreach (T implied in othersImplied)
@@ -123,7 +125,7 @@ public class Universe
 
     public int RuleCount => _ConsistentRules.Count + _TransferringRules.Count;
 
-    #endregion
+#endregion
 
     public record StatusReporter(Action OnStart, Action<Status> OnMessage, Action OnEnd);
 
@@ -224,76 +226,9 @@ public class Universe
             reporter.OnMessage(addRuleStatus with { CompositionsAdded = rulesAddAttemptCount });
         });
 
-        // 2. Attempt state unification.
-        Status stateUnifStatus = addRuleStatus with
-        {
-            StatusDescription = "Attempting state unifications…",
-            CompositionsAdded = rulesAddAttemptCount 
-        };
-        int stateUnificationsFound = 0;
-        newRules.Clear();
-        foreach (StateConsistentRule possUnif in _ConsistentRules)
-        {
-            if (possUnif.ResultIsTerminating)
-            {
-                newRules.AddRange(possUnif.GenerateStateUnifications());
-                stateUnificationsFound++;
-                if (stateUnificationsFound % ReportEveryCount == 100)
-                {
-                    reporter.OnMessage(stateUnifStatus with { StateUnificationsFound = stateUnificationsFound });
-                    await Task.Delay(1);
-                }
-            }
-        }
-        reporter.OnMessage(stateUnifStatus with { StateUnificationsFound = stateUnificationsFound });
-        Status addUnifiedRulesStatus = stateUnifStatus with 
-        { 
-            StatusDescription = $"Attempting to add {newRules.Count} unifications to rules ({RuleCount})…",
-            StateUnificationsFound = stateUnificationsFound
-        };
-        rulesAddAttemptCount = 0;
-        await AddRules(newRules, (int latestRuleAddAttemptCount) =>
-        {
-            rulesAddAttemptCount = latestRuleAddAttemptCount;
-            reporter.OnMessage(addUnifiedRulesStatus with { StateUnificationsAdded = rulesAddAttemptCount });
-        });
+        // 2. Attempt state unification - Removed in preparation for new solver.
 
-        // 3. Attempt state transformation.
-        newRules.Clear();
-        Status stateTransStatus = addUnifiedRulesStatus with
-        {
-            StatusDescription = "Attempting state transformations…",
-            StateUnificationsAdded = rulesAddAttemptCount
-        };
-        int stateTransformationsFound = 0;
-        foreach (StateTransferringRule str in _TransferringRules)
-        {
-            foreach (StateConsistentRule scr in _ConsistentRules)
-            {
-                StateConsistentRule? newRule = str.Transform(scr);
-                if (newRule != null)
-                {
-                    newRules.Add(newRule);
-                    stateTransformationsFound++;
-                    if (stateTransformationsFound % ReportEveryCount == 100)
-                    {
-                        reporter.OnMessage(stateTransStatus with { StateTransformationsFound = stateTransformationsFound });
-                        await Task.Delay(1);
-                    }
-                }
-            }
-        }
-        stateTransStatus = stateTransStatus with
-        {
-            StatusDescription = $"Adding {newRules.Count} state transformations to ruleset ({RuleCount})…",
-            StateTransformationsFound = stateTransformationsFound
-        };
-        rulesAddAttemptCount = 0;
-        await AddRules(newRules, (int latestRuleAddAttemptCount) =>
-        {
-            rulesAddAttemptCount = latestRuleAddAttemptCount;
-            reporter.OnMessage(stateTransStatus with { StateTransformationsAdded = rulesAddAttemptCount });
-        });
+        // 3. Attempt state transformation - Removed in preparation for new solver.
 
         // 4. Attempt state instantiation.
         // FIXME: Actually implement based on the new items in N.

@@ -96,28 +96,7 @@ public class SnapshotTree
         return CloneTreeWithReplacementEvents(replacements, substitutions);
     }
 
-    private List<Snapshot> CloneTraces()
-    {
-        Dictionary<string, Snapshot> ssByRef = new();
-
-        // Create the new structures.
-        foreach (Snapshot ss in OrderedList)
-        {
-            ssByRef[ss.Label!] = new(ss);
-        }
-
-        // Stitch the new structures together.
-        foreach (Snapshot ss in OrderedList)
-        {
-            Snapshot newSS = ssByRef[ss.Label!];
-            foreach ((Snapshot prevItem, Snapshot.Ordering ord) in ss._PriorSnapshots)
-            {
-                newSS._PriorSnapshots.Add((ssByRef[prevItem.Label!], ord));
-            }
-        }
-
-        return new(from t in _Traces select ssByRef[t.Label!]);
-    }
+    private List<Snapshot> CloneTraces() => new(from t in _Traces select t.CloneTrace());
 
     public SnapshotTree MergeWith(SnapshotTree otherTree)
     {
@@ -131,7 +110,7 @@ public class SnapshotTree
     }
 
     /// <summary>
-    /// Attempts to fold states together to remove unnecessary variables.
+    /// Attempts to fold states together to remove unnecessary variables at the tail of the traces.
     /// </summary>
     /// <param name="g">Guard statements.</param>
     /// <returns>
@@ -141,24 +120,23 @@ public class SnapshotTree
     /// </returns>
     public (SnapshotTree?, SigmaFactory?) TryCompress(Guard g)
     {
-        List<Snapshot> flat = new(OrderedList);
-        bool compressFound = false;
         SigmaFactory sf = new();
-        for (int i = 0; i < flat.Count; i++)
+        bool found = false;
+        List<Snapshot> newTraces = new();
+        foreach (Snapshot t in _Traces)
         {
-            Snapshot current = flat[i];
-            Snapshot? compressed = flat[i].TryCompress(g, sf);
+            Snapshot? compressed = t.TryCompress(g, sf);
             if (compressed != null)
             {
-                // For the compress operation to succeed, there must be a single predecessor.
-                (Snapshot prevSS, Snapshot.Ordering _) = current.PriorSnapshots[0];
-                flat[i] = compressed; // Remove the old and replace with the new.
-                flat.Remove(prevSS);
-                compressFound = true;
-                i--; // flat.Remove would remove an element before i.
+                found = true;
+                newTraces.Add(compressed);
+            }
+            else
+            {
+                newTraces.Add(t);
             }
         }
-        return compressFound ? (new(flat), sf) : (null, null);
+        return found ? (new(newTraces), sf) : (null, null);
     }
 
     #endregion
@@ -168,25 +146,6 @@ public class SnapshotTree
     public IReadOnlyList<Snapshot> Traces => _Traces;
 
     public bool IsEmpty => _Traces.Count == 0;
-
-    public bool IsUnified
-    {
-        get
-        {
-            if (_Traces.Count <= 1)
-            {
-                return true;
-            }
-            for (int i = 0; i < _Traces.Count - 1; i++)
-            {
-                if (!Snapshot.AreUnified(_Traces[i], _Traces[i + 1]))
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-    }
 
     public void AddTrace(Snapshot ss)
     {
@@ -262,139 +221,16 @@ public class SnapshotTree
 
     public List<Snapshot> GetSnapshotsAssociatedWith(Event ev)
     {
-        Stack<Snapshot> ssStack = new();
-        // Reverse order to maintain final ordering similar to that of traces.
-        for (int i = _Traces.Count - 1; i >= 0; i--)
+        List<Snapshot> foundSS = new();
+        foreach (Snapshot t in _Traces)
         {
-            ssStack.Push(_Traces[i]);
+            t.CollectSnapshotsAssociatedWith(ev, foundSS);
         }
-
-        List<Snapshot> found = new();
-        while (ssStack.Count > 0)
-        {
-            Snapshot next = ssStack.Pop();
-            if (next.AssociatedPremises.Contains(ev))
-            {
-                found.Add(next);
-            }
-            for (int i = next.PriorSnapshots.Count - 1; i >= 0; i--)
-            {
-                ssStack.Push(next.PriorSnapshots[i].S);
-            }
-        }
-        return found;
-    }
-
-    internal bool HasLoop()
-    {
-        List<Snapshot> flattened = FlattenedSnapshotList;
-        for (int i = 0; i < flattened.Count; i++)
-        {
-            flattened[i].Tag = i;
-        }
-        foreach (Snapshot startSS in flattened)
-        {
-            bool[] found = new bool[flattened.Count];
-            Stack<Snapshot> toProcess = new();
-            toProcess.Push(startSS);
-            while (toProcess.Count > 0)
-            {
-                Snapshot ss = toProcess.Pop();
-                if (found[ss.Tag])
-                {
-                    // Has been encountered before.
-                    return true;
-                }
-                found[ss.Tag] = true;
-                foreach ((Snapshot prevSS, Snapshot.Ordering _) in ss._PriorSnapshots)
-                {
-                    toProcess.Push(prevSS);
-                }
-            }
-        }
-        return false;
+        return foundSS;
     }
 
     #endregion
     #region Snapshot Tree Operations
-
-    /// <summary>
-    /// Determines whether the current tree could imply the given tree using the given substitutions. 
-    /// This is typically part of a larger rule implication function, with the substitutions limited
-    /// by the results of the rule. The full definition and reasoning behind this method is given in
-    /// the thesis, and replaces the operation of (((M * O) · σ ⊆ (M' * O')) ∧ (δ(O) · σ ⊆ δ(O'))) 
-    /// in Definition 4 of Li et al 2017.
-    /// </summary>
-    public bool CanImply(SnapshotTree other, SigmaMap substitutions)
-    {
-        SnapshotTree p = substitutions.IsEmpty ? this : PerformSubstitutions(substitutions);
-
-        foreach (Snapshot pt in p._Traces)
-        {
-            bool found = false;
-            foreach (Snapshot ot in other._Traces)
-            {
-                if(pt.CanImplyTrace(Snapshot.Ordering.LaterThan, ot, Snapshot.Ordering.LaterThan, new()))
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found)
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public SnapshotTree? TryActivateTransfersUpon(SnapshotTree toActivate, SigmaMap sigma)
-    {
-        SnapshotTree alignedTree = PerformSubstitutions(sigma);
-        SnapshotTree other = toActivate.CloneTree();
-
-        List<(Snapshot, Snapshot)> correspondences = new();
-        // Check that the tree being used to activate the other implies the other. As part of this
-        // algorithm, the snapshot correspondences will be collected, which will allow us to add
-        // the new activations as required.
-        foreach (Snapshot at in alignedTree._Traces)
-        {
-            bool found = false;
-            foreach (Snapshot ot in other._Traces)
-            {
-                Snapshot.Ordering lt = Snapshot.Ordering.LaterThan;
-                (bool canImply, List<(Snapshot, Snapshot)> foundCorres) = at.CanImplyTraceWithCorrespondences(lt, ot, lt, new());
-                if (canImply)
-                {
-                    found = true;
-                    correspondences.AddRange(foundCorres);
-                    break;
-                }
-            }
-            if (!found)
-            {
-                return null;
-            }
-        }
-
-        foreach ((Snapshot catalyst, Snapshot ot) in correspondences)
-        {
-            if (catalyst.TransfersTo != null)
-            {
-                Snapshot newTrace = ActivateTransferSnapshot(catalyst.TransfersTo, ot);
-                other._Traces.Remove(ot);
-                other._Traces.Add(newTrace);
-            }
-        }
-        return other;
-    }
-
-    private static Snapshot ActivateTransferSnapshot(State condition, Snapshot prev)
-    {
-        Snapshot ss = new(condition);
-        ss.SetModifiedOnceLaterThan(prev);
-        return ss;
-    }
 
     internal void ActivateTransfers()
     {
@@ -435,10 +271,10 @@ public class SnapshotTree
         List<string> relationships = new();
         foreach (Snapshot ss in inOrder)
         {
-            foreach ((Snapshot prevSS, Snapshot.Ordering o) in ss.PriorSnapshots)
+            if (ss.Prior != null)
             {
-                string op = o.OperatorString();
-                relationships.Add($"{prevSS.Label} {op} {ss.Label}");
+                string op = ss.Prior.O.OperatorString();
+                relationships.Add($"{ss.Prior.S.Label} {op} {ss.Label}");
             }
         }
 

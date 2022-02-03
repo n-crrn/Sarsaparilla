@@ -61,17 +61,13 @@ public class RuleParser
     public static readonly string LaterThanOpFancy = "≤";     // Indicates a machine-output "later than" snapshot relationship.
     public static readonly string ModifiedLaterThanOp = "<@";     // Indicates a "modified once" snapshot relationship.
     public static readonly string ModifiedLaterThanOpFancy = "⋖"; // Indicates a machine-output "later than" snapshot relationship.
-    public static readonly string UnchangedOp = "~";              // Indicates an "unchanged" snapshot relationship.
-    public static readonly string UnchangedOpFancy = "～";        // Indicates a machine-output "unchanged" snapshot relationship.
 
     private static readonly string[] AllSnapshotRelationshipOps =
     {
         LaterThanOp,
         LaterThanOpFancy,
         ModifiedLaterThanOp,
-        ModifiedLaterThanOpFancy,
-        UnchangedOp,
-        UnchangedOpFancy
+        ModifiedLaterThanOpFancy
     };
 
     /// <summary>
@@ -698,6 +694,7 @@ public class RuleParser
             ssByLabel[sp.SnapshotLabel] = Factory.RegisterState(s!);
         }
 
+        Dictionary<string, List<string>> ssPreviousByLabel = new();
         // Establish relationships between snapshots.
         foreach (SnapshotRelationship sr in ssRelationships)
         {
@@ -712,13 +709,24 @@ public class RuleParser
             {
                 throw new RuleParseException(whole, $"Attempted to reference snapshot '{sr.Label2}', which does not exist.");
             }
+            if (!ssPreviousByLabel.TryGetValue(sr.Label1, out List<string>? prevToLabel1))
+            {
+                prevToLabel1 = new();
+                ssPreviousByLabel[sr.Label1] = prevToLabel1;
+            }
+            if (!ssPreviousByLabel.TryGetValue(sr.Label2, out List<string>? prevToLabel2))
+            {
+                prevToLabel2 = new();
+                ssPreviousByLabel[sr.Label2] = prevToLabel2;
+            }
             // Check that the new relationship is consistent.
-            if (ss1.OccursSometimeAfter(ss2))
+            if (prevToLabel1.Contains(sr.Label2))
             {
                 string consistMsg = $"Inconsistent ordering of snapshots: attempted to set {sr.Label1} {sr.Op} {sr.Label2} " +
                     $"when {sr.Label2} has previously been set before {sr.Label1}.";
                 throw new RuleParseException(whole, consistMsg);
             }
+            prevToLabel2.Add(sr.Label1);
             // Actually set the relationship.
             if (sr.Op == LaterThanOp || sr.Op == LaterThanOpFancy)
             {
@@ -727,10 +735,6 @@ public class RuleParser
             else if (sr.Op == ModifiedLaterThanOp || sr.Op == ModifiedLaterThanOpFancy)
             {
                 ss2.SetModifiedOnceLaterThan(ss1);
-            }
-            else if (sr.Op == UnchangedOp || sr.Op == UnchangedOpFancy)
-            {
-                ss2.SetUnifedWith(ss1);
             }
             else
             {

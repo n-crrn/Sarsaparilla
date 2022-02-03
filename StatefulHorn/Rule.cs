@@ -65,31 +65,71 @@ public abstract class Rule
     // The following tuple is of form Snapshot, Trace Index, Offset Index with Trace.
     protected List<(Snapshot, int, int)>? DetermineSnapshotCorrespondencesWith(Rule other, Guard g, SigmaFactory sf)
     {
-        List<(Snapshot, int, int)> overallCorres = new();
-        List<Trace> thisTraces = new(from t in Snapshots.Traces select new Trace(t));
-        List<Trace> ruleTraces = new(from t in other.Snapshots.Traces select new Trace(t));
+        List<(Snapshot, int, int)>? overallCorres = new();
 
-        foreach (Trace t in thisTraces)
+        foreach (Snapshot ss in Snapshots.Traces)
         {
             bool found = false;
-            for (int rtI = 0; rtI < ruleTraces.Count; rtI++)
+            for (int otherTraceI = 0; otherTraceI < other.Snapshots.Traces.Count; otherTraceI++)
             {
-                Trace rt = ruleTraces[rtI];
-                List<(Snapshot, int)>? corres = t.IsUnifiableWith(ruleTraces[rtI], g, sf);
+                Snapshot otherTrace = other.Snapshots.Traces[otherTraceI];
+                List<(Snapshot, int, int)>? corres = IsTraceUnifiableWith(ss, otherTrace, otherTraceI, g, sf);
                 if (corres != null)
                 {
                     found = true;
-                    overallCorres.Add((t.Header, rtI, 0));
-                    overallCorres.AddRange(from c in corres select (c.Item1, rtI, c.Item2));
+                    overallCorres.Add((ss, otherTraceI, 0));
+                    overallCorres.AddRange(corres);
                     break;
                 }
             }
             if (!found)
             {
-                return null;
+                overallCorres = null;
+                break;
             }
         }
+
         return overallCorres;
+    }
+
+    private static List<(Snapshot, int, int)>? IsTraceUnifiableWith(Snapshot ss1, Snapshot ss2, int traceId, Guard g, SigmaFactory sf)
+    {
+        List<(Snapshot, int, int)>? matches = null;
+        if (ss1.Condition.Name == ss2.Condition.Name && ss1.Condition.CanBeUnifiableWith(ss2.Condition, g, sf))
+        {
+            matches = new();
+            Snapshot.PriorLink? prior1 = ss1.Prior;
+            Snapshot.PriorLink? prior2 = ss2.Prior;
+            int offset = 1;
+            while (prior1 != null)
+            {
+                if (prior2 == null)
+                {
+                    return null;
+                }
+                if (prior1.O == prior2.O && prior1.S.Condition.CanBeUnifiableWith(prior2.S.Condition, g, sf))
+                {
+                    matches.Add(new(prior1.S, traceId, offset));
+                    prior1 = prior1.S.Prior;
+                    prior2 = prior2.S.Prior;
+                }
+                else if (prior1.O == Snapshot.Ordering.LaterThan && prior2.O == Snapshot.Ordering.ModifiedOnceAfter)
+                {
+                    if (prior1.S.Condition.CanBeUnifiableWith(prior2.S.Condition, g, sf))
+                    {
+                        matches.Add(new(prior1.S, traceId, offset));
+                        prior1 = prior1.S.Prior;
+                        prior2 = prior2.S.Prior;
+                    }
+                    else
+                    {
+                        prior2 = prior2.S.Prior;
+                    }
+                }
+                offset++;
+            }
+        }
+        return matches;
     }
 
     #region Basic object overrides.
@@ -104,34 +144,6 @@ public abstract class Rule
                _Premises.SetEquals(otherRule._Premises) &&
                Snapshots.Equals(otherRule.Snapshots) &&
                GuardStatements.Equals(otherRule.GuardStatements);
-    }
-
-    private bool PremisesEqual(List<Event> other)
-    {
-        if (_Premises.Count != other.Count)
-        {
-            return false;
-        }
-
-        bool missed = false;
-        foreach (Event ev in other)
-        {
-            bool found = false;
-            foreach (Event premiseEv in _Premises)
-            {
-                if (premiseEv.Equals(ev))
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found)
-            {
-                missed = true;
-                break;
-            }
-        }
-        return !missed;
     }
 
     private int HashCode = 0;
@@ -205,41 +217,6 @@ public abstract class Rule
         return CreateDerivedRule(Label, GuardStatements, new(Premises), Snapshots.CloneTree(), SigmaMap.Empty);
     }
 
-    public bool CanImply(Rule other, out SigmaMap? sigma)
-    {
-        if (_Premises.Count > other._Premises.Count)
-        {
-            // This rule simply cannot imply the other.
-            sigma = null;
-            return false;
-        }
-
-        // Can we substitute for the result?
-        Guard combinedGuard = GuardStatements.UnionWith(other.GuardStatements);
-        SigmaFactory possReplacements = new(false);
-        if (Result.CanBeUnifiedTo(other.Result, combinedGuard, possReplacements))
-        {
-            List<ISigmaUnifiable> premsStates = new(_Premises);
-            premsStates.AddRange(Snapshots.States);
-
-            List<ISigmaUnifiable> otherPremsStates = new(other._Premises);
-            otherPremsStates.AddRange(other.Snapshots.States);
-
-            if (UnifyUtils.IsUnifiedToSubset(premsStates, otherPremsStates, combinedGuard, possReplacements))
-            {
-                sigma = possReplacements.CreateForwardMap();
-                bool finalCheck = Snapshots.CanImply(other.Snapshots, sigma);
-                if (!finalCheck)
-                {
-                    sigma = null;
-                }
-                return finalCheck;
-            } 
-        }
-        sigma = null;
-        return false;
-    }
-
     #endregion
     #region Filtering
 
@@ -294,7 +271,7 @@ public abstract class Rule
             IReadOnlyList<Snapshot> orderedSS = Snapshots.OrderedList;
             foreach (Snapshot ss in orderedSS)
             {
-                foreach (Event ev in ss.AssociatedPremises)
+                foreach (Event ev in ss.Premises)
                 {
                     int idx = premiseList.IndexOf(ev);
                     if (idx < 0)

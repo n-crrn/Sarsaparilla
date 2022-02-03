@@ -73,10 +73,8 @@ public class ParseTests
     [TestMethod]
     public void FancyOperatorsCheck()
     {
-        string plain = "-[ (SD(init[]), a0), (SD(next[]), a1), (SD(further[]), a2), (SD(final), a3) " + 
-            ": {a0 =< a1, a1 <@ a2, a2 ~ a3} ]-> know(final)";
-        string fancy = "-[ (SD(init[]), a0), (SD(next[]), a1), (SD(further[]), a2), (SD(final), a3) " +
-            ": {a0 ≤ a1, a1 ⋖ a2, a2 ～ a3} ]-> know(final)";
+        string plain = "-[ (SD(init[]), a0), (SD(next[]), a1), (SD(further[]), a2) : {a0 =< a1, a1 <@ a2} ]-> know(final)";
+        string fancy = "-[ (SD(init[]), a0), (SD(next[]), a1), (SD(further[]), a2) : {a0 ≤ a1, a1 ⋖ a2} ]-> know(final)";
 
         RuleParser parser = new();
         Rule plainRule = parser.Parse(plain);

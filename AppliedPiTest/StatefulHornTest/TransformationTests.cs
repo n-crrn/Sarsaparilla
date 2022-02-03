@@ -19,7 +19,7 @@ public class TransformationTests
     {
         string translateSrc = "k(x)(a0) -[ (SD(init[]), a0) ]-> <a0: SD(x)>";
         string opSrc = "k(test[])(a0) -[ (SD(init[]), a0) ]-> k(enc(test[]))";
-        string expectedSrc = "k(test[])(a0) -[ (SD(init[]), a0), (SD(test[]), a1) : {a0 <@ a1} ]-> k(enc(test[]))";
+        string expectedSrc = "k(test[])(a0), k(x)(a0) -[ (SD(init[]), a0), (SD(x), a1) : {a0 <@ a1} ]-> k(enc(test[]))";
         DoTransformationTest(translateSrc, opSrc, expectedSrc);
     }
 
@@ -44,7 +44,7 @@ public class TransformationTests
         string transformSrc = "k(x)(d1) -[ (SD(init[]), d0), (SD(m), d1) : { d0 =< d1} ]-> <d1: SD(h(m, x))>";
         string opSrc = "-[ (SD(init[]), c0), (SD(m), c1) : { c0 =< c1} ]-> k(m)";
         string expectedSrc = "k(x)(a1) -[ (SD(init[]), a0), (SD(m), a1), (SD(h(m, x)), a2) : {a0 =< a1, a1 <@ a2} ]-> k(m)";
-        DoUpdatedTransformationTest(transformSrc, opSrc, expectedSrc);
+        DoTransformationTest(transformSrc, opSrc, expectedSrc);
     }
 
     private void DoTransformationTest(string transformSrc, string opSrc, string expectedSrc)
@@ -53,18 +53,7 @@ public class TransformationTests
         StateConsistentRule opRule = Parser.ParseStateConsistentRule(opSrc);
         StateConsistentRule expectedRule = Parser.ParseStateConsistentRule(expectedSrc);
 
-        StateConsistentRule? transformedRule = transferRule.Transform(opRule);
-        Assert.AreEqual(expectedRule, transformedRule, "Transformed rule not as expected.");
-    }
-
-    private void DoUpdatedTransformationTest(string transformSrc, string opSrc, string expectedSrc)
-    {
-        StateTransferringRule transferRule = Parser.ParseStateTransferringRule(transformSrc);
-        StateConsistentRule opRule = Parser.ParseStateConsistentRule(opSrc);
-        StateConsistentRule expectedRule = Parser.ParseStateConsistentRule(expectedSrc);
-
         StateConsistentRule? transformedRule = transferRule.TryTransform(opRule);
         Assert.AreEqual(expectedRule, transformedRule, "Transformed rule not as expected.");
     }
-
 }
