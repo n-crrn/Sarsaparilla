@@ -92,7 +92,7 @@ public class Nession
 
     public Nession Substitute(SigmaMap map) => new(from f in History select f.Substitute(map));
 
-    public (Nession?, bool) TryApplyTransfer(StateTransferringRule r)
+    public Nession? TryApplyTransfer(StateTransferringRule r)
     {
         if (CanApplyRuleAt(r, History.Count - 1, out SigmaFactory? sf))
         {
@@ -100,15 +100,14 @@ public class Nession
             SigmaMap fwdMap = sf.CreateForwardMap();
             SigmaMap bwdMap = sf.CreateBackwardMap();
 
-            bool newNessionRequired = !fwdMap.IsEmpty;
-            Nession updated = newNessionRequired ? Substitute(fwdMap) : this;
+            Nession updated = Substitute(fwdMap);
 
             StateTransferringRule updatedRule = (StateTransferringRule)r.PerformSubstitution(bwdMap);
             updated.History.Add(new(new(updatedRule.Premises), updated.CreateStateSetOnTransfer(updatedRule), new()));
 
-            return (updated, newNessionRequired);
+            return updated;
         }
-        return (null, false);
+        return null;
     }
 
     private HashSet<State> CreateStateSetOnTransfer(StateTransferringRule r)
