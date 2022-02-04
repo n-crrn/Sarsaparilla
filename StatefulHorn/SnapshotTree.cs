@@ -229,6 +229,26 @@ public class SnapshotTree
         return foundSS;
     }
 
+    public int MaxTraceLength
+    {
+        get
+        {
+            int length = 0;
+            for (int i = 0; i < _Traces.Count; i++)
+            {
+                int traceLength = 1;
+                Snapshot ss = _Traces[i];
+                while (ss.Prior != null)
+                {
+                    traceLength++;
+                    ss = ss.Prior.S;
+                }
+                length = Math.Max(length, traceLength);
+            }
+            return length;
+        }
+    }
+
     #endregion
     #region Snapshot Tree Operations
 
