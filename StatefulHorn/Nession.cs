@@ -35,6 +35,22 @@ public class Nession
         History.AddRange(frames);
     }
 
+    public static Nession FromRule(Rule r)
+    {
+        if (r is StateConsistentRule scr)
+        {
+            return new(scr);
+        }
+        else if (r is StateTransferringRule str)
+        {
+            return new(str);
+        }
+        else
+        {
+            throw new NotImplementedException($"Rule type '{r.GetType()}' is not StateConsistentRule or StateTransferringRule is not supported.");
+        }
+    }
+
     #region Properties.
 
     public record Frame(HashSet<Event> Premises, HashSet<State> StateSet, HashSet<Event> Results)

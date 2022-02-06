@@ -60,6 +60,8 @@ public abstract class Rule
         }
     }
 
+    public IEnumerable<Event> NonceDeclarations => from p in _Premises where p.EventType == Event.Type.New select p;
+
     #endregion
 
     // The following tuple is of form Snapshot, Trace Index, Offset Index with Trace.
