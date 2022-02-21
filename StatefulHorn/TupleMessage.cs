@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace StatefulHorn;
@@ -24,6 +25,28 @@ public class TupleMessage : IMessage
     private readonly List<IMessage> _Members;
     public IReadOnlyList<IMessage> Members => _Members;
 
+    public IEnumerable<IMessage> Decompose()
+    {
+        foreach (IMessage m in _Members)
+        {
+            if (m is TupleMessage tMsg)
+            {
+                foreach (IMessage innerMessage in tMsg.Decompose())
+                {
+                    yield return innerMessage;
+                }
+            }
+            else
+            {
+                yield return m;
+            }
+        }
+    }
+
+    #region IMessage implementation.
+
+    public int FindMaximumDepth() => (from m in _Members select m.FindMaximumDepth()).Max();
+
     public bool ContainsVariables { get; init; }
 
     public void CollectVariables(HashSet<IMessage> varSet)
@@ -31,6 +54,18 @@ public class TupleMessage : IMessage
         foreach(IMessage msg in _Members)
         {
             msg.CollectVariables(varSet);
+        }
+    }
+
+    public void CollectMessages(HashSet<IMessage> msgSet, Predicate<IMessage> selector)
+    {
+        if (selector(this))
+        {
+            msgSet.Add(this);
+        }
+        foreach (IMessage msg in _Members)
+        {
+            msg.CollectMessages(msgSet, selector);
         }
     }
 
@@ -49,6 +84,8 @@ public class TupleMessage : IMessage
         }
         return false;
     }
+
+    public bool ContainsFunctionNamed(string name) => (from m in _Members where m.ContainsFunctionNamed(name) select m).Any();
 
     public bool DetermineUnifiedToSubstitution(IMessage other, Guard gs, SigmaFactory sf)
     {
@@ -75,6 +112,9 @@ public class TupleMessage : IMessage
         return new TupleMessage(new(from m in _Members select m.PerformSubstitution(sigma)));
     }
 
+    #endregion
+    #region Basic object overrides.
+
     public override string ToString() => "<" + string.Join(", ", _Members) + ">";
 
     public override bool Equals(object? obj)
@@ -86,4 +126,5 @@ public class TupleMessage : IMessage
 
     public override int GetHashCode() => HashCode; //_Members[0].GetHashCode();
 
+    #endregion
 }

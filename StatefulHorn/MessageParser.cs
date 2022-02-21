@@ -25,7 +25,25 @@ public static class MessageParser
     public static (State? S, string? Error) TryParseState(string input)
     {
         (Result? rc, string? err) = TryParse(input, "state");
-        return err == null ? (new(rc!.Container, rc.Messages[0]), null) : (null, err);
+        if (rc != null)
+        {
+            if (rc.Messages.Count > 1)
+            {
+                return (null, $"A state can only contain one message, {rc.Messages.Count} provided.");
+            }
+            return (new(rc.Container, rc.Messages[0]), null);
+        }
+        return (null, err);
+    }
+
+    public static State ParseState(string input)
+    {
+        (State? s, string? err) = TryParseState(input);
+        if (s == null)
+        {
+            throw new ArgumentException($"Invalid state {input}: {err!}");
+        }
+        return s;
     }
 
     public static readonly string LongKnowContainer = "know";
@@ -38,6 +56,8 @@ public static class MessageParser
     public static readonly string ShortAcceptContainer = "a";
     public static readonly string LongLeakContainer = "leak";
     public static readonly string ShortLeakContainer = "l";
+    public static readonly string LongMakeContainer = "make";
+    public static readonly string ShortMakeContainer = "m";
 
     public static readonly List<string> EventContainers = new() {
         LongKnowContainer,
@@ -49,7 +69,9 @@ public static class MessageParser
         LongAcceptContainer,
         ShortAcceptContainer,
         LongLeakContainer,
-        ShortLeakContainer
+        ShortLeakContainer,
+        LongMakeContainer,
+        ShortMakeContainer
     };
 
     /// <summary>
@@ -114,6 +136,14 @@ public static class MessageParser
                     return (null, "Only one message can be leaked at a time.");
                 }
                 return (Event.Leak(rc.Messages[0]), null);
+            case "make":
+            case "m":
+                if (rc.Messages.Count != 1)
+                {
+                    string errMsg = rc.Messages.Count == 0 ? "There must be a message to make." : "Only one message can be made at a time.";
+                    return (null, errMsg);
+                }
+                return (Event.Make(rc.Messages[0]), null);
             default:
                 return (null, $"Unrecognised event '{rc.Container}'.");
         }

@@ -1,10 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace StatefulHorn;
 
 public interface IMessage
 {
     public string ToString();
+
+    public int FindMaximumDepth();
 
     /// <summary>
     /// Indicates whether the value of a message will change if a substitution is performed.
@@ -14,7 +17,11 @@ public interface IMessage
 
     public void CollectVariables(HashSet<IMessage> varSet);
 
+    public void CollectMessages(HashSet<IMessage> msgSet, Predicate<IMessage> selector);
+
     public bool ContainsMessage(IMessage other);
+
+    public bool ContainsFunctionNamed(string funcName);
 
     /// <summary>
     /// Calculates the σ mapping from this message to other such that this ↝_σ other. That is,

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace StatefulHorn;
 
@@ -12,9 +13,21 @@ public abstract class BasicMessage : IMessage
 
     public string Name { get; init; }
 
+    public int FindMaximumDepth() => 1;
+
     public abstract bool ContainsVariables { get; }
 
+    public bool ContainsFunctionNamed(string name) => false;
+
     public virtual void CollectVariables(HashSet<IMessage> varSet) { /* Nothing to do. */ }
+
+    public void CollectMessages(HashSet<IMessage> msgSet, Predicate<IMessage> selector)
+    {
+        if (selector(this))
+        {
+            msgSet.Add(this);
+        }
+    }
 
     public bool ContainsMessage(IMessage other)
     {

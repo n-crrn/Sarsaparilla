@@ -4,6 +4,11 @@ namespace StatefulHorn;
 
 public class NameMessage : BasicMessage
 {
+    /// <summary>
+    /// A resolved named message used as a placeholder for any valid NameMessage.
+    /// </summary>
+    public static readonly NameMessage Any = new("Any");
+
     public NameMessage(string n) : base(n) { }
 
     public override bool ContainsVariables => false;

@@ -19,6 +19,14 @@ public class StateConsistentRule : Rule
 
     protected override string DescribeResult() => Result.ToString();
 
+    /// <summary>
+    /// When a rule is added to a set of rules, it may receive a unique identifier to speed up 
+    /// the determination of identical rules. Valid tag values are equal to or greater than zero.
+    /// </summary>
+    public int IdTag { get; set; } = -1;
+
+    public bool MatchesTagOf(StateConsistentRule other) => other.IdTag == IdTag && IdTag != -1;
+
     #region Filtering.
 
     protected override bool ResultContainsMessage(IMessage msg) => Result.ContainsMessage(msg);
@@ -276,7 +284,9 @@ public class StateConsistentRule : Rule
         return new($"comp({Label})", GuardStatements, newPremises, newTree, updatedResult);
     }
 
-    public List<NonceMessage> NewNonces => (from p in _Premises where p.IsNew select (NonceMessage)p.Messages[0]).ToList();
+    public List<NonceMessage> NewNonces => (from p in _Premises where p.IsNew select (NonceMessage)p.Messages.Single()).ToList();
+
+    public IEnumerable<Event> NewEvents => from p in _Premises where p.IsNew select p;
 
     public bool CanComposeWith(StateConsistentRule r, out SigmaFactory? sf, out List<(Snapshot, int, int)>? overallCorrespondence)
     {

@@ -2,30 +2,41 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace StatefulHorn;
 
 public class QueryEngine
 {
-
-    public QueryEngine(IMessage q, List<Rule> userRules)
+    public QueryEngine(HashSet<State> states, IMessage q, State? when, IEnumerable<Rule> userRules)
     {
+        StateSet = states;
         Query = q;
+        When = when;
 
-        // Filter rules and store in their appropriate buckets.
+        if (q.ContainsVariables)
+        {
+            string msg = $"Query message ({q}) contains variables - variables are not currently supported in the query.";
+            throw new ArgumentException(msg);
+        }
+
+        BasicFacts = new();
+        KnowledgeRules = new();
+        SystemRules = new();
+        TransferringRules = new();
+
         foreach (Rule r in userRules)
         {
             if (r is StateConsistentRule scr)
             {
                 if (scr.IsFact)
                 {
-                    FactRules.Add(scr);
+                    BasicFacts.Add(scr.Result.Messages.Single());
                 }
-                else if (scr.IsStateless)
+                else if (scr.Snapshots.IsEmpty && !scr.NonceDeclarations.Any() && !scr.NoncesRequired.Any())
                 {
-                    KnowledgeRules.Add(scr);
+                    HornClause? kr = HornClause.FromStateConsistentRule(scr);
+                    Debug.Assert(kr != null);
+                    KnowledgeRules.Add(kr);
                 }
                 else
                 {
@@ -38,389 +49,330 @@ public class QueryEngine
             }
             else
             {
-                throw new NotImplementedException("Unknown rule type.");
+                throw new NotImplementedException($"Unknown rule type '{r.GetType()}'");
             }
         }
-
-        EstablishFacts();
-        InitialElaborate();
     }
+
+    #region Setup properties.
+
+    public HashSet<State> StateSet { get; init; }
 
     public IMessage Query { get; init; }
 
-    public HashSet<StateConsistentRule> FactRules { get; } = new();
+    public State? When { get; init; }
 
-    public HashSet<StateConsistentRule> KnowledgeRules { get; } = new();
+    public HashSet<IMessage> BasicFacts { get; init; }
 
-    public HashSet<StateConsistentRule> SystemRules { get; } = new();
+    public HashSet<HornClause> KnowledgeRules { get; init; }
 
-    public IEnumerable<StateConsistentRule> ConsistentRules()
+    public HashSet<StateConsistentRule> SystemRules { get; init; }
+
+    public HashSet<StateTransferringRule> TransferringRules { get; init; }
+
+    #endregion
+    #region Knowledge and rule elaboration.
+
+    public QueryResult Execute()
     {
-        foreach (StateConsistentRule r in FactRules)
+        if (BasicFacts.Contains(Query))
         {
-            yield return r;
+            return QueryResult.BasicFact(Query);
         }
-        foreach (StateConsistentRule r in KnowledgeRules)
+
+        // If there are multiple nonces in the query, then we need to consider rules
+        // nession by nession.
+        NessionManager nm = new(StateSet, SystemRules.ToList(), TransferringRules.ToList());
+        List<(Nession, HashSet<HornClause>)> nessionClauses = new();
+        nm.GenerateHornClauseSet(When, nessionClauses);
+        foreach ((Nession n, HashSet<HornClause> clauseSet) in nessionClauses)
         {
-            yield return r;
-        }
-        foreach (StateConsistentRule r in SystemRules)
-        {
-            yield return r;
-        }
-    }
+            Console.WriteLine(n);
+            HashSet<HornClause> fullNessionSet = new(KnowledgeRules);
+            fullNessionSet.UnionWith(clauseSet);
 
-    public List<StateTransferringRule> TransferringRules { get; } = new();
-
-    public IEnumerable<Rule> Rules()
-    {
-        foreach (Rule r in ConsistentRules())
-        {
-            yield return r;
-        }
-        foreach (Rule r in TransferringRules)
-        {
-            yield return r;
-        }
-    }
-
-    public List<StateConsistentRule> MatchingRules { get; } = new();
-
-    public Dictionary<IMessage, HashSet<StateConsistentRule>> RulesByFact = new();
-
-    public HashSet<IMessage> Facts { get; } = new();
-    
-    private void EstablishFacts()
-    {
-        foreach (StateConsistentRule scr in FactRules)
-        {
-            IMessage resultMsg = scr.Result.Messages[0];
-            Facts.Add(resultMsg);
-            TryAddToKnownFacts(Facts, resultMsg, scr);
-        }
-    }
-
-    private HashSet<IMessage> NextGenFacts = new();
-
-    private readonly HashSet<StateConsistentRule> NextGenSystemRules = new();
-
-    private void InitialElaborate()
-    {
-        // Two runs are conducted here for knowledge introduction. The first is to attempt
-        // to replace whole premises
-        // with known, compound facts. This allows for the extraction of contained facts
-        // within those compound facts. The second run will directly replace variables with
-        // facts one-to-one.
-
-        HashSet<StateConsistentRule> newRules = new();
-        List<IMessage> compoundFacts = new(from f in Facts where f is FunctionMessage || f is TupleMessage select f);
-        foreach (StateConsistentRule stateless in KnowledgeRules)
-        {
-            if (stateless.HasPremiseVariables)
+            Console.WriteLine("--------------------------------");
+            HashSet<HornClause> finNessionSet = ElaborateAndDetuple(fullNessionSet);
+            DescribeExecutionState(BasicFacts, finNessionSet);
+            
+            QueryResult qr = CheckQuery(Query, BasicFacts, finNessionSet, new(new(), new()));
+            if (qr.Found)
             {
-                foreach (IMessage cFact in compoundFacts)
+                qr.AddSession(n);
+                return qr;
+            }
+            Console.WriteLine("=====================================================");
+        }
+        return QueryResult.Failed(Query, When);
+    }
+
+    private static HashSet<HornClause> ElaborateAndDetuple(HashSet<HornClause> fullRuleset)
+    {
+        HashSet<HornClause> newRules = new();
+
+        // === Compose where possible ===
+        HashSet<HornClause> complexResults = new(from r in fullRuleset where r.ComplexResult select r);
+        HashSet<HornClause> simpleResults = new(from r in fullRuleset where !r.ComplexResult select r);
+        HashSet<HornClause> newRuleset = new();
+        foreach (HornClause cr in complexResults)
+        {
+            foreach (HornClause sr in simpleResults)
+            {
+                List<HornClause>? composed = cr.ComposeUpon(sr);
+                if (composed != null)
                 {
-                    foreach (Event premise in stateless.Premises)
-                    {
-                        SigmaFactory sf = new();
-                        if (premise.IsKnow && premise.Messages[0].DetermineUnifiedToSubstitution(cFact, stateless.GuardStatements, sf))
-                        {
-                            StateConsistentRule ruleToAdd = (StateConsistentRule)stateless.PerformSubstitution(sf.CreateForwardMap());
-                            if (newRules.Add(ruleToAdd))
-                            {
-                                NextGenFacts.Add(ruleToAdd.Result.Messages[0]);
-                            }
-                        }
-                    }
+                    newRuleset.UnionWith(composed);
                 }
             }
         }
-        KnowledgeRules.UnionWith(newRules);
-        newRules.Clear();
+        fullRuleset.UnionWith(fullRuleset);
 
-        foreach (StateConsistentRule stateless in KnowledgeRules)
+        bool found = newRuleset.Count > 0;
+        while (found)
         {
-            List<IMessage> ruleVariables = stateless.PremiseVariables.ToList();
-            if (ruleVariables.Count > 0)
+            Console.WriteLine("Commencing elaboration...");
+
+            HashSet<HornClause> addedComplex = new(from r in newRuleset where r.ComplexResult select r);
+            HashSet<HornClause> addedSimple = new(from r in newRuleset where !r.ComplexResult select r);
+            complexResults.UnionWith(addedComplex);
+            simpleResults.UnionWith(addedSimple);
+
+            foreach (HornClause cr in complexResults)
             {
-                // Direct replacement run.
-                foreach (List<IMessage> factPerm in Permutations(Facts.ToList(), ruleVariables.Count))
+                foreach (HornClause sr in simpleResults)
                 {
-                    List<(IMessage Variables, IMessage Value)> subsList = Zip(ruleVariables, factPerm);
-                    SigmaMap map = new(subsList);
-                    StateConsistentRule newRule = (StateConsistentRule)stateless.PerformFactsSubstitution(map);
-                    newRules.Add(newRule);
+                    List<HornClause>? composed = cr.ComposeUpon(sr);
+                    if (composed != null)
+                    {
+                        newRuleset.UnionWith(composed);
+                    }
+                }
+            }
+
+            int fullCount = fullRuleset.Count;
+            fullRuleset.UnionWith(newRuleset);
+            found = fullCount != fullRuleset.Count;
+        }
+
+        // === Detuple remaining rules ===
+        HashSet<HornClause> finishedRuleset = new(fullRuleset.Count);
+        foreach (HornClause hc in fullRuleset)
+        {
+            if (hc.Result is TupleMessage)
+            {
+                finishedRuleset.UnionWith(hc.DetupleResult());
+            }
+            else
+            {
+                finishedRuleset.Add(hc);
+            }
+        }
+        return finishedRuleset;
+    }
+
+    private record QueryStatus(Dictionary<IMessage, QueryResult> Proven, HashSet<IMessage> NowProving);
+
+    private QueryResult CheckQuery(
+        IMessage queryToFind,
+        HashSet<IMessage> basicFacts,
+        HashSet<HornClause> rules,
+        QueryStatus status,
+        int rank = int.MaxValue)
+    {
+        // In order to prevent stack overflows from attempting to chase queries
+        // that are already in the process of being proven, we firstly check to
+        // see if it is covered in status.
+        if (status.Proven.TryGetValue(queryToFind, out QueryResult? provenQR))
+        {
+            return provenQR;
+        }
+        if (status.NowProving.Contains(queryToFind))
+        {
+            return QueryResult.Failed(queryToFind, When);
+        }
+
+        Console.WriteLine($"Proving {queryToFind}");
+
+        status.NowProving.Add(queryToFind);
+        QueryResult qr;
+        if (BasicFacts.Contains(queryToFind))
+        {
+            qr = QueryResult.BasicFact(queryToFind, When);
+        }
+        else if (queryToFind is TupleMessage tMsg)
+        {
+            qr = CheckTupleQuery(tMsg, basicFacts, rules, status, rank);
+        }
+        else if (queryToFind is FunctionMessage fMsg)
+        {
+            qr = CheckFunctionQuery(fMsg, basicFacts, rules, status, rank);
+        }
+        else if (queryToFind is NonceMessage nMsg)
+        {
+            qr = CheckNonceQuery(nMsg, basicFacts, rules, rank);
+        }
+        else
+        {
+            qr = CheckBasicQuery(queryToFind, basicFacts, rules, rank);
+        }
+        status.Proven[queryToFind] = qr;
+        status.NowProving.Remove(queryToFind);
+        return qr;
+    }
+
+    private QueryResult CheckBasicQuery(IMessage queryToFind, HashSet<IMessage> facts, HashSet<HornClause> rules, int rank)
+    {
+        Console.WriteLine($"Querying basic {queryToFind} at rank {rank}");
+        List<HornClause> candidates = new(from r in rules where queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank) select r);
+        candidates.Sort(SortRules);
+        foreach (HornClause checkRule in candidates)
+        {
+            SigmaFactory sf = new();
+            List<QueryResult> qrParts = new();
+            // FIXME: Update to follow rule-specific guard.
+            if (queryToFind.DetermineUnifiableSubstitution(checkRule.Result, Guard.Empty, sf))
+            {
+                HornClause updated = checkRule.Substitute(sf.CreateBackwardMap()).Anify();
+                bool found = true;
+                foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
+                {
+                    if (facts.Contains(premise))
+                    {
+                        qrParts.Add(QueryResult.BasicFact(premise));
+                    }
+                    else
+                    {
+                        found = false;
+                        break;
+                    }
+                }
+                if (found)
+                {
+                    qrParts.Add(QueryResult.ResolvedKnowledge(queryToFind, updated));
+                    return QueryResult.Compose(queryToFind, When, qrParts);
                 }
             }
         }
-        KnowledgeRules.UnionWith(newRules);
-        newRules.Clear();
-
-        if (CheckQuery())
-        {
-            return; // Nothing further is required if we have found the answer.
-        }
-
-        foreach (StateConsistentRule scr in SystemRules)
-        {
-            StateConsistentRule? compressed = scr.TryCompressStates();
-            if (compressed != null)
-            {
-                newRules.Add(compressed);
-            }
-        }
-        SystemRules.UnionWith(newRules);
-        newRules.Clear();
-
-        ElaborateSystemRules();
-
-        CheckQuery();
+        return QueryResult.Failed(queryToFind, When);
     }
 
-    public bool CheckQuery()
+    private QueryResult CheckNonceQuery(NonceMessage queryToFind, HashSet<IMessage> facts, HashSet<HornClause> rules, int rank)
     {
-        MatchingRules.Clear();
-        IEnumerable<StateConsistentRule> candidates = ConsistentRules();
-        List<StateConsistentRule> toTryNext = new();
-        bool addedToKnown = false;
-        HashSet<IMessage> newFoundFacts = new();
-        foreach (StateConsistentRule scr in candidates)
+        Console.WriteLine($"Querying nonce {queryToFind} at rank {rank}");
+        List<HornClause> candidates = new(from r in rules where queryToFind.Equals(r.Result) && r.BeforeRank(rank) select r);
+        candidates.Sort(SortRules);
+        foreach (HornClause checkRule in candidates)
         {
-            if (scr.IsResolved)
+            SigmaFactory sf = new();
+            List<QueryResult> qrParts = new();
+            // FIXME: Update to follow rule-specific guard.
+            HornClause updated = checkRule.Anify();
+            bool found = true;
+            foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
             {
-                if (scr.AreAllPremisesKnown(Facts, newFoundFacts))
+                if (facts.Contains(premise))
                 {
-                    if (Facts.Add(scr.Result.Messages[0]))
-                    {
-                        TryAddToKnownFacts(newFoundFacts, scr.Result.Messages[0], scr);
-                        addedToKnown = true;
-                    }
+                    qrParts.Add(QueryResult.BasicFact(premise));
                 }
                 else
                 {
-                    toTryNext.Add(scr);
+                    found = false;
+                    break;
                 }
             }
-        }
-        while (addedToKnown)
-        {
-            candidates = toTryNext;
-            toTryNext = new();
-            addedToKnown = false;
-            foreach (StateConsistentRule scr in candidates)
+            if (found)
             {
-                if (scr.AreAllPremisesKnown(Facts, newFoundFacts))
+                qrParts.Add(QueryResult.ResolvedKnowledge(queryToFind, updated));
+                return QueryResult.Compose(queryToFind, When, qrParts);
+            }
+        }
+        return QueryResult.Failed(queryToFind, When);
+    }
+
+    private static int RatchetRank(HornClause current, int rank) => HornClause.RatchetRank(current.Rank, rank);
+
+    private QueryResult CheckFunctionQuery(IMessage queryToFind, HashSet<IMessage> facts, HashSet<HornClause> rules, QueryStatus status, int rank)
+    {
+        List<HornClause> candidates = new(from r in rules
+                                          where r.Result is FunctionMessage && queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank)
+                                          select r);
+        candidates.Sort(SortRules);
+        foreach (HornClause checkRule in candidates)
+        {
+            SigmaFactory sf = new();
+            List<QueryResult> qrParts = new();
+            // FIXME: Update to follow rule-specific guard.
+            if (queryToFind.DetermineUnifiableSubstitution(checkRule.Result, Guard.Empty, sf))
+            {
+                SigmaMap bwdMap = sf.CreateBackwardMap();
+                HornClause updated = checkRule.Substitute(bwdMap).Anify();
+                bool found = true;
+                foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
                 {
-                    if (Facts.Add(scr.Result.Messages[0]))
+                    QueryResult qr = CheckQuery(premise, facts, rules, status, RatchetRank(checkRule, rank));
+                    if (!qr.Found)
                     {
-                        TryAddToKnownFacts(newFoundFacts, scr.Result.Messages[0], scr);
-                        addedToKnown = true;
+                        found = false;
+                        break;
                     }
+                    qrParts.Add(qr);
                 }
-                else
+                if (found)
                 {
-                    toTryNext.Add(scr);
+                    qrParts.Add(QueryResult.ResolvedKnowledge(queryToFind, updated));
+                    return QueryResult.Compose(queryToFind, When, qrParts);
                 }
             }
         }
-        NextGenFacts = newFoundFacts;
-
-        if (RulesByFact.TryGetValue(Query, out HashSet<StateConsistentRule>? foundMatches))
-        {
-            MatchingRules.AddRange(foundMatches);
-        }
-        else
-        {
-            // If there is no match, attempt to work backwards from the query itself to see if the
-            // pieces have been found.
-            if (Query is TupleMessage || Query is FunctionMessage)
-            {
-                (bool queryKnown, List<IMessage>? subFacts) = IsSubMessageKnown(Facts, Query);
-                if (queryKnown)
-                {
-                    Debug.Assert(subFacts != null);
-                    foreach (IMessage subFact in subFacts)
-                    {
-                        MatchingRules.AddRange(RulesByFact[subFact]);
-                    }
-                }
-            }
-        }
-        return MatchingRules.Count > 0;
+        return QueryResult.Failed(queryToFind, When);
     }
 
-    private static (bool, List<IMessage>?) IsSubMessageKnown(HashSet<IMessage> rs1, IMessage premiseMessage)
+    private QueryResult CheckTupleQuery(TupleMessage queryToFind, HashSet<IMessage> facts, HashSet<HornClause> rules, QueryStatus status, int rank)
     {
-        if (rs1.Contains(premiseMessage))
+        // Note that the rules have been detupled, so each element will need to be followed up individually.
+        List<QueryResult> qrParts = new();
+        foreach (IMessage part in queryToFind.Members)
         {
-            return (true, new() { premiseMessage });
-        }
-
-        List<IMessage> subMessagesToTry = new();
-        if (premiseMessage is TupleMessage tMsg)
-        {
-            subMessagesToTry.AddRange(tMsg.Members);
-        }
-        else if (premiseMessage is FunctionMessage fMsg)
-        {
-            subMessagesToTry.AddRange(fMsg.Parameters);
-        }
-
-        if (subMessagesToTry.Count > 0)
-        {
-            List<IMessage> knownMessages = new();
-            foreach (IMessage member in subMessagesToTry)
+            QueryResult qr = CheckQuery(part, facts, rules, status, rank);
+            if (!qr.Found)
             {
-                (bool found, List<IMessage>? latestReturn) = IsSubMessageKnown(rs1, member);
-                if (!found)
-                {
-                    return (false, null);
-                }
-                knownMessages.AddRange(latestReturn!);
+                return QueryResult.Failed(queryToFind, When);
             }
-            return (true, knownMessages);
+            qrParts.Add(qr);
         }
-        return (false, null);
+        return QueryResult.Compose(queryToFind, When, qrParts);
     }
 
-    private void TryAddToKnownFacts(HashSet<IMessage> factsSet, IMessage newFact, StateConsistentRule scr)
+    private static int SortRules(HornClause hc1, HornClause hc2)
     {
-        if (RulesByFact.TryGetValue(newFact, out HashSet<StateConsistentRule>? ruleList))
+        int cmp = hc1.Variables.Count.CompareTo(hc2.Variables.Count);
+        if (cmp == 0)
         {
-            ruleList!.Add(scr);
+            cmp = hc1.Complexity.CompareTo(hc2.Complexity);
         }
-        else
-        {
-            RulesByFact[newFact] = new() { scr };
-        }
-
-        if (factsSet.Add(newFact) && newFact is TupleMessage tMsg)
-        {
-            foreach (IMessage msg in tMsg.Members)
-            {
-                TryAddToKnownFacts(factsSet, msg, scr);
-            }
-        }
+        return cmp;
     }
 
-    private static IEnumerable<List<IMessage>> Permutations(List<IMessage> facts, int permLength)
+    private static void DescribeExecutionState(
+        IEnumerable<IMessage> facts,
+        IEnumerable<HornClause> rules)
     {
-        if (permLength == 0)
+        Console.WriteLine("--- Facts ---");
+        int factCount = 0;
+        foreach (IMessage f in facts)
         {
-            yield return new();
+            Console.WriteLine(f);
+            factCount++;
         }
-        else
+        Console.WriteLine("--- Rules ---");
+        int ruleCount = 0;
+        foreach (HornClause hc in rules)
         {
-            List<IMessage> perm = new();
-            for (int i = 0; i < facts.Count; i++)
-            {
-                perm.Clear();
-                perm.Add(facts[i]);
-                foreach (List<IMessage> innerPerm in Permutations(facts, permLength - 1))
-                {
-                    perm.AddRange(innerPerm);
-                    yield return perm;
-                    perm.RemoveRange(1, perm.Count - 1);
-                }
-            }
+            Console.WriteLine(hc);
+            ruleCount++;
         }
+        Console.WriteLine($"=== {factCount} facts, {ruleCount} rules ===");
     }
 
-    private static List<(IMessage Variable, IMessage Value)> Zip(List<IMessage> variables, List<IMessage> values)
-    {
-        Debug.Assert(variables.Count == values.Count);
-        List<(IMessage Variable, IMessage Value)> subs = new(variables.Count);
-        for (int i = 0; i < variables.Count; i++)
-        {
-            subs.Add((variables[i], values[i]));
-        }
-        return subs;
-    }
-
-    public void Elaborate()
-    {
-        HashSet<IMessage> newFacts = new();
-        HashSet<StateConsistentRule> newRules = new();
-        List<IMessage> compoundFacts = new(from f in NextGenFacts where f is FunctionMessage || f is TupleMessage select f);
-        foreach (StateConsistentRule stateless in KnowledgeRules)
-        {
-            List<IMessage> ruleVariables = stateless.PremiseVariables.ToList();
-            if (ruleVariables.Count > 0)
-            {
-                // Two runs are conducted here. The first is to attempt to replace whole premises
-                // with known, compound facts. This allows for the extraction of contained facts
-                // within those compound facts. The second run will directly replace variables with
-                // facts one-to-one.
-
-                // Unifying run.
-                foreach (IMessage cFact in compoundFacts)
-                {
-                    foreach (Event premise in stateless.Premises)
-                    {
-                        SigmaFactory sf = new();
-                        if (premise.IsKnow && premise.Messages[0].DetermineUnifiedToSubstitution(cFact, stateless.GuardStatements, sf))
-                        {
-                            StateConsistentRule ruleToAdd = (StateConsistentRule)stateless.PerformSubstitution(sf.CreateForwardMap());
-                            newRules.Add(ruleToAdd);
-                        }
-                    }
-                }
-
-                // Direct replacement run.
-                foreach (List<IMessage> factPerm in Permutations(Facts.ToList(), ruleVariables.Count))
-                {
-                    // Skip the combination if it has not been done before.
-                    if (factPerm.Any((IMessage msg) => NextGenFacts!.Contains(msg)))
-                    {
-                        List<(IMessage Variables, IMessage Value)> subsList = Zip(ruleVariables, factPerm);
-                        SigmaMap map = new(subsList);
-                        StateConsistentRule newRule = (StateConsistentRule)stateless.PerformFactsSubstitution(map);
-                        newRules.Add(newRule);
-                    }
-                }
-            }
-        }
-        Facts.UnionWith(newFacts);
-        KnowledgeRules.UnionWith(newRules);
-        NextGenFacts = newFacts;
-
-        ElaborateSystemRules();
-
-        CheckQuery();
-    }
-
-    private void ElaborateSystemRules()
-    {
-        HashSet<StateConsistentRule> newRules = new();
-
-        foreach (StateTransferringRule str in TransferringRules)
-        {
-            foreach (StateConsistentRule scr in SystemRules)
-            {
-                StateConsistentRule? derived = str.TryTransform(scr);
-                if (derived != null)
-                {
-                    newRules.Add(derived);
-                }
-            }
-        }
-        SystemRules.UnionWith(newRules);
-        newRules.Clear();
-
-        List<StateConsistentRule> sysRulesList = SystemRules.ToList();
-        for (int i = 0; i < sysRulesList.Count; i++)
-        {
-            for (int j = 0; j < sysRulesList.Count; j++)
-            {
-                if (i != j)
-                {
-                    StateConsistentRule? derived = sysRulesList[i].TryComposeUpon(sysRulesList[j]);
-                    if (derived != null)
-                    {
-                        newRules.Add(derived);
-                    }
-                }
-            }
-        }
-    }
+    #endregion
 }

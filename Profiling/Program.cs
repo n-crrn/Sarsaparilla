@@ -17,13 +17,15 @@ Console.WriteLine("Profiling commenced...");
     "(9) = -[ ]-> k(left[])",
     "(10) = -[ ]-> k(right[])",
     "(11) = -[ ]-> k(init[])",
-    "(12) = k(mf) -[ ]-> k(aenc(<mf, bob_l[], bob_r[]>, pk(sksd[])))",
-    "(13) = k(aenc(<mf, sl, sr>, pk(sksd[])))(a1) -[ (SD(init[]), a0), (SD(h(mf, left[])), a1) : { a0 =< a1} ]-> k(sl)",
-    //"(13a) = k(aenc(<mf, sl, sr>, pk(sksd[]))) -[ ]-> k(sl)",
-    "(14) = k(aenc(<mf, sl, sr>, pk(sksd[])))(b1) -[ (SD(init[]), b0), (SD(h(mf, right[])), b1) : { b0 =< b1} ]-> k(sr)",
-    //"(14a) = k(aenc(<mf, sl, sr>, pk(sksd[]))) -[ ]-> k(sr)",
-    "(15) = -[ (SD(init[]), c0), (SD(m), c1) : { c0 =< c1} ]-> k(m)",
-    "(16) = k(x)(d1) -[ (SD(init[]), d0), (SD(m), d1) : { d0 =< d1} ]-> <d1: SD(h(m, x))>"
+    "n([bobl], l[])(a0), n([bobr], l[])(a0), k(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k([bobl])",
+    "n([bobl], l[])(a0), n([bobr], l[])(a0), k(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k([bobr])",
+    //"(12) = k(mf) -[ ]-> k(aenc(<mf, bob_l[], bob_r[]>, pk(sksd[])))",
+    //"(13) = k(aenc(<mf, sl, sr>, pk(sksd[])))(a1) -[ (SD(init[]), a0), (SD(h(mf, left[])), a1) : { a0 =< a1} ]-> k(sl)",
+    "(13a) = k(aenc(<mf, sl, sr>, pk(sksd[])))(a1) -[ (SD(h(mf, left[])), a1) ]-> k(sl)",
+    //"(14) = k(aenc(<mf, sl, sr>, pk(sksd[])))(b1) -[ (SD(init[]), b0), (SD(h(mf, right[])), b1) : { b0 =< b1} ]-> k(sr)",
+    "(14a) = k(aenc(<mf, sl, sr>, pk(sksd[])))(a1) -[ (SD(h(mf, right[])), a1) ]-> k(sr)",
+    "(15) = -[ (SD(m), c1) ]-> k(m)",
+    "(16) = k(x)(d1) -[ (SD(m), d1) ]-> <d1: SD(h(m, x))>"
 };*/
 // The following is updated to improve support for the new resolver.
 string[] ruleSet =
@@ -38,60 +40,49 @@ string[] ruleSet =
     "k(sk) -[]-> k(pk(sk))",
     "k(p), k(n) -[ ]-> k(h(p, n))",
     // Session commencement and state transitions - should '_' be added as a variable/message stand-in?
-    "n([bobl])(a0), n([bobr])(a0), k(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k([bobl])",
-    "n([bobl])(a0), n([bobr])(a0), k(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k([bobr])",
+    "n([bobl], l[])(a0), n([bobr], l[])(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k([bobl])",
+    "n([bobl], l[])(a0), n([bobr], l[])(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k([bobr])",
+    //"n([bobl], l[]), n([bobr], r[]), k(mf) -[ ]-> k(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))",
     "k(x)(a0) -[(SD(m), a0)]-> <a0: SD(h(m, x))>",
+    //"-[ (SD(m), a0) ]-> <a0: SD(init[])>",
     // Reading from states and inputs.
-    //"k(enc_a(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k(sl)",
-    //"k(enc_a(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k(sr)",
-    "-[ (SD(init[]), a0), (SD(m), a1) : {a0 =< a1} ]-> k(m)"
+    "k(a), k(b), k(c) -[ ]-> k(enc_a(<a, b, c>, pk(sksd[])))",
+    "k(enc_a(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k(sl)",
+    "k(enc_a(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k(sr)",
+    "-[ (SD(m), a0) ]-> k(m)"
 };
+/*string[] ruleSet =
+{
+    // Globally known facts.
+    "-[]-> k(left[])",
+    "-[]-> k(right[])",
+    "-[]-> k(init[])",
+    "k(p), k(n) -[ ]-> k(h(p, n))",
+    "n([bobl], l[]), n([bobr], r[]), k(mf) -[ ]-> k(enc(<mf, [bobl], [bobr]>, pk(sksd[])))",
+    "k(x)(a0) -[(SD(m), a0)]-> <a0: SD(h(m, x))>",
+    //"-[ (SD(m), a0) ]-> <a0: SD(init[])>",
+    // Reading from states and inputs.
+    "k(enc(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k(sl)",
+    "k(enc(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k(sr)",
+};*/
 
 RuleParser parser = new();
 Console.WriteLine("Parsing rules...");
 List<Rule> rules = new(from r in ruleSet select parser.Parse(r));
 
-IMessage query = MessageParser.ParseMessage("[bobl]");
-QueryEngine qe = new(query, rules);
+IMessage query = MessageParser.ParseMessage("<[bobl], [bobr]>");
+//IMessage query = MessageParser.ParseMessage("<bob_l[], bob_r[]>");
+//IMessage query = MessageParser.ParseMessage("[bobr]");
+//IMessage query = MessageParser.ParseMessage("h(init[], left[])");
+//IMessage query = MessageParser.ParseMessage("sksd[]");
+//State when = MessageParser.ParseState("SD(h(m, right[]))");
+State? when = null;
+Console.WriteLine($"state has been parsed as {when}");
 
-List<StateConsistentRule> matches = qe.MatchingRules;
-if (matches.Count > 0)
-{
-    Console.WriteLine("--- Immediate match(es) found: ---");
-    foreach (StateConsistentRule m in matches)
-    {
-        Console.WriteLine(m);
-    }
-}
-else
-{
-    Console.WriteLine("No initial match found (as expected).");
-}
+HashSet<State> initStates = new() { MessageParser.ParseState("SD(init[])") };
+QueryEngine qe2 = new(initStates, query, when, rules);
 
-qe.Elaborate();
-
-matches = qe.MatchingRules;
-if (matches.Count > 0)
-{
-    Console.WriteLine("--- Match(es) found after elaboration: ---");
-    foreach (StateConsistentRule m in matches)
-    {
-        Console.WriteLine(m);
-    }
-}
-else
-{
-    Console.WriteLine("--- No matches found. ---");
-}
-
-Console.WriteLine("--- Found elaborations are as follows: ---");
-foreach (Rule r in qe.Rules())
-{
-    Console.WriteLine(r);
-}
-Console.WriteLine("--- Facts are: ---");
-foreach (IMessage fact in qe.Facts)
-{
-    Console.WriteLine(fact);
-}
-Console.WriteLine("--- End ---");
+Console.WriteLine("Commencing execution...");
+QueryResult qr = qe2.Execute();
+Console.WriteLine("Finished execution.");
+qr.DescribeWithSources(Console.Out);

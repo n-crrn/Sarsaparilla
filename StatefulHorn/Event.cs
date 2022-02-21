@@ -12,7 +12,8 @@ public class Event : ISigmaUnifiable
         New,    // Nonce is generated at a given location.
         Init,   // Protocol start.
         Accept, // Protocol successful authentication end
-        Leak    // Protocol secrecy failure with leaked message.
+        Leak,   // Protocol secrecy failure with leaked message.
+        Make    // Create a new known token (should include nonces within sub-messages).
     }
 
     #region Constructors
@@ -43,6 +44,9 @@ public class Event : ISigmaUnifiable
         return ev;
     }
 
+    public static Event New(NonceMessage nonce) => New(nonce, new NameMessage("l"));
+    // FIXME: Ensure the location part is removed.
+
     public static Event Init(IEnumerable<IMessage> knownMessages) => new(Type.Init, knownMessages);
 
     public static Event Init(IMessage knownMsg) => new(Type.Init, new List<IMessage>() { knownMsg });
@@ -52,6 +56,8 @@ public class Event : ISigmaUnifiable
     public static Event Accept(IMessage accMsg) => new(Type.Accept, new List<IMessage>() { accMsg });
 
     public static Event Leak(IMessage msg) => new(Type.Leak, new IMessage[] { msg });
+
+    public static Event Make(IMessage msg) => new(Type.Make, new IMessage[] { msg });
 
     public Event PerformSubstitution(SigmaMap sigma)
     {
@@ -137,7 +143,7 @@ public class Event : ISigmaUnifiable
             {
                 return _Messages.Count == ev._Messages.Count && _Messages.SequenceEqual(ev._Messages);
             }
-            return _Messages[0].Equals(ev._Messages[0]) && NameMessage.Equals(LocationId, ev.LocationId);
+            return _Messages[0].Equals(ev._Messages[0]); //&& NameMessage.Equals(LocationId, ev.LocationId);
         }
         return false;
     }
@@ -161,6 +167,7 @@ public class Event : ISigmaUnifiable
                 Type.Know => $"know({FirstMessageAsString})",
                 Type.Leak => $"leak({FirstMessageAsString})",
                 Type.New => $"new({FirstMessageAsString}, {LocationId!})",
+                Type.Make => $"make({FirstMessageAsString})",
                 _ => throw new System.NotImplementedException()
             };
         }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace StatefulHorn;
@@ -31,6 +32,8 @@ public class FunctionMessage : IMessage
     private readonly List<IMessage> _Parameters;
     public IReadOnlyList<IMessage> Parameters => _Parameters;
 
+    public int FindMaximumDepth() => (from p in _Parameters select p.FindMaximumDepth()).Max();
+
     public bool ContainsVariables { get; init; }
 
     public void CollectVariables(HashSet<IMessage> varSet)
@@ -38,6 +41,18 @@ public class FunctionMessage : IMessage
         foreach (IMessage msg in _Parameters)
         {
             msg.CollectVariables(varSet);
+        }
+    }
+
+    public void CollectMessages(HashSet<IMessage> msgSet, Predicate<IMessage> selector)
+    {
+        if (selector(this))
+        {
+            msgSet.Add(this);
+        }
+        foreach (IMessage p in _Parameters)
+        {
+            p.CollectMessages(msgSet, selector);
         }
     }
 
@@ -55,6 +70,11 @@ public class FunctionMessage : IMessage
             }
         }
         return false;
+    }
+
+    public bool ContainsFunctionNamed(string funcName)
+    {
+        return Name.Equals(funcName) || (from p in _Parameters where p.ContainsFunctionNamed(funcName) select p).Any();
     }
 
     public bool DetermineUnifiedToSubstitution(IMessage other, Guard gs, SigmaFactory sf)

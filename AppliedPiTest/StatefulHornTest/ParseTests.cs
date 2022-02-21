@@ -221,6 +221,17 @@ public class ParseTests
         return Factory.CreateStateConsistentRule(Event.Know(encMsg));
     }
 
+    [TestMethod]
+    public void MessageParsingCheck()
+    {
+        State parseEx1 = MessageParser.ParseState("SD(<m, right[]>)");
+        State expected = new("SD", new TupleMessage(new List<IMessage>() { new VariableMessage("m"), new NameMessage("right") }));
+        Assert.AreEqual(expected, parseEx1, "Unable to parse states correctly.");
+
+        (State? parseEx2, string? err) = MessageParser.TryParseState("SD(m, h[])");
+        Assert.IsNull(parseEx2, "SD(m, h[]) should not parse as there are multiple contained messages.");
+    }
+
     #endregion
     #region Error catching logic tests.
 

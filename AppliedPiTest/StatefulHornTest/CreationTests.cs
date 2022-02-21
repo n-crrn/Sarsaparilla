@@ -33,7 +33,7 @@ public class CreationTests
         Factory.RegisterPremise(Event.Know(new VariableMessage("pub")));
         Rule r = Factory.CreateStateConsistentRule(Event.Know(new FunctionMessage("enc_a", new() { new VariableMessage("m"), new VariableMessage("pub") })));
 
-        Assert.AreEqual("encryption = know(m), know(pub) -[ ]-> know(enc_a(m, pub))", r.ToString());
+        Assert.AreEqual("know(m), know(pub) -[ ]-> know(enc_a(m, pub))", r.ToString());
     }
 
     /// <summary>
@@ -59,7 +59,7 @@ public class CreationTests
         r4SdMfLeftState.SetLaterThan(r4Init);
         Rule r = Factory.CreateStateConsistentRule(Event.Know(new VariableMessage("s_l")));
 
-        string expected = "sdReplyLeft = know(enc_a(<m_f[], [bob_l], [bob_r]>, pk(sksd[])))(1) : {(1) :: a_1} " +
+        string expected = "know(enc_a(<m_f[], [bob_l], [bob_r]>, pk(sksd[])))(1) : {(1) :: a_1} " +
             "-[ (SD(init[]), a_0), (SD(h(m_f[], left[])), a_1) : {a_0 ≤ a_1} ]-> know(s_l)";
         Assert.AreEqual(expected, r.ToString());
     }
@@ -85,7 +85,7 @@ public class CreationTests
         r6M.TransfersTo = sdHVarState;
         Rule r = Factory.CreateStateTransferringRule();
 
-        string expected = "stateChange = know(x)(1) : {(1) :: a_1} -[ " +
+        string expected = "know(x)(1) : {(1) :: a_1} -[ " +
             "(SD(init[]), a_0), (SD(m), a_1) : {a_0 ≤ a_1} ]-> " +
             "<a_1: SD(h(m, x))>";
         Assert.AreEqual(expected, r.ToString());

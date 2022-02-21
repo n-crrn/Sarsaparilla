@@ -62,6 +62,29 @@ public abstract class Rule
 
     public IEnumerable<Event> NonceDeclarations => from p in _Premises where p.EventType == Event.Type.New select p;
 
+    /// <summary>
+    /// Go through the premises, and determine which nonces are used by this rule that are not
+    /// declared by the rule.
+    /// </summary>
+    /// <returns>Nonces that need to be declared before this rule can be used.</returns>
+    public IEnumerable<NonceMessage> NoncesRequired
+    {
+        get
+        {
+            HashSet<IMessage> foundNonces = new();
+            foreach (Event ev in (from p in _Premises where p.IsKnow select p))
+            {
+                ev.Messages.Single().CollectMessages(foundNonces, (IMessage msg) => msg is NonceMessage);
+            }
+            HashSet<IMessage> declaredNonces = new(from nd in NonceDeclarations select nd.Messages.Single());
+            foundNonces.ExceptWith(declaredNonces);
+            foreach (IMessage msg in foundNonces)
+            {
+                yield return (NonceMessage)msg;
+            }
+        }
+    }
+
     #endregion
 
     // The following tuple is of form Snapshot, Trace Index, Offset Index with Trace.
@@ -185,6 +208,25 @@ public abstract class Rule
         }
         SnapshotTree newTree = Snapshots.PerformSubstitutions(sigma);
         return CreateDerivedRule(newLabel, newG, newPremises, newTree, sigma);
+    }
+
+    public Rule SubscriptVariables(string subscript)
+    {
+        HashSet<IMessage> oldVars = PremiseVariables;
+        foreach (Snapshot ss in Snapshots.OrderedList)
+        {
+            oldVars.UnionWith(ss.Condition.Variables);
+        }
+        List<(IMessage Variable, IMessage Value)> newVars = new(from v in oldVars select (v, ScriptVariableMessage(v, subscript)));
+        return PerformSubstitution(new SigmaMap(newVars));
+    }
+
+    private static IMessage ScriptVariableMessage(IMessage originalMsg, string subscript)
+    {
+        VariableMessage originalVar = (VariableMessage)originalMsg;
+        string originalName = originalVar.Name;
+        string newName = originalName.Contains('_') ? $"{originalName}-{subscript}" : $"{originalName}_{subscript}";
+        return new VariableMessage(newName);
     }
 
     /// <summary>
@@ -311,7 +353,7 @@ public abstract class Rule
 
     private string? Description;
 
-    public override string ToString() => Description ??= Label + " = " + Describe();
+    public override string ToString() => Description ??= /*Label + " = " +*/ Describe();
 
     public string Describe()
     {

@@ -7,6 +7,8 @@ namespace StatefulHorn;
 // inequivalence are being handled correctly.
 public class Guard
 {
+    public static readonly Guard Empty = new();
+
     public Guard()
     {
         _Ununified = new();

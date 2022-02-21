@@ -25,6 +25,12 @@ public class SigmaMap
         _Map.Sort(EntryComparer);
     }
 
+    public SigmaMap(IEnumerable<(IMessage, IMessage)> zippedSubs)
+    {
+        _Map = new(zippedSubs);
+        _Map.Sort(EntryComparer);
+    }
+
     private int EntryComparer((IMessage Variable, IMessage Value) e1, (IMessage Variable, IMessage Value) e2)
     {
         int cmp = e1.Variable.ToString().CompareTo(e2.Variable.ToString());
@@ -35,7 +41,7 @@ public class SigmaMap
         return cmp;
     }
 
-    public bool IsEmpty => Map.Count == 0;
+    #region Basic properties and access.
 
     private readonly List<(IMessage Variable, IMessage Value)> _Map;
 
@@ -57,6 +63,19 @@ public class SigmaMap
         value = null;
         return false;
     }
+
+    public bool IsEmpty => Map.Count == 0;
+
+    public bool IsAllVariables
+    {
+        get
+        {
+            static bool bothVars((IMessage, IMessage) pair) => pair.Item1 is VariableMessage && pair.Item2 is VariableMessage;
+            return (from pair in Map select pair).All(bothVars);
+        }
+    } 
+
+    #endregion
 
     public override string ToString()
     {
