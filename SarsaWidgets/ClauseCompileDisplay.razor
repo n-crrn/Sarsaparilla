@@ -24,9 +24,9 @@
                 <div class='error-summary'>Compilation complete - @errCount rules failed to compile.</div>
             }
         }
-        @foreach (string warn in Warnings)
+        @foreach (string err in Errors)
         {
-            <div class='warning'>@warn</div>
+            <div class='compile-error'>@err</div>
         }
         @foreach ((int lineNumber, RuleLine rl) in Lines)
         {
@@ -78,8 +78,7 @@
             {
                 _Compiler.OnReset -= CompilerReset;
                 _Compiler.OnRuleAddition -= CompilerRuleAddition;
-                _Compiler.OnRuleUpdate -= CompilerRuleUpdate;
-                _Compiler.OnGeneralWarning -= CompilerGeneralWarning;
+                _Compiler.OnError -= CompilerError;
                 _Compiler.OnComplete -= CompilerComplete;
             }
 
@@ -90,8 +89,7 @@
             {
                 _Compiler.OnReset += CompilerReset;
                 _Compiler.OnRuleAddition += CompilerRuleAddition;
-                _Compiler.OnRuleUpdate += CompilerRuleUpdate;
-                _Compiler.OnGeneralWarning += CompilerGeneralWarning;
+                _Compiler.OnError += CompilerError;
                 _Compiler.OnComplete += CompilerComplete;
             }
         }
@@ -101,34 +99,31 @@
     {
         CurrentStatus = Status.AwaitingCompile;
         Lines.Clear();
-        Warnings.Clear();
+        Errors.Clear();
         StateHasChanged();
     }
 
     private void CompilerRuleAddition(IClauseCompiler cc, RuleAddedArgs args)
     {
         CurrentStatus = Status.Compiling;
-        Lines[args.Line] = new(args.ClauseSource, null, null);
+        Lines[args.Line] = new(args.Source, args.CompiledRule, args.Error);
         StateHasChanged();
     }
 
-    private void CompilerRuleUpdate(IClauseCompiler cc, RuleUpdateArgs args)
+    private void CompilerError(IClauseCompiler cc, string warning)
     {
         CurrentStatus = Status.Compiling;
-        Lines[args.Line] = Lines[args.Line] with { CompiledRule = args.CompiledRule, Error = args.Error };
+        Errors.Add(warning);
         StateHasChanged();
     }
 
-    private void CompilerGeneralWarning(IClauseCompiler cc, string warning)
-    {
-        CurrentStatus = Status.Compiling;
-        Warnings.Add(warning);
-        StateHasChanged();
-    }
-
-    private void CompilerComplete(IClauseCompiler cc, Universe u) 
+    private void CompilerComplete(IClauseCompiler cc, QueryEngine? qe, string? err)
     {
         CurrentStatus = Status.FinishedCompile;
+        if (err != null)
+        {
+            Errors.Add(err);
+        }
         StateHasChanged();
     }
 
@@ -179,6 +174,6 @@
 
     #endregion
 
-    private List<string> Warnings { get; init; } = new();
+    private List<string> Errors { get; init; } = new();
 
 }

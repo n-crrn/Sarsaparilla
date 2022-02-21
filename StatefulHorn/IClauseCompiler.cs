@@ -2,9 +2,7 @@
 
 namespace StatefulHorn;
 
-public record RuleAddedArgs(int Line, string ClauseSource);
-
-public record RuleUpdateArgs(int Line, Rule? CompiledRule, string? Error);
+public record RuleAddedArgs(int Line, string Source, Rule? CompiledRule, string? Error);
 
 /// <summary>
 /// The interface fulfilled by ClauseCompiler. Having a separate interface allows the mocking of
@@ -17,10 +15,8 @@ public interface IClauseCompiler
 
     public event Action<IClauseCompiler, RuleAddedArgs>? OnRuleAddition;
 
-    public event Action<IClauseCompiler, RuleUpdateArgs>? OnRuleUpdate;
+    public event Action<IClauseCompiler, string>? OnError;
 
-    public event Action<IClauseCompiler, string>? OnGeneralWarning;
-
-    public event Action<IClauseCompiler, Universe>? OnComplete;
+    public event Action<IClauseCompiler, QueryEngine?, string?>? OnComplete;
 
 }

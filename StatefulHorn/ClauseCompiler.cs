@@ -11,33 +11,21 @@ namespace StatefulHorn;
 public class ClauseCompiler : IClauseCompiler
 {
 
-    public ClauseCompiler()
-    {
-        FoundClauses = new();
-        BasisRules = new();
-    }
-
     #region Event handlers
 
     public event Action<IClauseCompiler>? OnReset;
 
     public event Action<IClauseCompiler, RuleAddedArgs>? OnRuleAddition;
 
-    public event Action<IClauseCompiler, RuleUpdateArgs>? OnRuleUpdate;
+    public event Action<IClauseCompiler, string>? OnError;
 
-    public event Action<IClauseCompiler, string>? OnGeneralWarning;
-
-    public event Action<IClauseCompiler, Universe>? OnComplete;
+    public event Action<IClauseCompiler, QueryEngine?, string?>? OnComplete;
 
     #endregion
 
-    private readonly List<(int Line, string ClauseSource)> FoundClauses;
-
-    private readonly List<Rule> BasisRules;
-
-    public Universe Compile(string inputSrc)
+    public void Compile(string inputSrc)
     {
-        FoundClauses.Clear();
+        List<(int Line, string Source)> foundClauses = new();
         RuleParser parser = new();
         OnReset?.Invoke(this);
 
@@ -56,33 +44,118 @@ public class ClauseCompiler : IClauseCompiler
                 }
 
                 int lineNumber = lineOffset + 1;
-                FoundClauses.Add((lineNumber, thisLineClean));
-                OnRuleAddition?.Invoke(this, new(lineNumber, thisLineClean));
+                foundClauses.Add((lineNumber, thisLineClean));
             }
         }
 
-        BasisRules.Clear();
-        foreach ((int line, string src) in FoundClauses)
+        HashSet<State>? initStates = null;
+        IMessage? leak = null;
+        State? when = null;
+
+        List<Rule> basisRules = new();
+        foreach ((int line, string src) in foundClauses)
         {
-            try
+            // Check if it is a init or query line before attempting to parse it as a rule.
+            if (IsQueryLine(src))
             {
-                Rule result = parser.Parse(src);
-                BasisRules.Add(result);
-                OnRuleUpdate?.Invoke(this, new(line, result, null));
+                if (leak != null || when != null)
+                {
+                    OnError?.Invoke(this, "Attempted to specifiy multiple queries, only first one noted.");
+                }
+                else
+                {
+                    string? queryErr;
+                    (leak, when, queryErr) = ParseQueryStatement(src);
+                    if (queryErr != null)
+                    {
+                        OnError?.Invoke(this, queryErr);
+                    }
+                }
             }
-            catch (Exception parseEx)
+            else if (IsInitLine(src))
             {
-                OnRuleUpdate?.Invoke(this, new(line, null, parseEx.Message));
+                if (initStates != null)
+                {
+                    OnError?.Invoke(this, "Attempted to specify multiple init statements, only first one noted.");
+                }
+                else
+                {
+                    string? initErr;
+                    (initStates, initErr) = ParseInitStatement(src);
+                    if (initErr != null)
+                    {
+                        OnError?.Invoke(this, initErr);
+                    }
+                }
+            }
+            else
+            {
+                try
+                {
+                    Rule result = parser.Parse(src);
+                    basisRules.Add(result);
+                    OnRuleAddition?.Invoke(this, new(line, src, result, null));
+                }
+                catch (Exception parseEx)
+                {
+                    OnRuleAddition?.Invoke(this, new(line, src, null, parseEx.Message));
+                }
             }
         }
 
-        Universe newRuleUniverse = new(BasisRules);
-        if (newRuleUniverse.BasisRulesHaveRedundancy)
+        if (initStates == null)
         {
-            OnGeneralWarning?.Invoke(this, "One or more basis rules imply other rules. Please check elaboration log.");
+            OnComplete?.Invoke(this, null, "Initial states need to be set for analysis.");
         }
-        OnComplete?.Invoke(this, newRuleUniverse);
-        return newRuleUniverse;
+        if (leak == null)
+        {
+            OnComplete?.Invoke(this, null, "Query needs to be specified for analysis.");
+        }
+        if (initStates != null && leak != null)
+        {
+            OnComplete?.Invoke(this, new QueryEngine(initStates, leak, when, basisRules), null);
+        }
+    }
+
+    private readonly static string QueryPrefix = "query leak ";
+    private readonly static string WhenConnector = " when ";
+    private readonly static string InitPrefix = "init ";
+
+
+    private static bool IsQueryLine(string cleanLine) => cleanLine.StartsWith(QueryPrefix);
+
+    private static (IMessage?, State?, string?) ParseQueryStatement(string cleanLine)
+    {
+        string line = cleanLine[QueryPrefix.Length..];
+        string[] parts = line.Split(WhenConnector);
+        (IMessage? msg, string? err) = MessageParser.TryParseMessage(parts[0]);
+        if (err != null)
+        {
+            return (null, null, err);
+        }
+        State? when = null;
+        if (parts.Length == 2)
+        {
+            (when, err) = MessageParser.TryParseState(parts[1]);
+            if (err != null)
+            {
+                return (null, null, err);
+            }
+        }
+        else if (parts.Length > 2)
+        {
+            return (null, null, "Multiple 'when' keywords in query statement.");
+        }
+        return (msg, when, null);
+    }
+    
+
+    private static bool IsInitLine(string cleanLine) => cleanLine.StartsWith(InitPrefix);
+
+    private static (HashSet<State>?, string?) ParseInitStatement(string cleanLine)
+    {
+        string line = cleanLine[InitPrefix.Length..];
+        return MessageParser.TryParseStates(line);
     }
 
 }

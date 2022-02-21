@@ -21,13 +21,13 @@
     padding: 5px;
 }
 
-.warning {
-    background-color: darkgoldenrod;
-    color: black;
+.compile-error {
+    background-color: darkred;
+    color: white;
     padding: 5px;
 }
 
-    .warning::before {
+    .compile-error::before {
         content: "⚠";
         margin-right: 10px;
     }

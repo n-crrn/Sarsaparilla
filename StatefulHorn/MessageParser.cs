@@ -1,6 +1,7 @@
 ﻿using StatefulHorn.Messages;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace StatefulHorn;
@@ -45,6 +46,55 @@ public static class MessageParser
             throw new ArgumentException($"Invalid state {input}: {err!}");
         }
         return s;
+    }
+
+    public static (HashSet<State>?, string?) TryParseStates(string input)
+    {
+        List<string> parts = new();
+        int indent = 0;
+        int lastStart = 0;
+        for (int i = 0; i < input.Length; i++)
+        {
+            char c = input[i];
+            if (c == '(' || c == '<' || c == '[')
+            {
+                indent++;
+            }
+            else if (c == ')' || c == '>' || c == ']')
+            {
+                indent--;
+            }
+            else if (c == ',' && indent == 0)
+            {
+                parts.Add(input[lastStart..i]);
+                lastStart = i + 1;
+            }
+            if (indent < 0)
+            {
+                return (null, "Incorrectly formatted state(s) specified.");
+            }
+        }
+
+        HashSet<State> states = new();
+        HashSet<string> names = new(); // Used for checking that all state cell references are unique.
+        foreach (string p in parts)
+        {
+            (State? s, string? err) = TryParseState(p);
+            if (err != null)
+            {
+                return (null, err);
+            }
+            Debug.Assert(s != null);
+            if (!states.Add(s))
+            {
+                return (null, "Same state specified multiple times.");
+            }
+            if (!names.Add(s.Name))
+            {
+                return (null, $"State cell named '{s.Name}' referenced multiple times.");
+            }
+        }
+        return (states, null);
     }
 
     public static readonly string LongKnowContainer = "know";

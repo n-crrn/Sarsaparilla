@@ -48,122 +48,25 @@
         <Body>
             <div class='elaboration-pane-inner'>
                 <div class='elaboration-column'>
-                    <button disabled=@NotParsed @onclick=ExportBasisRules>Export Basis Rules</button>
                     <ClauseCompileDisplay Compiler=Compiler/>
                 </div>
-                @if (Universe != null)
-                {
-                    <div class='elaboration-column'>
-                        <div class='pane-button-bar'>
-                            <button disabled=@NotParsed @onclick=ExportElaborations>Export All</button>
-                            <select class='grower' disabled=@NotParsed @bind=GenerationViewed>
-                                <option value='0'>Basis Rules</option>
-                                @for (int i = 1; i < Universe.ChangeLog.Count; i++)
-                                {
-                                    <option value='@i'>Generation @i</option>
-                                }
-                            </select>
-                        </div>
-                        @if (ElaborationStatus != null)
-                        {
-                            <p>@ElaborationStatus.StatusDescription</p>
-
-                            <table>
-                                <tr>
-                                    <th>Compositions attempted:</th>
-                                    <td>@ElaborationStatus.CompositionsAttempted</td>
-                                </tr>
-                                <tr>
-                                    <th>Compositions found:</th>
-                                    <td>@ElaborationStatus.CompositionsFound</td>
-                                </tr>
-                                <tr>
-                                    <th>Compositions add attempts:</th>
-                                    <td>@ElaborationStatus.CompositionsAdded</td>
-                                </tr>
-                                <tr>
-                                    <th>State unifications found:</th>
-                                    <td>@ElaborationStatus.StateUnificationsFound</td>
-                                </tr>
-                                <tr>
-                                    <th>State unifications add attempts:</th>
-                                    <td>@ElaborationStatus.StateUnificationsAdded</td>
-                                </tr>
-                                <tr>
-                                    <th>State transformations found:</th>
-                                    <td>@ElaborationStatus.StateTransformationsFound</td>
-                                </tr>
-                                <tr>
-                                    <th>State transformations add attempts:</th>
-                                    <td>@ElaborationStatus.StateTransformationsAdded</td>
-                                </tr>
-                            </table>
-                        }
-                        else
-                        {
-                            @if (Universe.ChangeLog[GenerationViewed].Count == 0)
-                            {
-                                <div class='empty-generation-message'>
-                                    There were no further rules created in this generation.
-                                </div>
-                            }
-                            else
-                            {
-                                <RuleChangeSetDisplay Entries=Universe.ChangeLog[GenerationViewed]/>
-                            }
-                        }
-                    </div>
-                }
             </div>
         </Body>
     </Pane>
 
-    <Pane Title='Ruleset Inspection &amp; Querying'>
+    <!-- <Pane Title='Nession Inspection &amp; Querying'>
         <Body>
             <div class='outer-pane'>
-                <div class='pane-button-bar'>
-                    <button disabled=@NotParsed @onclick=ExportRuleSet>Export Ruleset</button>
-                    <div class='grower'>
-                        <RuleFilterInput Disabled=@NotParsed @bind-Filter=QueryFilter />
-                    </div>
-                </div>
-                <div class='pane-body'>
-                    @if (NotParsed)
-                    {
-                        <div class='empty-pane-message'>
-                            <div class='empty-pane-message-inner'>
-                                Click "Parse" in the Editor Pane and "Elaborate" in the Elaboration Pane to query
-                                generated rulesets here.
-                            </div>
-                        </div>
-                    }
-                    else if (Universe != null)
-                    {
-                        if (ElaborationStatus == null)
-                        {
-                            <div class='rule-set-query-pane-column'>
-                                <RuleSetDisplay Universe=Universe Filter=QueryFilter />
-                            </div>
-                        }
-                        else
-                        {
-                            <div class='empty-pane-message'>
-                                <div class='empty-pane-message-inner'>
-                                    Currently elaborating…
-                                </div>
-                            </div>
-                        }
-                    }
-                </div>
+                <p>To be replaced.</p>
             </div>
         </Body>
-    </Pane>
+    </Pane> -->
 </PaneStack>
 
 @code {
     public Index()
     {
-        Compiler.OnComplete += (IClauseCompiler cc, Universe u) => Universe = u;
+        Compiler.OnComplete += (IClauseCompiler cc, QueryEngine? qe, string? _) => Universe = null; // FIXME: Update to use QueryEngine.
     }
 
     #region Clause source handling.
@@ -223,19 +126,6 @@
 
     private static readonly string DefaultBasisRulesFilename = "basis-rules.txt";
 
-    private async void ExportBasisRules()
-    {
-        if (Universe != null) {
-            StringBuilder buffer = new();
-            foreach (Rule r in Universe.BasisRules)
-            {
-                buffer.Append(r.ToString());
-                buffer.Append("\n");
-            }
-            await SaveStringToFile(DefaultBasisRulesFilename, buffer.ToString());
-        }
-    }
-
     private UTF8Encoding Utf8 = new();
 
     private async Task SaveStringToFile(string filename, string data)
@@ -278,73 +168,6 @@
     }
 
     private int GenerationViewed { get; set; } = 0;
-
-    private static readonly string DefaultElaborationFilename = "rule-elaboration.txt";
-
-    private async Task ExportElaborations() {
-        if (Universe != null)
-        {
-            StringBuilder buffer = new();
-            WriteChangeLogEntries("Basis Rules", Universe.ChangeLog[0], buffer);
-            for (int i = 1; i < Universe.ChangeLog.Count; i++)
-            {
-                WriteChangeLogEntries($"Elaboration {i}", Universe.ChangeLog[i], buffer);
-            }
-            await SaveStringToFile(DefaultElaborationFilename, buffer.ToString());
-        }
-    }
-
-    private void WriteChangeLogEntries(string title, IEnumerable<Universe.ChangeLogEntry> entries, StringBuilder buffer)
-    {
-        buffer.Append($"// --- {title} ---\n");
-        foreach (Universe.ChangeLogEntry entry in entries)
-        {
-            switch (entry.Decision)
-            {
-                case Universe.AddDecision.IsNew:
-                    buffer.Append($"NEW: {entry.AttemptedRule}\n");
-                    break;
-                case Universe.AddDecision.IsImplied:
-                    buffer.Append($"IMPLIED: {entry.AttemptedRule}\n");
-                    buffer.Append("    …was instead implied by…\n");
-                    buffer.Append($"    {entry.AffectedRules![0]}\n");
-                    break;
-                case Universe.AddDecision.ImpliesAnother:
-                default:
-                    buffer.Append($"IMPLIES OTHER: {entry.AttemptedRule}\n");
-                    buffer.Append("    …implied, and therefore replaced, …\n");
-                    foreach (Rule affected in entry.AffectedRules!)
-                    {
-                        buffer.Append($"    {affected}\n");
-                    }
-                    break;
-            }
-        }
-    }
-
-    #endregion
-    #region Querying;
-
-    private RuleFilter QueryFilter { get; set; } = new();
-
-    private static readonly string DefaultRuleSetFilename = "rule-set.txt";
-
-    private async void ExportRuleSet()
-    {
-        if (Universe != null) 
-        {
-            StringBuilder buffer = new();
-            foreach (StateConsistentRule scr in Universe.ConsistentRules)
-            {
-                buffer.Append(scr.ToString() + "\n");
-            }
-            foreach (StateTransferringRule str in Universe.TransferringRules)
-            {
-                buffer.Append(str.ToString() + "\n");
-            }
-            await SaveStringToFile(DefaultRuleSetFilename, buffer.ToString());
-        }
-    }
 
     #endregion
 
