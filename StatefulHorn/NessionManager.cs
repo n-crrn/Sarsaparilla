@@ -45,20 +45,20 @@ public class NessionManager
 
     private List<Nession>? InitialNessions;
 
-    private List<Nession>? NonceNessions;
+    //private List<Nession>? NonceNessions;
 
     private IEnumerable<Nession> AllNessions()
     {
-        if (InitialNessions != null && NonceNessions != null)
+        if (InitialNessions != null /*&& NonceNessions != null*/)
         {
             foreach (Nession n in InitialNessions)
             {
                 yield return n;
             }
-            foreach (Nession nn in NonceNessions)
+            /*foreach (Nession nn in NonceNessions)
             {
                 yield return nn;
-            }
+            }*/
         }
     }
 
@@ -246,7 +246,7 @@ public class NessionManager
             }
         }
      
-        if (NonceNessions == null)
+        /*if (NonceNessions == null)
         {
             writer.WriteLine("=== No nonce nessions set ===");
         }
@@ -259,7 +259,7 @@ public class NessionManager
                 writer.WriteLine($"--- Based on {nn.InitialRule.Label} ---");
                 writer.WriteLine(nn.ToString());
             }
-        }
+        }*/
     }
 
     #endregion

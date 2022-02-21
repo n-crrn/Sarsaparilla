@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Messages;
 
 public class TupleMessage : IMessage
 {
@@ -51,7 +51,7 @@ public class TupleMessage : IMessage
 
     public void CollectVariables(HashSet<IMessage> varSet)
     {
-        foreach(IMessage msg in _Members)
+        foreach (IMessage msg in _Members)
         {
             msg.CollectVariables(varSet);
         }

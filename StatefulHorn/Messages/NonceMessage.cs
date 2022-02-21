@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace StatefulHorn;
+﻿namespace StatefulHorn.Messages;
 
 public class NonceMessage : BasicMessage
 {

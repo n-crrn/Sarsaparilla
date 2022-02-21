@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Messages;
 
 public class VariableMessage : BasicMessage
 {

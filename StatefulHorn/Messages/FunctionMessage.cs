@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Messages;
 
 public class FunctionMessage : IMessage
 {

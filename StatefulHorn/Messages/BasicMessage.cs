@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Messages;
 
 public abstract class BasicMessage : IMessage
 {

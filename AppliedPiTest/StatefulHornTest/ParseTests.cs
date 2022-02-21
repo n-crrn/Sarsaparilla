@@ -4,6 +4,7 @@ using System.Diagnostics;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using StatefulHorn;
+using StatefulHorn.Messages;
 
 namespace StatefulHornTest;
 
@@ -228,7 +229,7 @@ public class ParseTests
         State expected = new("SD", new TupleMessage(new List<IMessage>() { new VariableMessage("m"), new NameMessage("right") }));
         Assert.AreEqual(expected, parseEx1, "Unable to parse states correctly.");
 
-        (State? parseEx2, string? err) = MessageParser.TryParseState("SD(m, h[])");
+        (State? parseEx2, string? _) = MessageParser.TryParseState("SD(m, h[])");
         Assert.IsNull(parseEx2, "SD(m, h[]) should not parse as there are multiple contained messages.");
     }
 

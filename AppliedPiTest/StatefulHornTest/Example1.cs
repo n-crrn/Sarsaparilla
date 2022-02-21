@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using StatefulHorn;
+using StatefulHorn.Messages;
 
 namespace StatefulHornTest;
 

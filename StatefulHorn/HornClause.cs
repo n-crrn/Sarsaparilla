@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using StatefulHorn.Messages;
 using StatefulHorn.Origin;
 
 namespace StatefulHorn;
