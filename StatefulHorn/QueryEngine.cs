@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace StatefulHorn;
 
@@ -87,7 +88,7 @@ public class QueryEngine
     #endregion
     #region Knowledge and rule elaboration.
 
-    public void Execute(
+    public async void Execute(
         Action<NessionManager>? onNessionsGenerated,
         Action<Attack>? onGlobalAttackFound,
         Action<Nession, HashSet<HornClause>, Attack?>? onAttackAssessed,
@@ -97,12 +98,14 @@ public class QueryEngine
         {
             onGlobalAttackFound?.Invoke(new(new List<IMessage>() { Query }, new List<HornClause>()));
             onCompletion?.Invoke();
+            await Task.Delay(1);
             return;
         }
 
         NessionManager nm = new(StateSet, SystemRules.ToList(), TransferringRules.ToList());
         nm.Elaborate();
         onNessionsGenerated?.Invoke(nm);
+        await Task.Delay(1);
         List<(Nession, HashSet<HornClause>)> nessionClauses = new();
         nm.GenerateHornClauseSet(When, nessionClauses);
         foreach ((Nession n, HashSet<HornClause> clauseSet) in nessionClauses)
@@ -115,8 +118,10 @@ public class QueryEngine
             QueryResult qr = CheckQuery(Query, BasicFacts, finNessionSet, new(new(), new()));
             Attack? foundAttack = qr.Found ? new(qr.Facts!, qr.Knowledge!) : null;
             onAttackAssessed?.Invoke(n, fullNessionSet, foundAttack);
+            await Task.Delay(1);
         }
         onCompletion?.Invoke();
+        await Task.Delay(1);
     }
 
     private static HashSet<HornClause> ElaborateAndDetuple(HashSet<HornClause> fullRuleset)
