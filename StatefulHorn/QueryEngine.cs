@@ -88,12 +88,21 @@ public class QueryEngine
     #endregion
     #region Knowledge and rule elaboration.
 
+    private NessionManager? CurrentNessionManager = null;
+
+    private bool CancelQuery = false;
+
     public async void Execute(
         Action<NessionManager>? onNessionsGenerated,
         Action<Attack>? onGlobalAttackFound,
         Action<Nession, HashSet<HornClause>, Attack?>? onAttackAssessed,
         Action? onCompletion)
     {
+        if (CancelQuery)
+        {
+            CancelQuery = false;
+        }
+
         if (BasicFacts.Contains(Query))
         {
             onGlobalAttackFound?.Invoke(new(new List<IMessage>() { Query }, new List<HornClause>()));
@@ -102,14 +111,22 @@ public class QueryEngine
             return;
         }
 
-        NessionManager nm = new(StateSet, SystemRules.ToList(), TransferringRules.ToList());
-        nm.Elaborate();
-        onNessionsGenerated?.Invoke(nm);
+        CurrentNessionManager = new(StateSet, SystemRules.ToList(), TransferringRules.ToList());
+        await CurrentNessionManager.Elaborate();
+        if (CancelQuery)
+        {
+            goto finishExecution;
+        }
+        onNessionsGenerated?.Invoke(CurrentNessionManager);
         await Task.Delay(1);
         List<(Nession, HashSet<HornClause>)> nessionClauses = new();
-        nm.GenerateHornClauseSet(When, nessionClauses);
+        CurrentNessionManager.GenerateHornClauseSet(When, nessionClauses);
         foreach ((Nession n, HashSet<HornClause> clauseSet) in nessionClauses)
         {
+            if (CancelQuery)
+            {
+                goto finishExecution;
+            }
             HashSet<HornClause> fullNessionSet = new(KnowledgeRules);
             fullNessionSet.UnionWith(clauseSet);
 
@@ -120,8 +137,15 @@ public class QueryEngine
             onAttackAssessed?.Invoke(n, fullNessionSet, foundAttack);
             await Task.Delay(1);
         }
+    finishExecution:
         onCompletion?.Invoke();
         await Task.Delay(1);
+    }
+
+    public void CancelExecution()
+    {
+        CancelQuery = true;
+        CurrentNessionManager?.CancelElaboration();
     }
 
     private static HashSet<HornClause> ElaborateAndDetuple(HashSet<HornClause> fullRuleset)

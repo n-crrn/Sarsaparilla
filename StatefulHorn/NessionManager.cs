@@ -45,8 +45,6 @@ public class NessionManager
 
     private List<Nession>? InitialNessions;
 
-    //private List<Nession>? NonceNessions;
-
     public IEnumerable<Nession> GeneratedNessions()
     {
         if (InitialNessions != null /*&& NonceNessions != null*/)
@@ -55,28 +53,22 @@ public class NessionManager
             {
                 yield return n;
             }
-            /*foreach (Nession nn in NonceNessions)
-            {
-                yield return nn;
-            }*/
         }
     }
 
-    public void Elaborate()
+    private bool CancelElaborate = false;
+
+    public async Task Elaborate()
     {
+        if (CancelElaborate)
+        {
+            CancelElaborate = false;
+        }
         Nession initSeed = new(InitialConditions);
-        //IEnumerable<Nession> nonceSeeds = from r in NewEventRules() select Nession.FromRule(r);
-        //List<Nession> nonceSeeds = new();
         List<Nession> initSeedList = new() { initSeed };
-        //List<List<Nession>> nonceSeedLists = new(from ns in nonceSeeds select new List<Nession>() { ns });
 
         int initSeedStart = 0;
         int initSeedEnd = initSeedList.Count;
-        //List<(int Start, int End)> nonceStartEnd = new();
-        /*for (int i = 0; i < nonceSeedLists.Count; i++)
-        {
-            nonceStartEnd.Add((0, 1));
-        }*/
 
         //const int numberOfSubElaborations = 100;
         int numberOfSubElaborations = TransferringRules.Count + SystemRules.Count;
@@ -86,6 +78,11 @@ public class NessionManager
         {
             foreach (StateConsistentRule scr in SystemRules)
             {
+                await Task.Delay(1);
+                if (CancelElaborate)
+                {
+                    goto finishElaborate;
+                }
                 List<Nession> updatedInitNessions = new();
                 foreach (Nession initN in initSeedList)
                 {
@@ -96,6 +93,11 @@ public class NessionManager
 
             foreach (StateTransferringRule transferRule in TransferringRules)
             {
+                await Task.Delay(1);
+                if (CancelElaborate)
+                {
+                    goto finishElaborate;
+                }
                 for (int i = initSeedStart; i < initSeedEnd; i++)
                 {
                     Nession? n = initSeedList[i].TryApplyTransfer(transferRule);
@@ -104,62 +106,21 @@ public class NessionManager
                         initSeedList.Add(n);
                     }
                 }
-                /*for (int i = 0; i < nonceStartEnd.Count; i++)
-                {
-                    for (int j = nonceStartEnd[i].Start; j < nonceStartEnd[i].End; j++)
-                    {
-                        Nession? n = nonceSeedLists[i][j].TryApplyTransfer(transferRule);
-                        if (n != null)
-                        {
-                            nonceSeedLists[i].Add(n);
-                        }
-                    }
-                }*/
             }
             // Update the ranges of states to be updated.
             initSeedStart = initSeedEnd;
             initSeedEnd = initSeedList.Count;
-            /*for (int i = 0; i < nonceSeedLists.Count; i++)
-            {
-                nonceStartEnd[i] = (nonceStartEnd[i].End, nonceSeedLists[i].Count);
-            }*/
 
             RemoveRedundantNessions(initSeedList);
         }
 
-        //RemoveRedundantNessions(initSeedList);
-        /*for (int i = 0; i < nonceSeedLists.Count; i++)
-        {
-            RemoveRedundantNessions(nonceSeedLists[i]);
-        }*/
-
-        /*List<Nession> nonceNessions = new();
-        foreach (List<Nession> nList in nonceSeedLists)
-        {
-            nonceNessions.AddRange(nList);
-        }*/
-
-        // Determine what knowledge can be gained in all states.
-        /*foreach (StateConsistentRule scr in SystemRules)
-        {
-            List<Nession> updatedInitNessions = new();
-            //List<Nession> updatedNonceNessions = new();
-
-            foreach (Nession initN in initSeedList)
-            {
-                updatedInitNessions.AddRange(initN.TryApplySystemRule(scr));
-            }
-            //foreach (Nession nonceN in nonceNessions)
-            //{
-                //updatedNonceNessions.AddRange(nonceN.TryApplySystemRule(scr));
-            //}
-
-            initSeedList = updatedInitNessions;
-            //nonceNessions = updatedNonceNessions;
-        }*/
-
+    finishElaborate:
         InitialNessions = initSeedList;
-        //NonceNessions = nonceNessions;
+    }
+
+    public void CancelElaboration()
+    {
+        CancelElaborate = true;
     }
 
     private static void RemoveRedundantNessions(List<Nession> nList)
@@ -181,8 +142,6 @@ public class NessionManager
             }
         }
     }
-
-    //public record HornClauseSet(HashSet<HornClause> GlobalClauses, List<(Nession, HashSet<HornClause>)> NessionClauses);
 
     public void GenerateHornClauseSet(State? s, List<(Nession, HashSet<HornClause>)> byNession)
     {
@@ -244,21 +203,6 @@ public class NessionManager
                 writer.WriteLine(InitialNessions[i].ToString());
             }
         }
-     
-        /*if (NonceNessions == null)
-        {
-            writer.WriteLine("=== No nonce nessions set ===");
-        }
-        else
-        {
-            writer.WriteLine($"=== Nonce-based ({NonceNessions.Count} nessions) ===");
-            foreach (Nession nn in NonceNessions)
-            {
-                Debug.Assert(nn.InitialRule != null);
-                writer.WriteLine($"--- Based on {nn.InitialRule.Label} ---");
-                writer.WriteLine(nn.ToString());
-            }
-        }*/
     }
 
     #endregion

@@ -176,16 +176,21 @@
         }
     }
 
+    public void CancelQuery()
+    {
+        Engine?.CancelExecution();
+    }
+
     #region QueryEngine callbacks
 
-    private enum ExecutionStatus
+    public enum ExecutionStatus
     {
         PreExecution,
         Executing,
         PostExecution
     }
 
-    private ExecutionStatus Status { get; set; } = ExecutionStatus.PreExecution;
+    public ExecutionStatus Status { get; private set; } = ExecutionStatus.PreExecution;
 
     private void OnNessionsGenerated(NessionManager nm)
     {
@@ -224,9 +229,12 @@
         StateHasChanged();
     }
 
+    public event Action? OnQueryCompleted;
+
     private void OnQueryCompletion()
     {
         Status = ExecutionStatus.PostExecution;
+        OnQueryCompleted?.Invoke();
         StateHasChanged();
     }
 

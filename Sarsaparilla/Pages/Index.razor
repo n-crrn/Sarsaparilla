@@ -43,7 +43,7 @@
 
     <Pane Title='Compilation'>
         <ButtonBarItems>
-            <button disabled=@NotParsed @onclick=Execute>Execute Query</button>
+            <button disabled=@ExecuteOrCancelDisabled @onclick=ExecuteOrCancel>@ExecuteButtonLabel</button>
         </ButtonBarItems>
         <Body>
             <div class='pane-body'>
@@ -69,14 +69,27 @@
 @code {
     public Index()
     {
-        Compiler.OnComplete += (IClauseCompiler cc, QueryEngine? qe, string? _) => Engine = qe;
+        Compiler.OnComplete += (IClauseCompiler cc, QueryEngine? qe, string? _) =>
+        {
+            Engine = qe;
+            StateHasChanged();
+        };
     }
 
     #region Clause source handling.
 
     public string StatefulHornSource { get; set; } = "";
 
-    public bool NotParsed { get; set; } = true;
+    private bool _NotParsed = true;
+
+    public bool NotParsed {
+        get => _NotParsed;
+        set
+        {
+            _NotParsed = value;
+            ExecuteOrCancelDisabled = value;
+        }
+    }
 
     private async void LoadSourceFile(InputFileChangeEventArgs args)
     {
@@ -138,18 +151,64 @@
     #endregion
     #region Elaboration.
 
-    private Universe.Status? ElaborationStatus { get; set; }
+    private QueryEngineDisplay? _QEDisplay;
 
-    private QueryEngineDisplay? QEDisplay { get; set; }
+    private QueryEngineDisplay? QEDisplay {
+        get => _QEDisplay;
+        set
+        {
+            if (_QEDisplay != null)
+            {
+                _QEDisplay.OnQueryCompleted -= QEDisplayOnQueryCompleted;
+            }
+            _QEDisplay = value;
+            if (_QEDisplay != null)
+            {
+                _QEDisplay.OnQueryCompleted += QEDisplayOnQueryCompleted;
+            }
+        }
+    }
 
-    private void Execute()
+    private void QEDisplayOnQueryCompleted()
+    {
+        ExecuteOrCancelDisabled = false;
+        StateHasChanged();
+    }
+
+    private void ExecuteOrCancel()
     {
         if (QEDisplay == null)
         {
             throw new InvalidOperationException("Should not be able to trigger query without compiled ruleset.");
         }
-        QEDisplay.ExecuteQuery();
+        if (QEDisplay.Status != QueryEngineDisplay.ExecutionStatus.Executing)
+        {
+            QEDisplay.ExecuteQuery();
+        }
+        else
+        {
+            QEDisplay.CancelQuery();
+            ExecuteOrCancelDisabled = true;
+        }
     }
+
+    public string ExecuteButtonLabel
+    {
+        get
+        {
+            if (Engine == null)
+            {
+                return "Standby";
+            }
+            if (QEDisplay != null && QEDisplay.Status == QueryEngineDisplay.ExecutionStatus.Executing)
+            {
+                return "Cancel Query";
+            }
+            return "Execute Query";
+        }
+    }
+
+    private bool ExecuteOrCancelDisabled { get; set; } = true;
 
     #endregion
 
