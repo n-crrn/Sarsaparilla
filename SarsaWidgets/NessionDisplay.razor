@@ -1,0 +1,71 @@
+﻿@*
+* A component dedicated to displaying a nonce session.
+*@
+@using SarsaWidgets.Primitives
+@using StatefulHorn
+
+<div class='outer'> 
+    @if (Nession != null)
+    {
+        @foreach (Nession.Frame frame in Nession.History)
+        {
+            <div class='frame-container'>
+                @if (frame.StateChangePremises.Count > 0)
+                {
+                    <div class='state-change-premises' title=@frame.TransferRule?.ToString()>
+                        @foreach (Event premise in frame.StateChangePremises)
+                        {
+                            <EventDisplay Event=@premise/>
+                        }
+                    </div>
+                }
+                <div class='state-container'>
+                    @foreach (State s in frame.StateSet)
+                    {
+                        <StateDisplay State=@s/>
+                    }
+                </div>
+                @if (frame.Rules.Count > 0)
+                {
+                    <div class='rules-container'>
+                        @foreach (StateConsistentRule scr in frame.Rules)
+                        {
+                            <div class='rules-item'>
+                                <RightArrowOperation>
+                                        <Left>
+                                            @foreach (Event premise in scr.Premises)
+                                            {
+                                                <EventDisplay Event=@premise/>
+                                            }
+                                        </Left>
+                                        <Right>
+                                            <EventDisplay Event=@scr.Result/>
+                                        </Right>
+                                    </RightArrowOperation>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class='rule-container'>
+                        <p class='no-rules-message'>
+                            There are no rules to display.
+                        </p>
+                    </div>
+                }
+            </div>
+        }
+    }
+    else
+    {
+        <p class='no-nession-message'>No nession set for display.</p>
+    }
+</div>
+
+@code {
+
+    [Parameter]
+    public Nession? Nession { get; set; }
+
+}

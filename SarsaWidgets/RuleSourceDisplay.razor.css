@@ -1,0 +1,21 @@
+﻿.outer {
+    
+}
+
+.rule-description {
+    margin: 5px;
+    margin-bottom: 0px;
+}
+
+.description {
+    font-weight: bold;
+}
+
+.dependencies {
+    margin-left: 40px;
+}
+
+.a-priori {
+    margin-left: 20px;
+    font-style: italic;
+}

@@ -1,0 +1,25 @@
+﻿@*
+ * Primitive visual element that displays a state.
+ *@
+@using StatefulHorn
+
+@if (State != null)
+{
+    <span class='state'>
+        <span class='state-name'>@FormatUtils.FormatLabel(State.Name)</span>
+        (
+            <span>@FormatUtils.FormatLabel(State.Value.ToString())</span>
+        )
+    </span>
+}
+else
+{
+    <span class='no-state-display'>State not set.</span>
+}
+
+@code {
+
+    [Parameter]
+    public State? State { get; set; }
+
+}

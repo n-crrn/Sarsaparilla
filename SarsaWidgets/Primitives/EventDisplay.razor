@@ -1,0 +1,30 @@
+﻿@*
+ * Primitive visual element that displays an event.
+ *@
+@using StatefulHorn
+
+@if (Event != null)
+{
+    <span class='@Event.EventType.ToString().ToLower()'>
+        <span class='event-name'>@Event.EventType.ToString().ToLower()</span>
+        (
+            <span>
+                @foreach(IMessage msg in Event.Messages)
+                {
+                    <span class='linear-element'>@FormatUtils.FormatLabel(msg.ToString())</span>
+                }
+            </span>
+        )
+    </span>
+}
+else
+{
+    <span class='no-event-display'>Event not set.</span>
+}
+
+@code {
+
+    [Parameter]
+    public Event? Event { get; set; }
+
+}

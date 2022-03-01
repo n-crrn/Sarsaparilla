@@ -1,0 +1,51 @@
+﻿@*
+ * Provides a visual display of an attack.
+ *@
+@using StatefulHorn
+
+<div class='outer'>
+    @if (Attack != null)
+    {
+        <div class='facts-listing'>
+            @if (Attack.Facts.Any())
+            {
+                <p class='description'>The following facts are initially known:</p>
+                @foreach (IMessage fact in Attack.Facts)
+                {
+                    <div class='fact-item'>@FormatUtils.FormatLabel(fact.ToString())</div>
+                }
+            }
+            else
+            {
+                <p class='description'>No facts required.</p>
+            }
+        </div>
+        <div class='rules-listing'>
+            @if (Attack.Rules.Any())
+            {
+                <p class='description'>The following rules are used in the attack:</p>
+                @foreach (HornClause rule in Attack.Rules)
+                {
+                    <div class='rule-item'>
+                        <RuleSourceDisplay Rule=@rule/>
+                    </div>
+                }
+            }
+            else
+            {
+                <p class='description'>No rules required.</p>
+            }
+        </div>
+    }
+    else
+    {
+        <div class='no-attack-message'>No attack to display.</div>
+    }
+</div>
+
+@code {
+
+    [Parameter]
+    public Attack? Attack { get; set; }
+
+}

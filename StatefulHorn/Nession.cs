@@ -63,6 +63,23 @@ public class Nession
 
     #region Properties.
 
+    public List<Frame> History { get; } = new();
+
+    // Used when determining if the Nession can be integrated with another Nession.
+    public Rule? InitialRule { get; init; }
+
+    private HashSet<Event> NonceDeclarations { get; } = new();
+
+    public Attack? FoundAttack { get; set; }
+
+    public bool AttackFound => FoundAttack != null;
+
+    // Used to simplify identification by the user.
+    public string Label { get; set; } = "";
+
+    #endregion
+    #region Nested Frame Class
+
     public class Frame
     {
         public Frame(HashSet<Event> premises, HashSet<State> stateSet, HashSet<StateConsistentRule> rules, StateTransferringRule? transferRule = null)
@@ -157,13 +174,6 @@ public class Nession
 
         public override int GetHashCode() => StateSet.First().GetHashCode();
     }
-
-    public List<Frame> History { get; init; } = new();
-
-    // Used when determining if the Nession can be integrated with another Nession.
-    public Rule? InitialRule { get; init; }
-
-    public HashSet<Event> NonceDeclarations { get; } = new();
 
     #endregion
     #region Private convenience.
@@ -352,6 +362,7 @@ public class Nession
         /*if (scr.Snapshots.IsEmpty) // Empty always applies - probably a nonce declaration/usage.
         {
             StateConsistentRule emptyR = (StateConsistentRule)scr.SubscriptVariables(NextVNumber());
+            emptyR.IdTag = scr.IdTag;
             if (CanApplyRuleAt(emptyR, History.Count - 1, out SigmaFactory? _))
             {
                 // Note that the SigmaFactory can be ignored, as there is no state to compare with.
@@ -507,7 +518,7 @@ public class Nession
                 {
                     if (ep.EventType == Event.Type.Make)
                     {
-                        HornClause makeClause = new(ep.Messages.Single(), premises);
+                        HornClause makeClause = new(ep.Messages.Single(), thisRulePremises);
                         makeClause.Rank = rank;
                         makeClause.Source = new NessionRuleSource(this, rank, new(accumulator), r);
                         buffered.Add(makeClause);

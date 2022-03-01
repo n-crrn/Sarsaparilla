@@ -1,0 +1,35 @@
+﻿@*
+ * Displays a HornClause.
+ *@
+@using SarsaWidgets.Primitives
+@using StatefulHorn
+
+@if (HornClause != null)
+{
+    <RightArrowOperation>
+        <Left>
+            @foreach (IMessage premise in HornClause.Premises)
+            {
+                <div class='premise'>
+                    @FormatUtils.FormatLabel(premise.ToString())
+                </div>
+            }
+        </Left>
+        <Right>
+            <div class='result'>
+                @FormatUtils.FormatLabel(HornClause.Result.ToString())
+            </div>
+        </Right>
+    </RightArrowOperation>
+}
+else
+{
+    <p class='no-clause-message'>No clause set.</p>
+}
+
+@code {
+
+    [Parameter]
+    public HornClause? HornClause { get; set; }
+
+}

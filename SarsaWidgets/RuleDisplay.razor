@@ -3,6 +3,7 @@
  *@
 @using System.Text
 @using System.Net
+@using SarsaWidgets.Primitives
 @using StatefulHorn
 
 <div class='outer'>
@@ -13,7 +14,7 @@
             {
                 <div class='rule-label'>
                     <div class='rule-label-inner'>
-                        @FormatLabel(Rule.Label)
+                        @FormatUtils.FormatLabel(Rule.Label)
                     </div>
                 </div>
             }
@@ -43,7 +44,7 @@
                             @foreach ((string label, Event prem) in rd.Premises)
                             {
                                 <span class='event'>
-                                    @EventTemplate(prem)
+                                    <EventDisplay Event=@prem/>
                                     <span class='premise-label'>@label</span>
                                 </span>
                             }
@@ -58,7 +59,7 @@
                                     <span class='linear-element'>
                                         <span class='premise-label'>@label</span>
                                         <span class='operator'>::</span>
-                                        @FormatLabel(ssLabel)
+                                        @FormatUtils.FormatLabel(ssLabel)
                                     </span>
                                 }
                             }
@@ -69,7 +70,9 @@
                         {
                             @foreach ((string _, Event prem) in rd.Premises)
                             {
-                                <span class='event'>@EventTemplate(prem)</span>
+                                <span class='event'>
+                                    <EventDisplay Event=@prem/>
+                                </span>
                             }
                         }
                     </div>
@@ -85,7 +88,8 @@
                         {
                             <span class='linear-element'>
                                 <span class='op'>(</span>
-                                @StateTemplate(ss.Condition), @FormatLabel(ss.Label)
+                                    <StateDisplay State=@ss.Condition/>,
+                                    @FormatUtils.FormatLabel(ss.Label)
                                 <span class='op'>)</span>
                             </span>
                         }
@@ -99,9 +103,9 @@
                                 @foreach ((string ss1, Snapshot.Ordering so, string ss2) in rd.OrderingStatements)
                                 {
                                     <span class='linear-element'>
-                                        @FormatLabel(ss1)
+                                        @FormatUtils.FormatLabel(ss1)
                                         <span class='op'>@so.OperatorString()</span>
-                                        @FormatLabel(ss2)
+                                        @FormatUtils.FormatLabel(ss2)
                                     </span>
                                 }
                                 </span>
@@ -116,7 +120,7 @@
                 <div class='result'>
                     @if (rd.ResultIsEvent)
                     {
-                        @EventTemplate(rd.ResultEvent!)
+                        <EventDisplay Event=@rd.ResultEvent/>
                     }
                     else 
                     {
@@ -124,9 +128,9 @@
                         {
                             <span class='linear-element'>
                                 <span class='op'>&lt;</span>
-                                @FormatLabel(after.Label)
+                                @FormatUtils.FormatLabel(after.Label)
                                 <span class='op'>:</span>
-                                @StateTemplate(cond)
+                                <StateDisplay State=@cond/>
                                 <span class='op'>&gt;</span>
                             </span>
                         }
@@ -170,80 +174,5 @@
         return @<div>@parts[0]<LeftStateOperator/>@latterParts[0]<RightStateOperator/>@latterParts[1]</div>
     ;
     }
-
-    public RenderFragment EventTemplate(Event ev)
-    {
-        return
-            @<span class='@ev.EventType.ToString().ToLower()'>
-                <span class='event-name'>@ev.EventType.ToString().ToLower()</span>
-                (
-                    <span>
-                        @foreach(IMessage msg in ev.Messages)
-                        {
-                            <span class='linear-element'>@FormatLabel(msg.ToString())</span>
-                        }
-                    </span>
-                )
-            </span>;
-    }
-
-    public RenderFragment StateTemplate(State s)
-    {
-        return 
-            @<span class='state'>
-                <span class='state-name'>@FormatLabel(s.Name)</span>
-                (
-                    <span>@FormatLabel(s.Value.ToString())</span>
-                )
-            </span>;
-    }
-
-    private static MarkupString FormatLabel(string? label) {
-        if (label == null)
-        {
-            return new MarkupString("");
-        }
-
-        StringBuilder wholeBuffer = new();
-        StringBuilder tokenBuffer = new();
-
-        for (int i = 0; i < label.Length; i++)
-        {
-            char c = label[i];
-            if (c == '_')
-            {
-                i++;
-                if (i < label.Length)
-                {
-                    if (label[i] == '{')
-                    {
-                        for (i++; i < label.Length && label[i] != '}'; i++)
-                        {
-                            tokenBuffer.Append(label[i]);
-                        }
-                    }
-                    else
-                    {
-                        tokenBuffer.Append(label[i]);
-                        for (i++; i < label.Length && !CharEndsSub(label[i]); i++)
-                        {
-                            tokenBuffer.Append(label[i]);
-                        }
-                        i--; // For consideration on next pass.
-                    }
-                }
-                wholeBuffer.Append("<sub>" + FormatLabel(tokenBuffer.ToString()) + "</sub> ");
-                tokenBuffer.Clear();
-            }
-            else
-            {
-                wholeBuffer.Append(WebUtility.HtmlEncode(c.ToString()));
-            }
-        }
-
-        return new MarkupString(wholeBuffer.ToString());
-    }
-
-    private static bool CharEndsSub(char c) => char.IsWhiteSpace(c) || c == '[' || c == ']' || c == '(' || c == ')' || c == ',' || c == '>';
 
 }

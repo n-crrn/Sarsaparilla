@@ -16,19 +16,35 @@ public class QueryTests
 
     private readonly RuleParser Parser = new();
 
-    private void DoTest(string[] ruleSrcs, string querySrc, string stateInitSrc, bool shouldFind)
+    private void DoTest(string[] ruleSrcs, string querySrc, string stateInitSrc, bool shouldFind, bool shouldFindGlobal = false)
     {
         List<Rule> rules = new(from r in ruleSrcs select Parser.Parse(r));
         IMessage query = MessageParser.ParseMessage(querySrc);
         State initState = MessageParser.ParseState(stateInitSrc);
 
         QueryEngine qe = new(new HashSet<State>() { initState }, query, null, rules);
-        QueryResult result = qe.Execute();
-        if (result.Found)
+        bool nessionsGeneratedDone = false;
+        bool globalAttackFound = false;
+        bool attackAssessedFound = false;
+        bool completedDone = false;
+
+        void onNessionsGenerated(NessionManager _) => nessionsGeneratedDone = true;
+        void onGlobalAttackFound(Attack a) => globalAttackFound = true;
+        void onAttackAssessedFound(Nession n, HashSet<HornClause> _, Attack? a) => attackAssessedFound |= a != null;
+        void onCompletion() => completedDone = true;
+
+        qe.Execute(onNessionsGenerated, onGlobalAttackFound, onAttackAssessedFound, onCompletion);
+        if (shouldFindGlobal)
         {
-            result.DescribeWithSources(Console.Out);
+            Assert.IsTrue(globalAttackFound, "Global attack not found when it was expected.");
         }
-        Assert.AreEqual(shouldFind, result.Found);
+        else
+        {
+            Assert.IsTrue(nessionsGeneratedDone, "onNessionsGenerated not called.");
+        }
+        
+        Assert.AreEqual(shouldFind, attackAssessedFound);
+        Assert.IsTrue(completedDone, "Completion not called.");
     }
 
     [TestMethod]
@@ -68,8 +84,8 @@ public class QueryTests
             "k(p), k(n) -[ ]-> k(h(p, n))",
             // Session commencement and state transitions - should '_' be added as a variable/message stand-in?
             //"n([bobl], l[]), n([bobr], r[]), k(mf) -[ ]-> k(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))",
-            "n([bobl], l[])(a0), n([bobr], l[])(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k([bobl])",
-            "n([bobl], l[])(a0), n([bobr], l[])(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k([bobr])",
+            "n([bobl], l[])(a0), n([bobr], l[])(a0), k(mf)(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k([bobl])",
+            "n([bobl], l[])(a0), n([bobr], l[])(a0), k(mf)(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k([bobr])",
             "k(x)(a0) -[(SD(m), a0)]-> <a0: SD(h(m, x))>",
             // Reading from states and inputs.
             "k(enc_a(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k(sl)",

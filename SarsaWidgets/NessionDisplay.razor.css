@@ -1,0 +1,62 @@
+﻿/*
+ * The following theme values are supported:
+ *   --background-theme-color
+ *   --foreground-theme-color
+ */
+
+.outer {
+}
+
+.no-nession-message {
+    text-align: center;
+    font-style: italic;
+}
+
+.frame-container {
+    background-color: var(--background-theme-color, black);
+    color: var(--foreground-theme-color, darkgray);
+    border: solid 1px var(--foreground-theme-color, grey);
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.state-change-premises {
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+    .state-change-premises::before {
+        content: "↓";
+        font-weight: bold;
+        margin-left: 20px;
+        margin-right: 20px;
+        font-size: xx-large;
+    }
+
+.state-container {
+    text-align: center;
+    padding: 10px;
+    color: var(--foreground-theme-color, grey);
+    background-color: green;
+    display: flex;
+    flex-direction: row;
+}
+
+.rules-container {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.rules-item {
+    margin: 10px;
+    padding: 5px;
+}
+
+.rules-item:nth-child(2n) {
+    background-color: black;
+}
+
+.no-rules-message {
+    text-align: center;
+    font-style: italic;
+}

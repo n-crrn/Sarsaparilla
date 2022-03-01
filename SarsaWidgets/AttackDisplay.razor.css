@@ -1,0 +1,28 @@
+﻿.outer {
+
+}
+
+.description {
+    padding: 5px;
+    margin: 0px;
+    font-weight: bold;
+}
+
+.fact-item {
+    padding: 2px;
+    padding-left: 20px;
+    margin: 0px;
+}
+
+.rule-item {
+    padding: 2px;
+    padding-left: 20px;
+    border-bottom: var(--background-theme-color, black);
+}
+
+.no-attack-message {
+    width: 100%;
+    padding: 20px;
+    text-align: center;
+    font-style: italic;
+}

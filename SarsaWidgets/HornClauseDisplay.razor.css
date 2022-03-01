@@ -1,0 +1,12 @@
+﻿.premise {
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
+.premise::after {
+    content: ", ";
+}
+
+.premise:last-of-type::after {
+    content: "";
+}

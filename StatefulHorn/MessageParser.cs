@@ -74,6 +74,12 @@ public static class MessageParser
                 return (null, "Incorrectly formatted state(s) specified.");
             }
         }
+        parts.Add(input[lastStart..]);
+
+        if (parts.Count == 0)
+        {
+            return (null, "No states specified.");
+        }
 
         HashSet<State> states = new();
         HashSet<string> names = new(); // Used for checking that all state cell references are unique.

@@ -66,9 +66,13 @@ string[] ruleSet =
     "k(enc(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k(sr)",
 };*/
 
+// --- Rule pre-processing ---
+
 RuleParser parser = new();
 Console.WriteLine("Parsing rules...");
 List<Rule> rules = new(from r in ruleSet select parser.Parse(r));
+
+// --- Query parameters (what and when) ---
 
 IMessage query = MessageParser.ParseMessage("<[bobl], [bobr]>");
 //IMessage query = MessageParser.ParseMessage("<bob_l[], bob_r[]>");
@@ -77,12 +81,35 @@ IMessage query = MessageParser.ParseMessage("<[bobl], [bobr]>");
 //IMessage query = MessageParser.ParseMessage("sksd[]");
 //State when = MessageParser.ParseState("SD(h(m, right[]))");
 State? when = null;
-Console.WriteLine($"state has been parsed as {when}");
-
 HashSet<State> initStates = new() { MessageParser.ParseState("SD(init[])") };
+
+// --- Executing the query ---
+
 QueryEngine qe2 = new(initStates, query, when, rules);
 
+void onGlobalAttackFound(Attack a)
+{
+    Console.WriteLine("Global attack found");
+    a.DescribeSources();
+}
+
+void onAttackAssessed(Nession n, HashSet<HornClause> _, Attack? a)
+{
+    if (a == null)
+    {
+        Console.WriteLine("Assessed following nession, attack NOT found.");
+        Console.WriteLine(n.ToString());
+    }
+    else
+    {
+        Console.WriteLine("Attack found in following nession:");
+        Console.WriteLine(n.ToString());
+        Console.WriteLine("Attack details as follows:");
+        Console.WriteLine(a.DescribeSources());
+    }
+    Console.WriteLine("----------------------------------------------");
+}
+
 Console.WriteLine("Commencing execution...");
-QueryResult qr = qe2.Execute();
+qe2.Execute(null, onGlobalAttackFound, onAttackAssessed, null);
 Console.WriteLine("Finished execution.");
-qr.DescribeWithSources(Console.Out);

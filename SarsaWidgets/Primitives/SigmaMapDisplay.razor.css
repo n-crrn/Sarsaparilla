@@ -1,0 +1,13 @@
+﻿.outer {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.map-item::after {
+    content: ", ";
+}
+
+.map-item:last-child::after {
+    content: "";
+}

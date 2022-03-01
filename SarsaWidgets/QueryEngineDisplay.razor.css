@@ -1,0 +1,124 @@
+﻿.outer {
+    width: 100%;  /*Take up full width of container. */
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-bar {
+    padding: 5px;
+    flex-grow: 0;
+    flex-shrink: 1;
+    background-color: var(--foreground-theme-color, grey);
+    color: var(--background-theme-color, black);
+}
+
+.no-engine-message {
+    text-align: center;
+    font-style: italic;
+}
+
+.nothing-message {
+    text-align: center;
+    font-style: italic;
+}
+
+/* --- Main view --- */
+
+.main-view {
+    flex-grow: 1;
+    flex-shrink: 2;
+    flex-basis: 0;
+    min-height: 0px;
+    display: flex;
+    flex-direction: row;
+}
+
+/* --- Nession listing --- */
+
+.nession-listing {
+    flex-grow: 0;
+    flex-shrink: 0;
+    overflow: scroll;
+    border-right: solid 1px var(--foreground-theme-color, grey);
+    justify-self: stretch;
+    width: 200px;
+}
+
+.nession-listing-item {
+    height: 30px; /* Items are virtualised, this simplifies display calculations. */
+    padding: 10px;
+    gap: 5px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: var(--foreground-theme-color, grey);
+    color: var(--background-theme-color, black);
+    border: solid 1px var(--background-theme-color, black);
+}
+
+.selected-nession-listing-item {
+    height: 30px; /* Items are virtualised, this simplifies display calculations. */
+    padding: 8px;
+    gap: 5px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    background-color: var(--foreground-theme-color, grey);
+    color: var(--background-theme-color, black);
+    border: solid 3px var(--background-theme-color, black);
+}
+
+.nession-attack-icon {
+    color: red;
+    padding: 2px;
+    flex-grow: 0;
+}
+
+.nession-no-attack-icon {
+    color: green;
+    padding: 2px;
+    flex-grow: 0;
+}
+
+.nession-label {
+    flex-grow: 1;
+}
+
+/* --- Nession attack display --- */
+
+.nession-attack-view {
+    flex-grow: 1;
+    flex-shrink: 4;
+    padding: 10px;
+    overflow: auto;
+}
+
+.lower {
+    display: flex;
+    flex-direction: row;
+}
+
+.nession-view {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 50%;
+}
+
+.horn-clause-view {
+    border-left: solid 1px var(--foreground-theme-color, grey);
+    margin-left: 20px;
+    padding-left: 20px;
+    flex-basis: 50%;
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.horn-clause-item {
+    margin-top: 5px;
+    margin-bottom: 5px;
+    padding: 5px;
+}
+
+.horn-clause-item:nth-of-type(2n+1) {
+    background-color: #202020;
+}

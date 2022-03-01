@@ -10,6 +10,8 @@ public class QueryEngine
 {
     public QueryEngine(HashSet<State> states, IMessage q, State? when, IEnumerable<Rule> userRules)
     {
+        Debug.Assert(states.Count > 0);
+
         StateSet = states;
         Query = q;
         When = when;
@@ -72,39 +74,49 @@ public class QueryEngine
     public HashSet<StateTransferringRule> TransferringRules { get; init; }
 
     #endregion
+    #region Basic object overrides.
+
+    public override string ToString()
+    {
+        string whenDesc = When == null ? "" : $"when {When} ";
+        return $"Query leak {Query} {whenDesc}with {KnowledgeRules.Count} " +
+            $"knowledge rules, {SystemRules.Count} system rules and " +
+            $"{TransferringRules.Count} transferring rules.";
+    }
+
+    #endregion
     #region Knowledge and rule elaboration.
 
-    public QueryResult Execute()
+    public void Execute(
+        Action<NessionManager>? onNessionsGenerated,
+        Action<Attack>? onGlobalAttackFound,
+        Action<Nession, HashSet<HornClause>, Attack?>? onAttackAssessed,
+        Action? onCompletion)
     {
         if (BasicFacts.Contains(Query))
         {
-            return QueryResult.BasicFact(Query);
+            onGlobalAttackFound?.Invoke(new(new List<IMessage>() { Query }, new List<HornClause>()));
+            onCompletion?.Invoke();
+            return;
         }
 
-        // If there are multiple nonces in the query, then we need to consider rules
-        // nession by nession.
         NessionManager nm = new(StateSet, SystemRules.ToList(), TransferringRules.ToList());
+        nm.Elaborate();
+        onNessionsGenerated?.Invoke(nm);
         List<(Nession, HashSet<HornClause>)> nessionClauses = new();
         nm.GenerateHornClauseSet(When, nessionClauses);
         foreach ((Nession n, HashSet<HornClause> clauseSet) in nessionClauses)
         {
-            Console.WriteLine(n);
             HashSet<HornClause> fullNessionSet = new(KnowledgeRules);
             fullNessionSet.UnionWith(clauseSet);
 
-            Console.WriteLine("--------------------------------");
             HashSet<HornClause> finNessionSet = ElaborateAndDetuple(fullNessionSet);
-            DescribeExecutionState(BasicFacts, finNessionSet);
             
             QueryResult qr = CheckQuery(Query, BasicFacts, finNessionSet, new(new(), new()));
-            if (qr.Found)
-            {
-                qr.AddSession(n);
-                return qr;
-            }
-            Console.WriteLine("=====================================================");
+            Attack? foundAttack = qr.Found ? new(qr.Facts!, qr.Knowledge!) : null;
+            onAttackAssessed?.Invoke(n, fullNessionSet, foundAttack);
         }
-        return QueryResult.Failed(Query, When);
+        onCompletion?.Invoke();
     }
 
     private static HashSet<HornClause> ElaborateAndDetuple(HashSet<HornClause> fullRuleset)
@@ -131,8 +143,6 @@ public class QueryEngine
         bool found = newRuleset.Count > 0;
         while (found)
         {
-            Console.WriteLine("Commencing elaboration...");
-
             HashSet<HornClause> addedComplex = new(from r in newRuleset where r.ComplexResult select r);
             HashSet<HornClause> addedSimple = new(from r in newRuleset where !r.ComplexResult select r);
             complexResults.UnionWith(addedComplex);
@@ -192,8 +202,6 @@ public class QueryEngine
             return QueryResult.Failed(queryToFind, When);
         }
 
-        Console.WriteLine($"Proving {queryToFind}");
-
         status.NowProving.Add(queryToFind);
         QueryResult qr;
         if (BasicFacts.Contains(queryToFind))
@@ -223,7 +231,6 @@ public class QueryEngine
 
     private QueryResult CheckBasicQuery(IMessage queryToFind, HashSet<IMessage> facts, HashSet<HornClause> rules, int rank)
     {
-        Console.WriteLine($"Querying basic {queryToFind} at rank {rank}");
         List<HornClause> candidates = new(from r in rules where queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank) select r);
         candidates.Sort(SortRules);
         foreach (HornClause checkRule in candidates)
@@ -259,7 +266,6 @@ public class QueryEngine
 
     private QueryResult CheckNonceQuery(NonceMessage queryToFind, HashSet<IMessage> facts, HashSet<HornClause> rules, int rank)
     {
-        Console.WriteLine($"Querying nonce {queryToFind} at rank {rank}");
         List<HornClause> candidates = new(from r in rules where queryToFind.Equals(r.Result) && r.BeforeRank(rank) select r);
         candidates.Sort(SortRules);
         foreach (HornClause checkRule in candidates)
@@ -354,7 +360,7 @@ public class QueryEngine
         return cmp;
     }
 
-    private static void DescribeExecutionState(
+    /*private static void DescribeExecutionState(
         IEnumerable<IMessage> facts,
         IEnumerable<HornClause> rules)
     {
@@ -373,7 +379,7 @@ public class QueryEngine
             ruleCount++;
         }
         Console.WriteLine($"=== {factCount} facts, {ruleCount} rules ===");
-    }
+    }*/
 
     #endregion
 }

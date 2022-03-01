@@ -18,7 +18,7 @@
 <PaneStack>
     <Pane Title="Stateful Horn Editor">
         <ButtonBarItems>
-            <button class='parse-button' @onclick=Parse>Parse</button>
+            <button class='parse-button' @onclick=Compile>Compile</button>
         </ButtonBarItems>
         <Body>
             <div class='outer-pane'>
@@ -41,32 +41,35 @@
         </Body>
     </Pane>
 
-    <Pane Title='Compilation &amp; Elaboration'>
+    <Pane Title='Compilation'>
         <ButtonBarItems>
-            <button disabled=@(NotParsed || (Universe != null && Universe.IsExhausted)) @onclick=Elaborate>Elaborate</button>
+            <button disabled=@NotParsed @onclick=Execute>Execute Query</button>
         </ButtonBarItems>
         <Body>
-            <div class='elaboration-pane-inner'>
-                <div class='elaboration-column'>
-                    <ClauseCompileDisplay Compiler=Compiler/>
-                </div>
+            <div class='pane-body'>
+                <ClauseCompileDisplay Compiler=Compiler/>
             </div>
         </Body>
     </Pane>
 
-    <!-- <Pane Title='Nession Inspection &amp; Querying'>
+    <Pane Title='Query Result'>
         <Body>
-            <div class='outer-pane'>
-                <p>To be replaced.</p>
-            </div>
+            @if (Engine != null)
+            {
+                <QueryEngineDisplay @ref=QEDisplay Engine=@Engine/>
+            }
+            else
+            {
+                <p class='no-engine-message'>Compile the source to continue.</p>
+            }
         </Body>
-    </Pane> -->
+    </Pane>
 </PaneStack>
 
 @code {
     public Index()
     {
-        Compiler.OnComplete += (IClauseCompiler cc, QueryEngine? qe, string? _) => Universe = null; // FIXME: Update to use QueryEngine.
+        Compiler.OnComplete += (IClauseCompiler cc, QueryEngine? qe, string? _) => Engine = qe;
     }
 
     #region Clause source handling.
@@ -89,24 +92,23 @@
         }
     }
 
-    private void Parse() 
+    private void Compile() 
     {
         NotParsed = false;
         Compiler.Compile(StatefulHornSource);
-        GenerationViewed = 0;
     }
 
-    private void ResetWithCode(string src) 
+    private void ResetWithSource(string src) 
     {
         StatefulHornSource = src;
         NotParsed = true;
     }
 
-    public void LoadBasicExample() => ResetWithCode(SampleLibrary.Basic);
+    public void LoadBasicExample() => ResetWithSource(SampleLibrary.Basic);
 
-    public void LoadPaperExample1() => ResetWithCode(SampleLibrary.PaperExample1);
+    public void LoadPaperExample1() => ResetWithSource(SampleLibrary.PaperExample1);
 
-    public void LoadPaperExample2() => ResetWithCode(SampleLibrary.PaperExample2);
+    public void LoadPaperExample2() => ResetWithSource(SampleLibrary.PaperExample2);
 
     private static readonly string DefaultSourceFilename = "source.txt";
 
@@ -120,11 +122,9 @@
 
     private ClauseCompiler Compiler = new();
 
-    private Universe? Universe;
+    private QueryEngine? Engine = null;
 
     private static readonly string SaveFromStreamJSFunc = "saveFromStream";
-
-    private static readonly string DefaultBasisRulesFilename = "basis-rules.txt";
 
     private UTF8Encoding Utf8 = new();
 
@@ -140,34 +140,16 @@
 
     private Universe.Status? ElaborationStatus { get; set; }
 
-    private async void Elaborate()
+    private QueryEngineDisplay? QEDisplay { get; set; }
+
+    private void Execute()
     {
-        if (Universe != null) 
+        if (QEDisplay == null)
         {
-            Universe.StatusReporter reporter = new(
-                () => 
-                {
-                    ElaborationStatus = new("Commencing elaboration");
-                    StateHasChanged();
-                },
-                (Universe.Status s) =>
-                {
-                    ElaborationStatus = s;
-                    StateHasChanged();
-                },
-                () =>
-                {
-                    ElaborationStatus = null;
-                    StateHasChanged();
-                }
-            );
-
-            await Universe.GenerateNextRuleSet(reporter);
-            GenerationViewed = Universe!.ChangeLog.Count - 1;
+            throw new InvalidOperationException("Should not be able to trigger query without compiled ruleset.");
         }
+        QEDisplay.ExecuteQuery();
     }
-
-    private int GenerationViewed { get; set; } = 0;
 
     #endregion
 

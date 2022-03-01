@@ -1,16 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-
-using StatefulHorn.Origin;
 
 namespace StatefulHorn;
 
-public class QueryResult
+/// <summary>
+/// This is the original class for reporting the results of the QueryEngine.
+/// </summary>
+internal class QueryResult
 {
     internal QueryResult(IMessage query, State? when)
     {

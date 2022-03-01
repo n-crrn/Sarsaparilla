@@ -1,10 +1,12 @@
 ﻿.outer {
     border: solid 1px var(--subtle-border-theme-color, darkgrey);
+    width: 100%;
 }
 
 .general-message {
     text-align: center;
     font-style: italic;
+    padding: 20px;
 }
 
 .good-summary {

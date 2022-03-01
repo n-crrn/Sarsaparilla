@@ -1,0 +1,263 @@
+﻿@*
+ * A component dedicated to displaying how an attack was found.
+ *@
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@using StatefulHorn
+
+<div class='outer'>
+    @if (Engine != null)
+    {
+        <div class='summary-bar'>@Summary</div>
+
+        @if (FoundGlobalAttack != null)
+        {
+            <div class='main-view'>
+                <AttackDisplay Attack=@FoundGlobalAttack/>
+            </div>
+        }
+        else
+        {
+            <div class='main-view'>
+                <div class='nession-listing'>
+                    <div class='nession-listing-inner'>
+                        @if (AssessedNessions.Count > 0)
+                        {
+                            <Virtualize Items=@AssessedNessions Context=an>
+                                <div class=@NessionListingItemClass(an.Item1) @onclick=@(() => OnSelect(an))>
+                                    @if (an.Item3 != null)
+                                    {
+                                        <div class='nession-attack-icon'>⚠</div>
+                                    }
+                                    else
+                                    {
+                                        <div class='nession-no-attack-icon'>正</div>
+                                    }
+                                    <div class='nession-label'>@an.Item1.Label</div>
+                                </div>
+                            </Virtualize>
+                        }
+                    </div>
+                </div>
+
+                <div class='nession-attack-view'>
+                    <div class='nession-attack-view-inner'>
+                        @if (CurrentNession != null)
+                        {
+                            <div class='upper'>
+                                @if (CurrentAttack != null)
+                                {
+                                    <AttackDisplay Attack=@CurrentAttack/>
+                                }
+                                else
+                                {
+                                    <p class='nothing-message'>No attack found for this nession.</p>
+                                }
+                            </div>
+                            <div class='lower'>
+                                <div class='nession-view'>
+                                    <NessionDisplay Nession=@CurrentNession/>
+                                </div>
+
+                                @if (CurrentHornClauses != null)
+                                {
+                                    <div class='horn-clause-view'>
+                                        <p class='description'>Derived horn clauses as follows:</p>
+                                        <Virtualize Items=@CurrentHornClauses Context=hc>
+                                            <div class='horn-clause-item'>
+                                                <HornClauseDisplay HornClause=@hc/>
+                                            </div>
+                                        </Virtualize>
+                                    </div>    
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            @if (Status == ExecutionStatus.PreExecution)
+                            {
+                                <p class='nothing-message'>Please execute query - results will be displayed here.</p>
+                            }
+                            else if (Status == ExecutionStatus.Executing)
+                            {
+                                <p class='nothing-message'>Please wait while the query executes.</p>
+                            }
+                            else
+                            {
+                                <p class='nothing-message'>Please select a nession to continue.</p>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <p class='no-engine-message'>Query details are not set for display.</p>
+    }
+</div>
+
+@code {
+    private QueryEngine? _Engine;
+
+    [Parameter]
+    public QueryEngine? Engine
+    {
+        get => _Engine;
+        set
+        {
+            _Engine = value;
+            Console.WriteLine($"QE set with details: {_Engine}");
+            //Status = ExecutionStatus.PreExecution;
+        }
+    }
+
+    public string Summary
+    {
+        get
+        {
+            if (Status == ExecutionStatus.PreExecution)
+            {
+                if (_Engine == null)
+                {
+                    return "Query details not set.";
+                }
+                else
+                {
+                    return "Query not yet executed.";
+                }
+            }
+            else if (Status == ExecutionStatus.Executing)
+            {
+                // Note that finding a global attack will quickly result in the conclusion of the
+                // query. Therefore, it is not displayed during execution.
+                if (FoundAttackCount == 0)
+                {
+                    return $"Executing, no attacks found as yet with {AssessedNessions.Count} nessions assessed.";
+                }
+                else
+                {
+                    return $"Executing, {FoundAttackCount} attacks found with {AssessedNessions.Count} nessions assessed.";
+                }
+            }
+            else
+            {
+                if (FoundGlobalAttack != null)
+                {
+                    return "Global attack found (finished, no nessions generated).";
+                }
+                else if (FoundAttackCount > 0)
+                {
+                    return $"Finished, {FoundAttackCount} attacks found out of {AssessedNessions.Count} nessions assessed.";
+                }
+                else
+                {
+                    return $"Finished, no attacks found with {AssessedNessions.Count} nessions assessed.";
+                }
+            }
+        }
+    }
+
+    public void ExecuteQuery()
+    {
+        if (Engine != null)
+        {
+            FoundAttackCount = 0;
+            AssessedNessions.Clear();
+            FoundGlobalAttack = null;
+            CurrentNession = null;
+            CurrentAttack = null;
+            CurrentHornClauses = null;
+            Status = ExecutionStatus.Executing;
+            ForceRefresh();
+
+            Engine.Execute(OnNessionsGenerated, OnGlobalAttackFound, OnAttackAssessed, OnQueryCompletion);
+        }
+    }
+
+    #region Convenience methods.
+
+    private void ForceRefresh()
+    {
+        StateHasChanged();
+        Task.Delay(1);
+    }
+
+    #endregion
+    #region QueryEngine callbacks
+
+    private enum ExecutionStatus
+    {
+        PreExecution,
+        Executing,
+        PostExecution
+    }
+
+    private ExecutionStatus Status { get; set; } = ExecutionStatus.PreExecution;
+
+    private void OnNessionsGenerated(NessionManager nm)
+    {
+        Console.WriteLine($"There are {nm.GeneratedNessions().Count()} nessions");
+    }
+
+    private Attack? FoundGlobalAttack { get; set; }
+
+    private int FoundAttackCount = 0;
+
+    private void OnGlobalAttackFound(Attack a)
+    {
+        FoundGlobalAttack = a;
+        // No need to force refresh, as the query is about to end.
+    }
+
+    private List<(Nession, HashSet<HornClause>, Attack?)> AssessedNessions { get; set; } = new();
+
+    private void OnAttackAssessed(Nession n, HashSet<HornClause> clauses, Attack? a)
+    {
+        int nessionId = AssessedNessions.Count + 1;
+        n.Label = $"Nession {nessionId}";
+        if (a != null)
+        {
+            AssessedNessions.Insert(FoundAttackCount, (n, clauses, a));
+            FoundAttackCount++;
+        }
+        else
+        {
+            AssessedNessions.Add((n, clauses, a));
+        }
+        if (AssessedNessions.Count == 1)
+        {
+            OnSelect(AssessedNessions.First());
+        }
+        ForceRefresh();
+    }
+
+    private void OnQueryCompletion()
+    {
+        Status = ExecutionStatus.PostExecution;
+        StateHasChanged();
+    }
+
+    #endregion
+    #region User interaction.
+
+    public Nession? CurrentNession { get; set; }
+
+    public Attack? CurrentAttack { get; set; }
+
+    public HashSet<HornClause>? CurrentHornClauses { get; set; }
+
+    private void OnSelect((Nession, HashSet<HornClause>, Attack?) selTuple)
+    {
+        CurrentNession = selTuple.Item1;
+        CurrentHornClauses = selTuple.Item2;
+        CurrentAttack = selTuple.Item3;
+    }
+
+    private bool NessionSelected(Nession n) => CurrentNession != null && n.Label == CurrentNession.Label;
+
+    private string NessionListingItemClass(Nession n) => NessionSelected(n) ? "selected-nession-listing-item" : "nession-listing-item";
+
+    #endregion
+
+}

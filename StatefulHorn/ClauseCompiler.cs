@@ -85,6 +85,11 @@ public class ClauseCompiler : IClauseCompiler
                     if (initErr != null)
                     {
                         OnError?.Invoke(this, initErr);
+                        Console.WriteLine("Error was {initErr}");
+                    }
+                    else
+                    {
+                        Console.WriteLine("No state parsing error.");
                     }
                 }
             }
@@ -113,6 +118,18 @@ public class ClauseCompiler : IClauseCompiler
         }
         if (initStates != null && leak != null)
         {
+            Console.WriteLine("Basis rules are...");
+            foreach (Rule r in basisRules)
+            {
+                Console.WriteLine(r);
+            }
+            Console.WriteLine("<end of rules>");
+            Console.WriteLine("States are ...");
+            foreach (State s in initStates)
+            {
+                Console.WriteLine(s);
+            }
+            Console.WriteLine("End of states");
             OnComplete?.Invoke(this, new QueryEngine(initStates, leak, when, basisRules), null);
         }
     }

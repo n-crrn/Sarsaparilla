@@ -47,7 +47,7 @@ public class NessionManager
 
     //private List<Nession>? NonceNessions;
 
-    private IEnumerable<Nession> AllNessions()
+    public IEnumerable<Nession> GeneratedNessions()
     {
         if (InitialNessions != null /*&& NonceNessions != null*/)
         {
@@ -125,7 +125,6 @@ public class NessionManager
             }*/
 
             RemoveRedundantNessions(initSeedList);
-
         }
 
         //RemoveRedundantNessions(initSeedList);
@@ -209,7 +208,7 @@ public class NessionManager
     {
         Guard g = new();
         List<Nession> matches = new();
-        foreach (Nession n in AllNessions())
+        foreach (Nession n in GeneratedNessions())
         {
             foreach (Nession.Frame frame in n.History)
             {

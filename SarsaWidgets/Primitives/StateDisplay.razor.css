@@ -1,0 +1,11 @@
+﻿.state {
+    color: var(--state-color, lightgrey)
+}
+
+.state-name {
+    font-style: italic;
+}
+
+.no-state-display {
+    font-style: italic;
+}

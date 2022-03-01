@@ -1,0 +1,50 @@
+﻿/*
+ * The following theme values are supported:
+ *   --know-event-color
+ *   --init-event-color
+ *   --new-event-color
+ *   --accept-event-color
+ *   --make-event-color
+ *   --accept-event-color
+ *   --leak-event-color
+ */
+
+.event {
+    padding: 2px;
+}
+
+    .event::after {
+        content: ", ";
+    }
+
+    .event:last-of-type::after {
+        content: "";
+    }
+
+.event-name {
+    font-style: italic;
+}
+
+.know {
+    color: var(--know-event-color, green);
+}
+
+.init {
+    color: var(--init-event-color, aqua);
+}
+
+.new {
+    color: var(--new-event-color, cyan);
+}
+
+.make {
+    color: var(--accept-event-color, orange);
+}
+
+.accept {
+    color: var(--leak-event-color, orangered);
+}
+
+.leak {
+    color: var(--leak-event-color, red);
+}

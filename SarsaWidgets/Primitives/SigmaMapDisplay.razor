@@ -1,0 +1,30 @@
+﻿@*
+ * Control for displaying a SigmaMap.
+ *@
+@using StatefulHorn
+@using SarsaWidgets
+
+<div class='outer'>
+    @if (Map != null)
+    {
+        @foreach ((IMessage vr, IMessage val) in Map.Map)
+        {
+            <div class='map-item'>
+                <span class='var'>@FormatUtils.FormatLabel(vr.ToString())</span>
+                <span class='op'>↦</span>
+                <span class='val'>@FormatUtils.FormatLabel(val.ToString())</span>
+            </div>
+        }
+    }
+    else
+    {
+        <p class='no-map-message'>No map to display.</p>
+    }
+</div>
+
+@code {
+
+    [Parameter]
+    public SigmaMap? Map { get; set; }
+
+}

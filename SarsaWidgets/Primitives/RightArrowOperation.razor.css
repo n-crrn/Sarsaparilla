@@ -1,0 +1,31 @@
+﻿.outer {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.expanded {
+    flex-grow: 1;
+    min-width: 20px;
+    flex-basis: 20px;
+}
+
+svg {
+    stroke-width: 2px;
+    stroke-linecap: round;
+    stroke: var(--foreground-theme-color, black);
+}
+
+.left {
+    margin-right: 20px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.right {
+    margin-left: 20px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
