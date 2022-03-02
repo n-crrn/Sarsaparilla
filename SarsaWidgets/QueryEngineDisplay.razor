@@ -110,8 +110,6 @@
         set
         {
             _Engine = value;
-            Console.WriteLine($"QE set with details: {_Engine}");
-            //Status = ExecutionStatus.PreExecution;
         }
     }
 
@@ -175,7 +173,7 @@
             StateHasChanged();
             await Task.Delay(1);
 
-            Engine.Execute(OnNessionsGenerated, OnGlobalAttackFound, OnAttackAssessed, OnQueryCompletion);
+            await Engine.Execute(OnNessionsGenerated, OnGlobalAttackFound, OnAttackAssessed, OnQueryCompletion);
         }
     }
 
@@ -195,10 +193,7 @@
 
     public ExecutionStatus Status { get; private set; } = ExecutionStatus.PreExecution;
 
-    private void OnNessionsGenerated(NessionManager nm)
-    {
-        Console.WriteLine($"There are {nm.GeneratedNessions().Count()} nessions");
-    }
+    private void OnNessionsGenerated(NessionManager nm) { }
 
     private Attack? FoundGlobalAttack { get; set; }
 
