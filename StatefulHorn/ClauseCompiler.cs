@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace StatefulHorn;
 
@@ -32,15 +33,17 @@ public class ClauseCompiler : IClauseCompiler
         string[] lines = inputSrc.Split("\n");
         for (int lineOffset = 0; lineOffset < lines.Length; lineOffset++)
         {
-            string thisLineClean = lines[lineOffset].Trim();
-            if (thisLineClean.Length != 0 && !thisLineClean.StartsWith("//"))
+            string thisLineClean = UncommentLine(lines[lineOffset]);
+            if (thisLineClean.Length != 0)
             {
+                thisLineClean = UncommentLine(thisLineClean);
+
                 // In case this rule is broken over several lines, collect the pieces.
                 int lineEndOffset = lineOffset;
                 while (thisLineClean.EndsWith("\\") && (lineEndOffset + 1) < lines.Length)
                 {
                     lineEndOffset++;
-                    thisLineClean = thisLineClean + " " + lines[lineEndOffset].Trim();
+                    thisLineClean = thisLineClean + " " + UncommentLine(lines[lineEndOffset]);
                 }
 
                 int lineNumber = lineOffset + 1;
@@ -134,10 +137,11 @@ public class ClauseCompiler : IClauseCompiler
         }
     }
 
+    private static string UncommentLine(string line) => line.Split("//").First().Trim();
+
     private readonly static string QueryPrefix = "query leak ";
     private readonly static string WhenConnector = " when ";
     private readonly static string InitPrefix = "init ";
-
 
     private static bool IsQueryLine(string cleanLine) => cleanLine.StartsWith(QueryPrefix);
 
