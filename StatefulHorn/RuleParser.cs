@@ -609,26 +609,37 @@ public class RuleParser
         if (resultDesc[0] == '<')
         {
             List<string> parts = new();
-            bool inTransform = false;
             StringBuilder buffer = new();
+            int indent = 0;
             for (int i = 0; i < resultDesc.Length; i++)
             {
                 char c = resultDesc[i];
                 if (c == '<')
                 {
-                    inTransform = true;
+                    if (indent > 0)
+                    {
+                        buffer.Append(c);
+                    }
+                    indent++;
                 }
                 else if (c == '>')
                 {
-                    parts.Add(buffer.ToString());
-                    buffer.Clear();
-                    inTransform = false;
+                    if (indent == 1)
+                    {
+                        parts.Add(buffer.ToString());
+                        buffer.Clear();
+                    }
+                    else
+                    {
+                        buffer.Append(c);
+                    }
+                    indent--;
                 }
-                else if (!inTransform && !(char.IsWhiteSpace(c) || c == ','))
+                else if ((indent == 0) && !(char.IsWhiteSpace(c) || c == ','))
                 {
                     throw new RuleParseException(whole, $"Malformed State Transformation section: {resultDesc}");
                 }
-                else if (inTransform)
+                else if (indent > 0)
                 {
                     buffer.Append(c);
                 }

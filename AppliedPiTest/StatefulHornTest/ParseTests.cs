@@ -49,24 +49,37 @@ public class ParseTests
     public void StateTransferringCheck()
     {
         RuleParser parser = new();
+
+        // In the first phase, check that basic parsing works.
+
         string longhandRuleSource = "know(x)(1) : {(1) :: a3} -[ (SD(init[]), a0), (SD(m), a3) : {a0 =< a3} ]-> <a3: SD(h(m, x))>";
         string shorthandRuleSource = "know(x)(a3) -[ (SD(init[]), a0), (SD(m), a3) : {a0 =< a3} ]-> <a3: SD(h(m, x))>";
 
         List<string> ruleSources = new(ContractExpandRuleString(longhandRuleSource));
         ruleSources.AddRange(ContractExpandRuleString(shorthandRuleSource));
 
-        Factory.SetNextLabel("transfer-test");
-        Snapshot a0 = Factory.RegisterState(new State("SD", new NameMessage("init")));
+        Factory.SetNextLabel("transfer-test-1");
+        IMessage initNameMsg = new NameMessage("init");
+        Snapshot a0 = Factory.RegisterState(new State("SD", initNameMsg));
         Snapshot a3 = Factory.RegisterState(new State("SD", new VariableMessage("m")));
         a3.SetLaterThan(a0);
         Factory.RegisterPremises(a3, Event.Know(new VariableMessage("x")));
         a3.TransfersTo = new State("SD", new FunctionMessage("h", new() { new VariableMessage("m"), new VariableMessage("x") }));
-        Rule expectedRule = Factory.CreateStateTransferringRule();
+        Rule expectedRule1 = Factory.CreateStateTransferringRule();
 
         foreach (string src in ruleSources)
         {
-            AssertRulesEqual(expectedRule, parser.Parse(src), $"Failed to correctly parse '{src}'.");
+            AssertRulesEqual(expectedRule1, parser.Parse(src), $"Failed to correctly parse '{src}'.");
         }
+
+        // In the second phase, double check that the result can be correctly parsed.
+        string nestedTupleSrc = "-[ (SD(<m, n>), a5) ]-> <a5: SD(<init[], init[]>)>";
+        Factory.SetNextLabel("transfer-test-2");
+        Snapshot a5 = Factory.RegisterState(
+            new State("SD", new TupleMessage(new() { new VariableMessage("m"), new VariableMessage("n") })));
+        a5.TransfersTo = new State("SD", new TupleMessage(new() { initNameMsg, initNameMsg }));
+        Rule expectedNestedTuple = Factory.CreateStateTransferringRule();
+        AssertRulesEqual(expectedNestedTuple, parser.Parse(nestedTupleSrc), $"Failed to correctly parse nested tuple in '{nestedTupleSrc}'");
     }
 
     /// <summary>
