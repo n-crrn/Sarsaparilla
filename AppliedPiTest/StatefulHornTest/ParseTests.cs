@@ -49,10 +49,11 @@ public class ParseTests
     public void StateTransferringCheck()
     {
         RuleParser parser = new();
-        string spacedRule = "know(x)(1) : {(1) :: a3} -[ (SD(init[]), a0), (SD(m), a3) : {a0 =< a3} ]-> <a3: SD(h(m, x))>";
-        string nonspacedRule = spacedRule.Replace(" ", "");
-        string extraSpacedRule = spacedRule.Replace(" ", "   ").Replace("(", " ( ").Replace(")", " ) ");
-        string shorthandRule = "know(x)(a3) -[ (SD(init[]), a0), (SD(m), a3) : {a0 =< a3} ]-> <a3: SD(h(m, x))>";
+        string longhandRuleSource = "know(x)(1) : {(1) :: a3} -[ (SD(init[]), a0), (SD(m), a3) : {a0 =< a3} ]-> <a3: SD(h(m, x))>";
+        string shorthandRuleSource = "know(x)(a3) -[ (SD(init[]), a0), (SD(m), a3) : {a0 =< a3} ]-> <a3: SD(h(m, x))>";
+
+        List<string> ruleSources = new(ContractExpandRuleString(longhandRuleSource));
+        ruleSources.AddRange(ContractExpandRuleString(shorthandRuleSource));
 
         Factory.SetNextLabel("transfer-test");
         Snapshot a0 = Factory.RegisterState(new State("SD", new NameMessage("init")));
@@ -62,10 +63,10 @@ public class ParseTests
         a3.TransfersTo = new State("SD", new FunctionMessage("h", new() { new VariableMessage("m"), new VariableMessage("x") }));
         Rule expectedRule = Factory.CreateStateTransferringRule();
 
-        AssertRulesEqual(expectedRule, parser.Parse(spacedRule), spacedRule);
-        AssertRulesEqual(expectedRule, parser.Parse(nonspacedRule), nonspacedRule);
-        AssertRulesEqual(expectedRule, parser.Parse(extraSpacedRule), extraSpacedRule);
-        AssertRulesEqual(expectedRule, parser.Parse(shorthandRule), shorthandRule);
+        foreach (string src in ruleSources)
+        {
+            AssertRulesEqual(expectedRule, parser.Parse(src), $"Failed to correctly parse '{src}'.");
+        }
     }
 
     /// <summary>

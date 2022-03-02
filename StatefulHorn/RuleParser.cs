@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -332,7 +333,13 @@ public class RuleParser
             Dictionary<string, string> correspondences = ParseSnapshotCorrespondence(whole, topParts[1]);
             for (int i = 0; i < pieces.Count; i++)
             {
-                pieces[i] = pieces[i] with { SnapshotLabel = correspondences[pieces[i].SnapshotLabel] };
+                string ssIMRef = pieces[i].SnapshotLabel;
+                if (!correspondences.TryGetValue(pieces[i].SnapshotLabel, out string? ssLabel))
+                {
+                    throw new RuleParseException(whole, $"Snapshot reference {ssIMRef} has no correspondence in rule.");
+                }
+                Debug.Assert(ssLabel != null);
+                pieces[i] = pieces[i] with { SnapshotLabel = ssLabel };
             }
         }
         return pieces;
@@ -369,7 +376,7 @@ public class RuleParser
                 {
                     i++;
                 }
-                pieces.Add(new PremisePiece(term, ssRef));
+                pieces.Add(new PremisePiece(term, ssRef.Trim()));
             }
         }
         return pieces;
@@ -403,7 +410,7 @@ public class RuleParser
             {
                 throw new RuleParseException(whole, "Unable to parse Premise-Snapshot correspondence section.");
             }
-            found[cParts[0].Trim().TrimStart('(').TrimEnd(')')] = cParts[1].Trim();
+            found[cParts[0].Trim().TrimStart('(').TrimEnd(')').Trim()] = cParts[1].Trim();
         }
         return found;
     }
