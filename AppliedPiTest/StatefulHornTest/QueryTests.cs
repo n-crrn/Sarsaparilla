@@ -16,7 +16,7 @@ public class QueryTests
 
     private readonly RuleParser Parser = new();
 
-    private async void DoTest(string[] ruleSrcs, string querySrc, string stateInitSrc, bool shouldFind, bool shouldFindGlobal = false)
+    private async Task DoTest(string[] ruleSrcs, string querySrc, string stateInitSrc, bool shouldFind, bool shouldFindGlobal = false)
     {
         List<Rule> rules = new(from r in ruleSrcs select Parser.Parse(r));
         IMessage query = MessageParser.ParseMessage(querySrc);
@@ -48,7 +48,7 @@ public class QueryTests
     }
 
     [TestMethod]
-    public void NameTupleCheck()
+    public async Task NameTupleCheck()
     {
         string[] ruleSet =
         {
@@ -65,11 +65,11 @@ public class QueryTests
             "(15) = -[ (SD(m), c1) ]-> k(m)",
             "(16) = k(x)(d1) -[ (SD(m), d1) ]-> <d1: SD(h(m, x))>"
         };
-        DoTest(ruleSet, "<bob_l[], bob_r[]>", "SD(init[])", true, false);
+        await DoTest(ruleSet, "<bob_l[], bob_r[]>", "SD(init[])", true, false);
     }
 
     [TestMethod]
-    public void NonceChecks()
+    public async Task NonceChecks()
     {
         List<string> ruleSet = new()
         {
@@ -106,10 +106,10 @@ public class QueryTests
             "k(enc(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k(sr)",
         };*/
 
-        DoTest(ruleSet.ToArray(), "h(init[], left[])", "SD(init[])", true);
-        DoTest(ruleSet.ToArray(), "<[bobl], [bobr]>", "SD(init[])", false);
+        await DoTest(ruleSet.ToArray(), "h(init[], left[])", "SD(init[])", true);
+        await DoTest(ruleSet.ToArray(), "<[bobl], [bobr]>", "SD(init[])", false);
 
         ruleSet.Add("-[ (SD(m), a0) ]-> <a0: SD(init[])>");
-        DoTest(ruleSet.ToArray(), "<[bobl], [bobr]>", "SD(init[])", true);
+        await DoTest(ruleSet.ToArray(), "<[bobl], [bobr]>", "SD(init[])", true);
     }
 }
