@@ -91,7 +91,7 @@ public class ParseTests
     public void EventShortcutsCheck()
     {
         RuleParser parser = new();
-        string ruleSrcStart = "k(x), i(m), n([nonce], k[]) -[ ]-> ";// k(t(x,m)), l(m), a(x)";
+        string ruleSrcStart = "k(x), i(m), n([nonce]) -[ ]-> ";// k(t(x,m)), l(m), a(x)";
         string[] endingsSrc = new string[]
         {
             "k(t(x, m))",
@@ -108,7 +108,7 @@ public class ParseTests
         {
             Event.Know(new VariableMessage("x")),
             Event.Init(new VariableMessage("m")),
-            Event.New(new NonceMessage("nonce"), new NameMessage("k"))
+            Event.New(new NonceMessage("nonce"))
         };
 
         for (int i = 0; i < endings.Length; i++)
@@ -313,7 +313,7 @@ public class ParseTests
         string[] testStrings = new string[]
         {
             "know(m) -[ ]-> init(m)",
-            "know(m) -[ ]-> new([n], l[])"
+            "know(m) -[ ]-> new([n])"
         };
         RuleParser parser = new();
         foreach (string ts in testStrings)

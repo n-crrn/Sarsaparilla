@@ -38,15 +38,7 @@ public class Event : ISigmaUnifiable
 
     public static Event Know(IMessage msg) => new(Type.Know, new IMessage[] { msg });
 
-    public static Event New(NonceMessage nonce, NameMessage loc)
-    {
-        Event ev = new(Type.New, new IMessage[] { nonce });
-        ev.LocationId = loc;
-        return ev;
-    }
-
-    public static Event New(NonceMessage nonce) => New(nonce, new NameMessage("l"));
-    // FIXME: Ensure the location part is removed.
+    public static Event New(NonceMessage nonce) => new(Type.New, new IMessage[] { nonce });
 
     public static Event Init(IEnumerable<IMessage> knownMessages) => new(Type.Init, knownMessages);
 
@@ -60,15 +52,7 @@ public class Event : ISigmaUnifiable
 
     public static Event Make(IMessage msg) => new(Type.Make, new IMessage[] { msg });
 
-    public Event PerformSubstitution(SigmaMap sigma)
-    {
-        Event ev = new(EventType, from m in _Messages select m.PerformSubstitution(sigma));
-        if (ev.EventType == Type.New)
-        {
-            ev.LocationId = LocationId;
-        }
-        return ev;
-    }
+    public Event PerformSubstitution(SigmaMap sigma) => new(EventType, from m in _Messages select m.PerformSubstitution(sigma));
 
     #endregion
 
@@ -77,8 +61,6 @@ public class Event : ISigmaUnifiable
     private readonly List<IMessage> _Messages;
 
     public IReadOnlyList<IMessage> Messages => _Messages;
-
-    public NameMessage? LocationId { get; private set; }
 
     public bool IsAcceptOrLeak => EventType == Type.Leak || EventType == Type.Accept;
 
@@ -167,7 +149,7 @@ public class Event : ISigmaUnifiable
                 Type.Init => $"init({MessagesAsString})",
                 Type.Know => $"know({FirstMessageAsString})",
                 Type.Leak => $"leak({FirstMessageAsString})",
-                Type.New => $"new({FirstMessageAsString}, {LocationId!})",
+                Type.New => $"new({FirstMessageAsString})",
                 Type.Make => $"make({FirstMessageAsString})",
                 _ => throw new System.NotImplementedException()
             };

@@ -92,7 +92,7 @@ public class QueryEngine
 
     private bool CancelQuery = false;
 
-    public async void Execute(
+    public async Task Execute(
         Action<NessionManager>? onNessionsGenerated,
         Action<Attack>? onGlobalAttackFound,
         Action<Nession, HashSet<HornClause>, Attack?>? onAttackAssessed,

@@ -16,7 +16,7 @@ public class QueryTests
 
     private readonly RuleParser Parser = new();
 
-    private void DoTest(string[] ruleSrcs, string querySrc, string stateInitSrc, bool shouldFind, bool shouldFindGlobal = false)
+    private async void DoTest(string[] ruleSrcs, string querySrc, string stateInitSrc, bool shouldFind, bool shouldFindGlobal = false)
     {
         List<Rule> rules = new(from r in ruleSrcs select Parser.Parse(r));
         IMessage query = MessageParser.ParseMessage(querySrc);
@@ -33,7 +33,7 @@ public class QueryTests
         void onAttackAssessedFound(Nession n, HashSet<HornClause> _, Attack? a) => attackAssessedFound |= a != null;
         void onCompletion() => completedDone = true;
 
-        qe.Execute(onNessionsGenerated, onGlobalAttackFound, onAttackAssessedFound, onCompletion);
+        await qe.Execute(onNessionsGenerated, onGlobalAttackFound, onAttackAssessedFound, onCompletion);
         if (shouldFindGlobal)
         {
             Assert.IsTrue(globalAttackFound, "Global attack not found when it was expected.");
@@ -65,7 +65,7 @@ public class QueryTests
             "(15) = -[ (SD(m), c1) ]-> k(m)",
             "(16) = k(x)(d1) -[ (SD(m), d1) ]-> <d1: SD(h(m, x))>"
         };
-        DoTest(ruleSet, "<bob_l[], bob_r[]>", "SD(init[])", true);
+        DoTest(ruleSet, "<bob_l[], bob_r[]>", "SD(init[])", true, false);
     }
 
     [TestMethod]
@@ -84,8 +84,8 @@ public class QueryTests
             "k(p), k(n) -[ ]-> k(h(p, n))",
             // Session commencement and state transitions - should '_' be added as a variable/message stand-in?
             //"n([bobl], l[]), n([bobr], r[]), k(mf) -[ ]-> k(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))",
-            "n([bobl], l[])(a0), n([bobr], l[])(a0), k(mf)(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k([bobl])",
-            "n([bobl], l[])(a0), n([bobr], l[])(a0), k(mf)(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k([bobr])",
+            "n([bobl])(a0), n([bobr])(a0), k(mf)(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k([bobl])",
+            "n([bobl])(a0), n([bobr])(a0), k(mf)(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k([bobr])",
             "k(x)(a0) -[(SD(m), a0)]-> <a0: SD(h(m, x))>",
             // Reading from states and inputs.
             "k(enc_a(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k(sl)",

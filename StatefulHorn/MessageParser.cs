@@ -163,19 +163,15 @@ public static class MessageParser
                 return (Event.Know(rc.Messages[0]), null);
             case "new":
             case "n":
-                if (rc.Messages.Count < 2)
+                if (rc.Messages.Count != 1)
                 {
-                    return (null, "Two arguments required for new event: nonce and location name.");
+                    return (null, "There must be a nonce to create.");
                 }
-                else if (rc.Messages.Count > 2)
+                if (rc.Messages[0] is NonceMessage rcName)
                 {
-                    return (null, "Only two argument required for new event: nonce and location name.");
+                    return (Event.New(rcName), null);
                 }
-                if (rc.Messages[0] is NonceMessage rcName && rc.Messages[1] is NameMessage rcLocation)
-                {
-                    return (Event.New(rcName, rcLocation), null);
-                }
-                return (null, "Wrong types for new event: must be nonce and name types.");
+                return (null, "Wrong types for new event: must be nonce type.");
             case "init":
             case "i":
                 return (Event.Init(rc.Messages), null);

@@ -147,7 +147,7 @@ public class NessionManager
     {
         if (InitialNessions == null)
         {
-            Elaborate();
+            throw new InvalidOperationException("Must run Elaborate(...) before running GenerateHornClauseSet(...)");
         }
         Debug.Assert(InitialNessions != null);
 

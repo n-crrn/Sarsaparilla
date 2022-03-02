@@ -42,15 +42,14 @@ public class CompositionTests
     [TestMethod]
     public void PartialSnapshotsCompose()
     {
-        string r1Src = "new([bob_l], l_sl[]), new([bob_r], l_sr[]), know(m_f) -[ ]-> " +
-                       "know(enc_a(<m_f, [bob_l], [bob_r]>, pk(sksd[])))";
+        string r1Src = "new([bob_l]), new([bob_r]), know(m_f) -[ ]-> know(enc_a(<m_f, [bob_l], [bob_r]>, pk(sksd[])))";
         StateConsistentRule r1 = Parser.ParseStateConsistentRule(r1Src);
 
         string r2Src = "know(enc_a(<m_f, s_l, s_r>, pk(sksd[])))(1) : {(1) :: a_1} -[ " +
                        "(SD(init[]), a_0), (SD(h(m_f, left[])), a_1) : {a_0 ≤ a_1} ]-> know(s_l)";
         StateConsistentRule r2 = Parser.ParseStateConsistentRule(r2Src);
 
-        string expectedSrc = "new([bob_l], l_sl[])(1), new([bob_r], l_sr[])(2), know(m_f)(3) : " +
+        string expectedSrc = "new([bob_l])(1), new([bob_r])(2), know(m_f)(3) : " +
             "{(1) :: a_1, (2) :: a_1, (3) :: a_1} -[ " +
             "(SD(init[]), a_0), (SD(h(m_f, left[])), a_1) : {a_0 ≤ a_1} ]-> " +
             "know([bob_l])";

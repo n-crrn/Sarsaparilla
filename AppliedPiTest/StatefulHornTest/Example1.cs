@@ -26,9 +26,7 @@ public static class Example1
         IMessage pkSkMsg = new FunctionMessage("pk", new() { skMsg });
         IMessage fullEncAMsg = new FunctionMessage("enc_a", new() { mMsg, pkSkMsg });
         NonceMessage bobLMsg = new("bob_l");
-        NameMessage locSLMsg = new("l_sl");
         NonceMessage bobRMsg = new("bob_r");
-        NameMessage locSRMsg = new("l_sr");
         IMessage mFMsg = new VariableMessage("m_f");
         IMessage sksdMsg = new NameMessage("sksd");
         IMessage pkSksdMsg = new FunctionMessage("pk", new() { sksdMsg });
@@ -59,8 +57,8 @@ public static class Example1
 
         // --- Rule 3 - Bob ---
         factory.SetNextLabel("bob");
-        factory.RegisterPremise(Event.New(bobLMsg, locSLMsg));
-        factory.RegisterPremise(Event.New(bobRMsg, locSRMsg));
+        factory.RegisterPremise(Event.New(bobLMsg));
+        factory.RegisterPremise(Event.New(bobRMsg));
         factory.RegisterPremise(Event.Know(mFMsg));
         TupleMessage encAInnerSeq = new(new() { mFMsg, bobLMsg, bobRMsg });
         Event fullEncAKnows = Event.Know(new FunctionMessage("enc_a", new() { encAInnerSeq, pkSksdMsg }));
@@ -106,8 +104,8 @@ public static class Example1
 
         // --- Rule 9 - Property of Interest ---
         factory.SetNextLabel("interest");
-        factory.RegisterPremise(Event.New(bobLMsg, locSLMsg));
-        factory.RegisterPremise(Event.New(bobRMsg, locSRMsg));
+        factory.RegisterPremise(Event.New(bobLMsg));
+        factory.RegisterPremise(Event.New(bobRMsg));
         factory.RegisterPremise(Event.Know(bobLMsg));
         factory.RegisterPremise(Event.Know(bobRMsg));
         BasisRules.Add(factory.CreateStateConsistentRule(Event.Leak(new TupleMessage(new() { bobLMsg, bobRMsg }))));
