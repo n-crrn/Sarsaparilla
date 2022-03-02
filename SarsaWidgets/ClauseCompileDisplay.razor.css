@@ -1,5 +1,4 @@
 ﻿.outer {
-    border: solid 1px var(--subtle-border-theme-color, darkgrey);
     width: 100%;
 }
 
