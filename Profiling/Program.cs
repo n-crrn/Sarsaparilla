@@ -40,8 +40,8 @@ string[] ruleSet =
     "k(sk) -[]-> k(pk(sk))",
     "k(p), k(n) -[ ]-> k(h(p, n))",
     // Session commencement and state transitions - should '_' be added as a variable/message stand-in?
-    "n([bobl], l[])(a0), n([bobr], l[])(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k([bobl])",
-    "n([bobl], l[])(a0), n([bobr], l[])(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k([bobr])",
+    "n([bobl])(a0), n([bobr])(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k([bobl])",
+    "n([bobl])(a0), n([bobr])(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k([bobr])",
     //"n([bobl], l[]), n([bobr], r[]), k(mf) -[ ]-> k(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))",
     "k(x)(a0) -[(SD(m), a0)]-> <a0: SD(h(m, x))>",
     //"-[ (SD(m), a0) ]-> <a0: SD(init[])>",
