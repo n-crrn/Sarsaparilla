@@ -59,7 +59,7 @@
 .nession-listing {
     flex-grow: 0;
     flex-shrink: 0;
-    overflow: scroll;
+    overflow-y: scroll;
     border-right: solid 1px var(--foreground-theme-color, grey);
     justify-self: stretch;
     width: 200px;

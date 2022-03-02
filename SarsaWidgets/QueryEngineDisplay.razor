@@ -18,26 +18,29 @@
         else
         {
             <div class='main-view'>
-                <div class='nession-listing'>
-                    <div class='nession-listing-inner'>
-                        @if (AssessedNessions.Count > 0)
-                        {
-                            <Virtualize Items=@AssessedNessions Context=an>
-                                <div class=@NessionListingItemClass(an.Item1) @onclick=@(() => OnSelect(an))>
-                                    @if (an.Item3 != null)
-                                    {
-                                        <div class='nession-attack-icon'>⚠</div>
-                                    }
-                                    else
-                                    {
-                                        <div class='nession-no-attack-icon'>正</div>
-                                    }
-                                    <div class='nession-label'>@an.Item1.Label</div>
-                                </div>
-                            </Virtualize>
-                        }
+                @if (AssessedNessions.Count > 0)
+                {
+                    <div class='nession-listing'>
+                        <div class='nession-listing-inner'>
+                            @if (AssessedNessions.Count > 0)
+                            {
+                                <Virtualize Items=@AssessedNessions Context=an>
+                                    <div class=@NessionListingItemClass(an.Item1) @onclick=@(() => OnSelect(an))>
+                                        @if (an.Item3 != null)
+                                        {
+                                            <div class='nession-attack-icon'>⚠</div>
+                                        }
+                                        else
+                                        {
+                                            <div class='nession-no-attack-icon'>正</div>
+                                        }
+                                        <div class='nession-label'>@an.Item1.Label</div>
+                                    </div>
+                                </Virtualize>
+                            }
+                        </div>
                     </div>
-                </div>
+                }
 
                 <div class='nession-attack-view'>
                     <div class='nession-attack-view-inner'>
