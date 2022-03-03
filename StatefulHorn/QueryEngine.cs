@@ -107,7 +107,6 @@ public class QueryEngine
         {
             onGlobalAttackFound?.Invoke(new(new List<IMessage>() { Query }, new List<HornClause>()));
             onCompletion?.Invoke();
-            await Task.Delay(1);
             return;
         }
 
@@ -121,12 +120,11 @@ public class QueryEngine
         await Task.Delay(1);
         List<(Nession, HashSet<HornClause>)> nessionClauses = new();
         CurrentNessionManager.GenerateHornClauseSet(When, nessionClauses);
-        foreach ((Nession n, HashSet<HornClause> clauseSet) in nessionClauses)
+        const int waitStride = 1024;
+        for (int nessionId = 0; nessionId < nessionClauses.Count; nessionId++)
         {
-            if (CancelQuery)
-            {
-                goto finishExecution;
-            }
+            (Nession n, HashSet<HornClause> clauseSet) = nessionClauses[nessionId];
+            
             HashSet<HornClause> fullNessionSet = new(KnowledgeRules);
             fullNessionSet.UnionWith(clauseSet);
 
@@ -135,7 +133,15 @@ public class QueryEngine
             QueryResult qr = CheckQuery(Query, BasicFacts, finNessionSet, new(new(), new()));
             Attack? foundAttack = qr.Found ? new(qr.Facts!, qr.Knowledge!) : null;
             onAttackAssessed?.Invoke(n, fullNessionSet, foundAttack);
-            await Task.Delay(1);
+
+            if (nessionId % waitStride == 0)
+            {
+                await Task.Delay(1);
+                if (CancelQuery)
+                {
+                    goto finishExecution;
+                }
+            }
         }
     finishExecution:
         onCompletion?.Invoke();

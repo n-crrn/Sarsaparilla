@@ -64,83 +64,79 @@ public class NessionManager
         {
             CancelElaborate = false;
         }
-        Nession initSeed = new(InitialConditions);
-        List<Nession> initSeedList = new() { initSeed };
 
-        int initSeedStart = 0;
-        int initSeedEnd = initSeedList.Count;
-
-        //const int numberOfSubElaborations = 100;
         int numberOfSubElaborations = TransferringRules.Count + SystemRules.Count;
+        //const int numberOfSubElaborations = 4;
+
+        Nession initSeed = new(InitialConditions);
+        //List<Nession> initSeedList = new() { initSeed };
 
         // Determine what states are possible.
+        //List<Nession> updatedInitNessions = new();
+        List<Nession> nextLevel = new() { initSeed };
+        List<Nession> nextLevelIter = new();
+        List<Nession> processed = new();
         for (int elabCounter = 0; elabCounter < numberOfSubElaborations; elabCounter++)
         {
             foreach (StateConsistentRule scr in SystemRules)
             {
-                await Task.Delay(1);
-                if (CancelElaborate)
+                foreach (Nession initN in nextLevel)
                 {
-                    goto finishElaborate;
+                    nextLevelIter.AddRange(initN.TryApplySystemRule(scr));
                 }
-                List<Nession> updatedInitNessions = new();
-                foreach (Nession initN in initSeedList)
-                {
-                    updatedInitNessions.AddRange(initN.TryApplySystemRule(scr));
-                }
-                initSeedList = updatedInitNessions;
+
+                // Swap lists to prevent unnecessary object creation.
+                (nextLevel, nextLevelIter) = (nextLevelIter, nextLevel);
+                nextLevelIter.Clear();
             }
 
-            foreach (StateTransferringRule transferRule in TransferringRules)
+            // Provide check for cancellation.
+            await Task.Delay(1);
+            if (CancelElaborate)
             {
-                await Task.Delay(1);
-                if (CancelElaborate)
+                goto finishElaborate;
+            }
+
+            // Skip the last transfer elaboration - does not add value as system rules will not
+            // be considered for the new states, while the number of nessions increases.
+            if (elabCounter == (numberOfSubElaborations - 1))
+            {
+                break;
+            }
+
+            for (int i = 0; i < nextLevel.Count; i++)
+            {
+                Nession thisSeed = nextLevel[i];
+                bool prefixAccounted = false;
+                foreach (StateTransferringRule transferRule in TransferringRules)
                 {
-                    goto finishElaborate;
-                }
-                for (int i = initSeedStart; i < initSeedEnd; i++)
-                {
-                    Nession? n = initSeedList[i].TryApplyTransfer(transferRule);
+                    (Nession? n, bool doesExtend) = thisSeed.TryApplyTransfer(transferRule);
                     if (n != null)
                     {
-                        initSeedList.Add(n);
+                        nextLevelIter.Add(n);
+                        prefixAccounted |= doesExtend;
                     }
                 }
+                if (prefixAccounted)
+                {
+                    nextLevel.RemoveAt(i);
+                    i--;
+                }
             }
-            // Update the ranges of states to be updated.
-            initSeedStart = initSeedEnd;
-            initSeedEnd = initSeedList.Count;
-
-            RemoveRedundantNessions(initSeedList);
+            processed.AddRange(nextLevel);
+            (nextLevel, nextLevelIter) = (nextLevelIter, nextLevel);
+            nextLevelIter.Clear();
         }
 
+        processed.AddRange(nextLevel);
+
     finishElaborate:
-        InitialNessions = initSeedList;
+        InitialNessions = processed;
     }
 
     public void CancelElaboration()
     {
         CancelElaborate = true;
-    }
-
-    private static void RemoveRedundantNessions(List<Nession> nList)
-    {
-        // Dispose of Nessions that are expanded on by other Nession. This will reduce processing
-        // later in the elaboration. Note that this iteration strategy takes advantage of the
-        // fact that later Nessions in the list are built upon previous Nessions.
-        for (int i = 0; i < nList.Count - 1; i++)
-        {
-            Nession currentNession = nList[i];
-            for (int j = i + 1; j < nList.Count; j++)
-            {
-                if (currentNession.IsPrefixOf(nList[j]))
-                {
-                    nList.RemoveAt(i);
-                    i--;
-                    break;
-                }
-            }
-        }
     }
 
     public void GenerateHornClauseSet(State? s, List<(Nession, HashSet<HornClause>)> byNession)

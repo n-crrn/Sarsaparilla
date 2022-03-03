@@ -208,9 +208,18 @@ public class Nession
     #endregion
     #region State transferring rule application.
 
-    public Nession Substitute(SigmaMap map) => new(InitialRule, from f in History select f.Substitute(map), VNumber);
+    //public Nession Substitute(SigmaMap map) => new(InitialRule, from f in History select f.Substitute(map), VNumber);
 
-    public Nession? TryApplyTransfer(StateTransferringRule str)
+    public Nession Substitute(SigmaMap map)
+    {
+        if (map.IsEmpty)
+        {
+            return new(InitialRule, from f in History select f.Clone(), VNumber);
+        }
+        return new(InitialRule, from f in History select f.Substitute(map), VNumber);
+    }
+
+    public (Nession?, bool) TryApplyTransfer(StateTransferringRule str)
     {
         StateTransferringRule r = (StateTransferringRule)str.SubscriptVariables(NextVNumber());
         if (CanApplyRuleAt(r, History.Count - 1, out SigmaFactory? sf))
@@ -219,21 +228,24 @@ public class Nession
             SigmaMap fwdMap = sf.CreateForwardMap();
             SigmaMap bwdMap = sf.CreateBackwardMap();
 
+            bool canRemoveThis = bwdMap.IsEmpty;
             Nession updated = Substitute(bwdMap);
-
             StateTransferringRule updatedRule = (StateTransferringRule)r.PerformSubstitution(fwdMap);
-            Frame newFrame = new(new(updatedRule.Premises), updated.CreateStateSetOnTransfer(updatedRule), new());
-            updated.History.Add(newFrame);
-            newFrame.TransferRule = updatedRule;
-            UpdateNonceDeclarations();
+            HashSet<State> newStateSet = updated.CreateStateSetOnTransfer(updatedRule);
+            // It is possible to have duplicate states pop up in a trace, especially if you have
+            // some sort of reset rule. This logic prevent it.
+            if (!(updated.History.Count > 0 && newStateSet.SetEquals(updated.History[^1].StateSet)))
+            {
+                Frame newFrame = new(new(updatedRule.Premises), newStateSet, new());
+                updated.History.Add(newFrame);
+                newFrame.TransferRule = updatedRule;
+                UpdateNonceDeclarations();
 
-            return updated;
+                return (updated, canRemoveThis);
+            }
         }
-        else
-        {
-            StepBackVNumber();
-        }
-        return null;
+        StepBackVNumber();
+        return (null, false);
     }
 
     private HashSet<State> CreateStateSetOnTransfer(StateTransferringRule r)
@@ -352,37 +364,7 @@ public class Nession
     {
         Debug.Assert(!scr.Snapshots.IsEmpty);
         List<Nession> generated = new() { this };
-        /*int maxTraceLength = scr.Snapshots.MaxTraceLength;
-        if (maxTraceLength > History.Count)
-        {
-            // Cannot possibly imply rule.
-            return generated;
-        }*/
-
-        /*if (scr.Snapshots.IsEmpty) // Empty always applies - probably a nonce declaration/usage.
-        {
-            StateConsistentRule emptyR = (StateConsistentRule)scr.SubscriptVariables(NextVNumber());
-            emptyR.IdTag = scr.IdTag;
-            if (CanApplyRuleAt(emptyR, History.Count - 1, out SigmaFactory? _))
-            {
-                // Note that the SigmaFactory can be ignored, as there is no state to compare with.
-                if (emptyR.NonceDeclarations.Any())
-                {
-                    Nession nonceNession = new(InitialRule, History, VNumber);
-                    nonceNession.History[^1].Rules.Add(emptyR);
-                    nonceNession.UpdateNonceDeclarations();
-                    generated.Add(nonceNession);
-                }
-                else
-                {
-                    History[^1].Rules.Add(emptyR);
-                }
-            }
-            return generated;
-        }*/
-
-        //for (int frameOffset = maxTraceLength - 1; frameOffset < History.Count; frameOffset++)
-        //{
+        
         // Do a check to ensure that we don't already have the same rule already added.
         foreach (StateConsistentRule existingRule in History[^1].Rules)
         {
@@ -402,6 +384,7 @@ public class Nession
             StateConsistentRule updatedRule = (StateConsistentRule)r.PerformSubstitution(fwdMap);
             updatedRule.IdTag = scr.IdTag;
             if (bwdMap.IsEmpty)
+            //if (fwdMap.IsEmpty)
             {
                 Frame historyFrame = History[^1];
                 historyFrame.Rules.Add(updatedRule);
