@@ -93,7 +93,7 @@ public class QueryEngine
     private bool CancelQuery = false;
 
     public async Task Execute(
-        Action<NessionManager>? onNessionsGenerated,
+        Action? onStartNextLevel,
         Action<Attack>? onGlobalAttackFound,
         Action<Nession, HashSet<HornClause>, Attack?>? onAttackAssessed,
         Action? onCompletion)
@@ -111,39 +111,31 @@ public class QueryEngine
         }
 
         CurrentNessionManager = new(StateSet, SystemRules.ToList(), TransferringRules.ToList());
-        await CurrentNessionManager.Elaborate();
-        if (CancelQuery)
-        {
-            goto finishExecution;
-        }
-        onNessionsGenerated?.Invoke(CurrentNessionManager);
-        await Task.Delay(1);
-        List<(Nession, HashSet<HornClause>)> nessionClauses = new();
-        CurrentNessionManager.GenerateHornClauseSet(When, nessionClauses);
-        const int waitStride = 1024;
-        for (int nessionId = 0; nessionId < nessionClauses.Count; nessionId++)
-        {
-            (Nession n, HashSet<HornClause> clauseSet) = nessionClauses[nessionId];
-            
-            HashSet<HornClause> fullNessionSet = new(KnowledgeRules);
-            fullNessionSet.UnionWith(clauseSet);
-
-            HashSet<HornClause> finNessionSet = ElaborateAndDetuple(fullNessionSet);
-            
-            QueryResult qr = CheckQuery(Query, BasicFacts, finNessionSet, new(new(), new()));
-            Attack? foundAttack = qr.Found ? new(qr.Facts!, qr.Knowledge!) : null;
-            onAttackAssessed?.Invoke(n, fullNessionSet, foundAttack);
-
-            if (nessionId % waitStride == 0)
+        await CurrentNessionManager.Elaborate((List<Nession> nextLevelNessions) =>
             {
-                await Task.Delay(1);
-                if (CancelQuery)
+                onStartNextLevel?.Invoke();
+
+                List<(Nession, HashSet<HornClause>)> nessionClauses = new();
+                HashSet<IMessage> premises = new();
+                bool atLeastOneAttack = false;
+                foreach (Nession n in nextLevelNessions)
                 {
-                    goto finishExecution;
+                    HashSet<HornClause> thisNessionClauses = new();
+                    n.CollectHornClauses(thisNessionClauses, premises, When);
+
+                    HashSet<HornClause> fullNessionSet = new(KnowledgeRules);
+                    fullNessionSet.UnionWith(thisNessionClauses);
+
+                    HashSet<HornClause> finNessionSet = ElaborateAndDetuple(fullNessionSet);
+
+                    QueryResult qr = CheckQuery(Query, BasicFacts, finNessionSet, new(new(), new()));
+                    Attack? foundAttack = qr.Found ? new(qr.Facts!, qr.Knowledge!) : null;
+                    onAttackAssessed?.Invoke(n, fullNessionSet, foundAttack);
+                    atLeastOneAttack |= foundAttack != null;
                 }
-            }
-        }
-    finishExecution:
+                return atLeastOneAttack;
+            });
+
         onCompletion?.Invoke();
         await Task.Delay(1);
     }

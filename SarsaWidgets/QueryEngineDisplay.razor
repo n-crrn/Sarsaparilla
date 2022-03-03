@@ -173,7 +173,7 @@
             StateHasChanged();
             await Task.Delay(1);
 
-            await Engine.Execute(OnNessionsGenerated, OnGlobalAttackFound, OnAttackAssessed, OnQueryCompletion);
+            await Engine.Execute(OnStartNextLevel, OnGlobalAttackFound, OnAttackAssessed, OnQueryCompletion);
         }
     }
 
@@ -193,11 +193,15 @@
 
     public ExecutionStatus Status { get; private set; } = ExecutionStatus.PreExecution;
 
-    private void OnNessionsGenerated(NessionManager nm) { }
-
     private Attack? FoundGlobalAttack { get; set; }
 
     private int FoundAttackCount = 0;
+
+    private void OnStartNextLevel()
+    {
+        Unselect();
+        AssessedNessions.Clear();
+    }
 
     private void OnGlobalAttackFound(Attack a)
     {
@@ -250,6 +254,13 @@
         CurrentNession = selTuple.Item1;
         CurrentHornClauses = selTuple.Item2;
         CurrentAttack = selTuple.Item3;
+    }
+
+    private void Unselect()
+    {
+        CurrentNession = null;
+        CurrentHornClauses = null;
+        CurrentAttack = null;
     }
 
     private bool NessionSelected(Nession n) => CurrentNession != null && n.Label == CurrentNession.Label;

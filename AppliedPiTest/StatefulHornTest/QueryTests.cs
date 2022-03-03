@@ -23,24 +23,18 @@ public class QueryTests
         State initState = MessageParser.ParseState(stateInitSrc);
 
         QueryEngine qe = new(new HashSet<State>() { initState }, query, null, rules);
-        bool nessionsGeneratedDone = false;
         bool globalAttackFound = false;
         bool attackAssessedFound = false;
         bool completedDone = false;
 
-        void onNessionsGenerated(NessionManager _) => nessionsGeneratedDone = true;
         void onGlobalAttackFound(Attack a) => globalAttackFound = true;
         void onAttackAssessedFound(Nession n, HashSet<HornClause> _, Attack? a) => attackAssessedFound |= a != null;
         void onCompletion() => completedDone = true;
 
-        await qe.Execute(onNessionsGenerated, onGlobalAttackFound, onAttackAssessedFound, onCompletion);
+        await qe.Execute(null, onGlobalAttackFound, onAttackAssessedFound, onCompletion);
         if (shouldFindGlobal)
         {
             Assert.IsTrue(globalAttackFound, "Global attack not found when it was expected.");
-        }
-        else
-        {
-            Assert.IsTrue(nessionsGeneratedDone, "onNessionsGenerated not called.");
         }
         
         Assert.AreEqual(shouldFind, attackAssessedFound);
@@ -92,19 +86,6 @@ public class QueryTests
             "k(enc_a(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k(sr)",
             "-[ (SD(m), a0) ]-> k(m)"
         };
-
-        /*List<string> ruleSet = new()
-        {
-            // Globally known facts.
-            "-[]-> k(left[])",
-            "-[]-> k(right[])",
-            "-[]-> k(init[])",
-            "n([bobl], l[]), n([bobr], r[]), k(mf) -[ ]-> k(enc(<mf, [bobl], [bobr]>, pk(sksd[])))",
-            "k(x)(a0) -[(SD(m), a0)]-> <a0: SD(h(m, x))>",
-            // Reading from states and inputs.
-            "k(enc(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k(sl)",
-            "k(enc(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k(sr)",
-        };*/
 
         await DoTest(ruleSet.ToArray(), "h(init[], left[])", "SD(init[])", true);
         await DoTest(ruleSet.ToArray(), "<[bobl], [bobr]>", "SD(init[])", false);

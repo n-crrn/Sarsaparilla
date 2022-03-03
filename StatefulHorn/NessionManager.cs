@@ -58,21 +58,19 @@ public class NessionManager
 
     private bool CancelElaborate = false;
 
-    public async Task Elaborate()
+    public async Task Elaborate(Func<List<Nession>, bool> finishedFunc, int maxDepth = -1)
     {
         if (CancelElaborate)
         {
             CancelElaborate = false;
         }
 
-        int numberOfSubElaborations = TransferringRules.Count + SystemRules.Count;
+        int numberOfSubElaborations = maxDepth == -1 ? TransferringRules.Count + SystemRules.Count : maxDepth;
         //const int numberOfSubElaborations = 4;
 
         Nession initSeed = new(InitialConditions);
-        //List<Nession> initSeedList = new() { initSeed };
 
         // Determine what states are possible.
-        //List<Nession> updatedInitNessions = new();
         List<Nession> nextLevel = new() { initSeed };
         List<Nession> nextLevelIter = new();
         List<Nession> processed = new();
@@ -91,8 +89,12 @@ public class NessionManager
             }
 
             // Provide check for cancellation.
-            await Task.Delay(1);
+            await Task.Delay(15);
             if (CancelElaborate)
+            {
+                goto finishElaborate;
+            }
+            if (finishedFunc(nextLevel))
             {
                 goto finishElaborate;
             }
