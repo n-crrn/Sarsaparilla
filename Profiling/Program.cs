@@ -111,5 +111,5 @@ void onAttackAssessed(Nession n, HashSet<HornClause> _, Attack? a)
 }
 
 Console.WriteLine("Commencing execution...");
-qe2.Execute(null, onGlobalAttackFound, onAttackAssessed, null);
+await qe2.Execute(null, onGlobalAttackFound, onAttackAssessed, null);
 Console.WriteLine("Finished execution.");
