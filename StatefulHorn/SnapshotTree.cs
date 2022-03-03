@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace StatefulHorn;
@@ -78,22 +79,9 @@ public class SnapshotTree
 
     public SnapshotTree PerformSubstitutions(SigmaMap substitutions)
     {
-        // Find all the events in the tree...
-        HashSet<Event> allEvents = new();
-        foreach (Snapshot trace in _Traces)
-        {
-            allEvents.UnionWith(trace.EventsInTrace);
-        }
-
-        // ... determine the substitutions ...
-        Dictionary<Event, Event> replacements = new();
-        foreach (Event ev in allEvents)
-        {
-            replacements[ev] = ev.PerformSubstitution(substitutions);
-        }
-
-        // ...return a new tree with substitutions.
-        return CloneTreeWithReplacementEvents(replacements, substitutions);
+        SnapshotTree newTree = new();
+        newTree._Traces.AddRange(from t in _Traces select t.PerformSubstitutions(substitutions));
+        return newTree;
     }
 
     private List<Snapshot> CloneTraces() => new(from t in _Traces select t.CloneTrace());

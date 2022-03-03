@@ -99,7 +99,7 @@ public class FunctionMessage : IMessage
 
     public IMessage PerformSubstitution(SigmaMap sigma)
     {
-        if (!ContainsVariables)
+        if (!ContainsVariables || sigma.IsEmpty)
         {
             return this;
         }

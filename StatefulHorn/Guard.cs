@@ -81,6 +81,10 @@ public class Guard
 
     public Guard PerformSubstitution(SigmaMap sigma)
     {
+        if (_Ununified.Count == 0 && _Ununifiable.Count == 0)
+        {
+            return new();
+        }
         return new(Substitute(_Ununified, sigma), Substitute(_Ununifiable, sigma));
     }
 

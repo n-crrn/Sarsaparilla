@@ -87,9 +87,9 @@ public class HornClause
                 {
                     HornClause thisUpdated = Substitute(sf.CreateForwardMap());
                     SigmaMap bwdMap = sf.CreateBackwardMap();
-                    HashSet<IMessage> otherPremises = new(from op in other.Premises where !op.Equals(msg) select op.PerformSubstitution(bwdMap));
-                    otherPremises.UnionWith(thisUpdated.Premises);
-                    HornClause otherUpdated = (new HornClause(other.Result, otherPremises)).Substitute(sf.CreateBackwardMap());
+                    IEnumerable<IMessage> oPremises = (from op in other.Premises where !op.Equals(msg) select op.PerformSubstitution(bwdMap)).Concat(thisUpdated.Premises);
+                    IMessage oResult = other.Result.PerformSubstitution(bwdMap);
+                    HornClause otherUpdated = new(oResult, oPremises);
                     
                     // Final check - ensure result not in premise.
                     if (!otherUpdated.Premises.Contains(otherUpdated.Result))
