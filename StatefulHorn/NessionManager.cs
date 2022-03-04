@@ -141,23 +141,6 @@ public class NessionManager
         CancelElaborate = true;
     }
 
-    public void GenerateHornClauseSet(State? s, List<(Nession, HashSet<HornClause>)> byNession)
-    {
-        if (InitialNessions == null)
-        {
-            throw new InvalidOperationException("Must run Elaborate(...) before running GenerateHornClauseSet(...)");
-        }
-        Debug.Assert(InitialNessions != null);
-
-        HashSet<IMessage> premises = new(); // So that we only need to create one set.
-        foreach (Nession n in InitialNessions)
-        {
-            HashSet<HornClause> thisNessionClauses = new();
-            n.CollectHornClauses(thisNessionClauses, premises, s);
-            byNession.Add((n, thisNessionClauses));
-        }
-    }
-
     #endregion
     #region State querying.
 

@@ -22,6 +22,8 @@ public class TupleMessage : IMessage
         }
     }
 
+    public TupleMessage(IEnumerable<IMessage> members) : this(new List<IMessage>(members)) { }
+
     private readonly List<IMessage> _Members;
     public IReadOnlyList<IMessage> Members => _Members;
 

@@ -120,17 +120,35 @@ public class QueryEngine
                 bool atLeastOneAttack = false;
                 foreach (Nession n in nextLevelNessions)
                 {
+                    Nession? validN;
+                    IMessage fullQuery = Query;
+                    if (When != null)
+                    {
+                        validN = n.MatchingWhenAtEnd(When);
+                        if (validN == null)
+                        {
+                            continue;
+                        }
+                        HashSet<IMessage> updatedPremises = validN.FinalStateNonVariablePremises();
+                        updatedPremises.Add(Query);
+                        fullQuery = new TupleMessage(updatedPremises);
+                    }
+                    else
+                    {
+                        validN = n;
+                    }
+
                     HashSet<HornClause> thisNessionClauses = new();
-                    n.CollectHornClauses(thisNessionClauses, premises, When);
+                    validN.CollectHornClauses(thisNessionClauses, premises);
 
                     HashSet<HornClause> fullNessionSet = new(KnowledgeRules);
                     fullNessionSet.UnionWith(thisNessionClauses);
 
                     HashSet<HornClause> finNessionSet = ElaborateAndDetuple(fullNessionSet);
 
-                    QueryResult qr = CheckQuery(Query, BasicFacts, finNessionSet, new(new(), new()));
+                    QueryResult qr = CheckQuery(fullQuery, BasicFacts, finNessionSet, new(new(), new()));
                     Attack? foundAttack = qr.Found ? new(qr.Facts!, qr.Knowledge!) : null;
-                    onAttackAssessed?.Invoke(n, fullNessionSet, foundAttack);
+                    onAttackAssessed?.Invoke(validN, fullNessionSet, foundAttack);
                     atLeastOneAttack |= foundAttack != null;
                 }
                 return atLeastOneAttack;

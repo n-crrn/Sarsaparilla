@@ -403,9 +403,51 @@ public class Nession
         {
             StepBackVNumber();
         }
-        //}
 
         return generated;
+    }
+
+    #endregion
+    #region When state instantiation and querying.
+
+    public Nession? MatchingWhenAtEnd(State when)
+    {
+        // When has to match ONE of the states in the final frame.
+        foreach (State s in History[^1].StateSet)
+        {
+            SigmaFactory sf = new();
+
+            if (when.CanBeUnifiableWith(s, Guard.Empty, sf))
+            {
+                // The forward map does not matter - the backward match does matter as it will
+                // propogate any required constants or nonces backwards in time.
+                SigmaMap bwdMap = sf.CreateBackwardMap();
+                if (bwdMap.IsEmpty)
+                {
+                    return this;
+                }
+                else
+                {
+                    return Substitute(bwdMap);
+                }
+            }
+        }
+        return null;
+    }
+
+    public HashSet<IMessage> FinalStatePremises()
+    {
+        HashSet<IMessage> accumulator = new();
+        foreach (Frame f in History)
+        {
+            accumulator.UnionWith(from fp in f.StateChangePremises where fp.IsKnow select fp.Messages.Single());
+        }
+        return accumulator;
+    }
+
+    public HashSet<IMessage> FinalStateNonVariablePremises()
+    {
+        return new(from msg in FinalStatePremises() where msg is not VariableMessage select msg);
     }
 
     #endregion
@@ -460,70 +502,6 @@ public class Nession
                         clauses.Add(makeClause);
                     }
                 }
-            }
-            rank++;
-        }
-    }
-
-    public void CollectHornClauses(HashSet<HornClause> clauses, HashSet<IMessage> proceeding, State? when)
-    {
-        if (when == null)
-        {
-            CollectHornClauses(clauses, proceeding);
-            return;
-        }
-
-        HashSet<IMessage> premises = new(proceeding);
-        HashSet<HornClause> buffered = new();
-        HashSet<HornClause> allPrevAdded = new();
-        List<StateTransferringRule> accumulator = new();
-
-        Guard tempGuard = Guard.Empty;
-
-        int rank = 0;
-        foreach (Frame f in History)
-        {
-            premises.UnionWith(from fp in f.StateChangePremises where fp.IsKnow select fp.Messages.Single());
-            if (f.TransferRule != null)
-            {
-                accumulator.Add(f.TransferRule);
-            }
-            foreach (StateConsistentRule r in f.Rules)
-            {
-                HashSet<IMessage> thisRulePremises = new(premises);
-                thisRulePremises.UnionWith(from rp in r.Premises where rp.IsKnow select rp.Messages.Single());
-                HornClause hc = new(r.Result.Messages.Single(), thisRulePremises);
-                hc.Rank = rank;
-                hc.Source = new NessionRuleSource(this, rank, new(accumulator), r);
-                buffered.Add(hc);
-
-                foreach (Event ep in r.Premises)
-                {
-                    if (ep.EventType == Event.Type.Make)
-                    {
-                        HornClause makeClause = new(ep.Messages.Single(), thisRulePremises);
-                        makeClause.Rank = rank;
-                        makeClause.Source = new NessionRuleSource(this, rank, new(accumulator), r);
-                        buffered.Add(makeClause);
-                    }
-                }
-            }
-
-            bool matchState = false;
-            foreach (State s in f.StateSet)
-            {
-                if (when.CanBeUnifiedTo(s, tempGuard, new()))
-                {
-                    matchState = true;
-                    break;
-                }
-            }
-            if (matchState)
-            {
-                buffered.ExceptWith(allPrevAdded);
-                clauses.UnionWith(buffered);
-                allPrevAdded.UnionWith(buffered);
-                buffered.Clear();
             }
             rank++;
         }
