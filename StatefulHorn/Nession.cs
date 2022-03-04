@@ -94,6 +94,12 @@ public class Nession
 
         public HashSet<Event> StateChangePremises { get; init; }
 
+        public IEnumerable<Event> StateChangeMakes => from scp in StateChangePremises where scp.EventType == Event.Type.Make select scp;
+
+        public IEnumerable<Event> StateChangeKnows => from scp in StateChangePremises where scp.IsKnow select scp;
+
+        public IEnumerable<Event> StateChangeNews => from scp in StateChangePremises where scp.IsNew select scp;
+
         public StateTransferringRule? TransferRule { get; internal set; }
 
         public HashSet<State> StateSet { get; init; }
@@ -115,6 +121,7 @@ public class Nession
         public Frame Substitute(SigmaMap map)
         {
             HashSet<Event> newPremises = new(from p in StateChangePremises select p.PerformSubstitution(map));
+            HashSet<Event> newMakes = new(from m in StateChangeMakes select m.PerformSubstitution(map));
             HashSet<State> newStateSet = new(from s in StateSet select new State(s.Name, s.Value.PerformSubstitution(map)));
             HashSet<StateConsistentRule> newRules = new();
             foreach (StateConsistentRule r in Rules)
@@ -183,7 +190,7 @@ public class Nession
         NonceDeclarations.Clear();
         foreach (Frame f in History)
         {
-            NonceDeclarations.UnionWith(from p in f.StateChangePremises where p.IsNew select p);
+            NonceDeclarations.UnionWith(f.StateChangeNews);
             foreach (StateConsistentRule scr in f.Rules)
             {
                 NonceDeclarations.UnionWith(scr.NewEvents);
@@ -236,7 +243,10 @@ public class Nession
             // some sort of reset rule. This logic prevent it.
             if (!(updated.History.Count > 0 && newStateSet.SetEquals(updated.History[^1].StateSet)))
             {
-                Frame newFrame = new(new(updatedRule.Premises), newStateSet, new());
+                Frame newFrame = new(
+                    new(updatedRule.Premises),
+                    newStateSet,
+                    new());
                 updated.History.Add(newFrame);
                 newFrame.TransferRule = updatedRule;
                 UpdateNonceDeclarations();
@@ -476,14 +486,28 @@ public class Nession
         int rank = 0;
         foreach (Frame f in History)
         {
-            premises.UnionWith(from fp in f.StateChangePremises where fp.IsKnow select fp.Messages.Single());
+            // Work out the premises required to get to this state ...
+            premises.UnionWith(from fp in f.StateChangeKnows select fp.Messages.Single());
+            // ... and create clauses for the makes ...
+            foreach (Event mk in f.StateChangeMakes)
+            {
+                HornClause makeClause = new(mk.Messages.Single(), from p in f.StateChangePremises where p.IsKnow select p.Messages.Single());
+                makeClause.Rank = rank;
+                // Note that the Transfer rule for the nession *must* not be null for there to be
+                // a make event in the nession's premises.
+                makeClause.Source = new NessionRuleSource(this, rank, new(accumulator), f.TransferRule!);
+                clauses.Add(makeClause);
+            }
+            // ... and add the state transfer rule to the accumulated rules.
             if (f.TransferRule != null)
             {
                 accumulator.Add(f.TransferRule);
             }
+
+            // For every rule...
             foreach (StateConsistentRule r in f.Rules)
             {
-                // Add know events.
+                // ... add know events ...
                 HashSet<IMessage> thisRulePremises = new(premises);
                 thisRulePremises.UnionWith(from rp in r.Premises where rp.IsKnow select rp.Messages.Single());
                 HornClause hc = new(r.Result.Messages.Single(), thisRulePremises);
@@ -491,7 +515,7 @@ public class Nession
                 hc.Source = new NessionRuleSource(this, rank, new(accumulator), r);
                 clauses.Add(hc);
 
-                // Add make events.
+                // ... and add make events.
                 foreach (Event ep in r.Premises)
                 {
                     if (ep.EventType == Event.Type.Make)

@@ -5,7 +5,7 @@ namespace StatefulHorn.Origin;
 public class NessionRuleSource : IRuleSource
 {
 
-    public NessionRuleSource(Nession n, int frameIndex, List<StateTransferringRule> leadup, StateConsistentRule rule)
+    public NessionRuleSource(Nession n, int frameIndex, List<StateTransferringRule> leadup, Rule rule)
     {
         Run = n;
         FrameIndex = frameIndex;
@@ -19,7 +19,7 @@ public class NessionRuleSource : IRuleSource
 
     public List<StateTransferringRule> StateTransfers { get; init; }
 
-    public StateConsistentRule OriginalRule { get; init; }
+    public Rule OriginalRule { get; init; }
 
     public string Describe()
     {
