@@ -180,11 +180,20 @@ public class QueryEngine
 
     private static HashSet<HornClause> ElaborateAndDetuple(HashSet<HornClause> fullRuleset)
     {
-        HashSet<HornClause> newRules = new();
-
         // === Compose where possible ===
-        HashSet<HornClause> complexResults = new(from r in fullRuleset where r.ComplexResult select r);
-        HashSet<HornClause> simpleResults = new(from r in fullRuleset where !r.ComplexResult select r);
+        HashSet<HornClause> complexResults = new(fullRuleset.Count);
+        HashSet<HornClause> simpleResults = new(fullRuleset.Count);
+        foreach (HornClause hc in fullRuleset)
+        {
+            if (hc.ComplexResult)
+            {
+                complexResults.Add(hc);
+            }
+            else
+            {
+                simpleResults.Add(hc);
+            }
+        }
         HashSet<HornClause> newRuleset = new();
         foreach (HornClause cr in complexResults)
         {
@@ -202,8 +211,19 @@ public class QueryEngine
         bool found = newRuleset.Count > 0;
         while (found)
         {
-            HashSet<HornClause> addedComplex = new(from r in newRuleset where r.ComplexResult select r);
-            HashSet<HornClause> addedSimple = new(from r in newRuleset where !r.ComplexResult select r);
+            HashSet<HornClause> addedComplex = new(newRuleset.Count);
+            HashSet<HornClause> addedSimple = new(newRuleset.Count);
+            foreach (HornClause hc in newRuleset)
+            {
+                if (hc.ComplexResult)
+                {
+                    addedComplex.Add(hc);
+                }
+                else
+                {
+                    addedSimple.Add(hc);
+                }
+            }
             complexResults.UnionWith(addedComplex);
             simpleResults.UnionWith(addedSimple);
 

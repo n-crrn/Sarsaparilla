@@ -39,6 +39,10 @@ public class HornClause
 
     public HornClause Substitute(SigmaMap map)
     {
+        if (map.IsEmpty)
+        {
+            return Clone();
+        }
         IMessage updatedResult = Result.PerformSubstitution(map);
         HornClause hc = new(updatedResult, from p in Premises select p.PerformSubstitution(map));
         hc.Parent = this;
@@ -67,6 +71,15 @@ public class HornClause
         {
             yield return this;
         }
+    }
+
+    private HornClause Clone()
+    {
+        HornClause hc = new(Result, Premises);
+        hc.Parent = Parent;
+        hc.Rank = Rank;
+        hc.Source = Source;
+        return hc;
     }
 
     public List<HornClause>? ComposeUpon(HornClause other)
