@@ -16,7 +16,7 @@ public class QueryTests
 
     private readonly RuleParser Parser = new();
 
-    private async Task DoTest(string[] ruleSrcs, string querySrc, string stateInitSrc, bool shouldFind, bool shouldFindGlobal = false)
+    private async Task DoTest(IEnumerable<string> ruleSrcs, string querySrc, string stateInitSrc, bool shouldFindNession, bool shouldFindGlobal = false)
     {
         List<Rule> rules = new(from r in ruleSrcs select Parser.Parse(r));
         IMessage query = MessageParser.ParseMessage(querySrc);
@@ -35,10 +35,13 @@ public class QueryTests
         if (shouldFindGlobal)
         {
             Assert.IsTrue(globalAttackFound, "Global attack not found when it was expected.");
+            Assert.IsTrue(completedDone, "Completion not called.");
         }
-        
-        Assert.AreEqual(shouldFind, attackAssessedFound);
-        Assert.IsTrue(completedDone, "Completion not called.");
+        else
+        {
+            Assert.AreEqual(shouldFindNession, attackAssessedFound);
+            Assert.IsTrue(completedDone, "Completion not called.");
+        }
     }
 
     [TestMethod]
@@ -87,10 +90,21 @@ public class QueryTests
             "-[ (SD(m), a0) ]-> k(m)"
         };
 
-        await DoTest(ruleSet.ToArray(), "h(init[], left[])", "SD(init[])", true);
-        await DoTest(ruleSet.ToArray(), "<[bobl], [bobr]>", "SD(init[])", false);
+        await DoTest(ruleSet, "h(init[], left[])", "SD(init[])", false, true);
+        await DoTest(ruleSet, "<[bobl], [bobr]>", "SD(init[])", false);
 
         ruleSet.Add("-[ (SD(m), a0) ]-> <a0: SD(init[])>");
-        await DoTest(ruleSet.ToArray(), "<[bobl], [bobr]>", "SD(init[])", true);
+        await DoTest(ruleSet, "<[bobl], [bobr]>", "SD(init[])", true);
+    }
+
+    [TestMethod]
+    public async Task GlobalQueryCheck()
+    {
+        List<string> ruleSet = new()
+        {
+            "-[ ]-> k(n[])",
+            "k(x) -[ ]-> k(test(x))"
+        };
+        await DoTest(ruleSet, "test(n[])", "SD(init[])", true, true);
     }
 }

@@ -103,6 +103,7 @@ public class QueryEngine
             CancelQuery = false;
         }
 
+        // Check the basic facts for a global attack.
         if (BasicFacts.Contains(Query))
         {
             onGlobalAttackFound?.Invoke(new(new List<IMessage>() { Query }, new List<HornClause>()));
@@ -110,6 +111,19 @@ public class QueryEngine
             return;
         }
 
+        // Check the knowledge rules for a global attack.
+        HashSet<HornClause> globalKnowledge = new(KnowledgeRules);
+        HashSet<HornClause> elaboratedKnowledge = ElaborateAndDetuple(globalKnowledge);
+        QueryResult globalQR = CheckQuery(Query, BasicFacts, elaboratedKnowledge, new(new(), new()));
+        if (globalQR.Found)
+        {
+            Attack globalAttack = new(globalQR.Facts!, globalQR.Knowledge!);
+            onGlobalAttackFound?.Invoke(globalAttack);
+            onCompletion?.Invoke();
+            return;
+        }
+
+        // Check nessions for a attacks.
         CurrentNessionManager = new(StateSet, SystemRules.ToList(), TransferringRules.ToList());
         await CurrentNessionManager.Elaborate((List<Nession> nextLevelNessions) =>
             {
