@@ -105,6 +105,6 @@ public class QueryTests
             "-[ ]-> k(n[])",
             "k(x) -[ ]-> k(test(x))"
         };
-        await DoTest(ruleSet, "test(n[])", "SD(init[])", true, true);
+        await DoTest(ruleSet, "test(n[])", "SD(init[])", false, true);
     }
 }
