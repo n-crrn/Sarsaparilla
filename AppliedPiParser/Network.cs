@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Linq;
 
 using AppliedPi.Model;
+using AppliedPi.Processes;
 
 namespace AppliedPi;
 
@@ -119,11 +120,179 @@ public class Network
     #endregion
     #region Model coherence checking.
 
-    public (bool, string? errMsg) Validate()
+    public (bool, string? errMsg) Lint()
     {
-        // FIXME: Write me. May need to create a whole type to encapsulate returned errors.
-        // A NetworkDefects class.
-        throw new NotImplementedException();
+        // Is a main process defined?
+        if (MainProcess == null)
+        {
+            return (false, "Main process not defined");
+        }
+
+        // Go through every process (including the main one) and ensure that every CallProcess is
+        // calling an existing process with the correct number of arguments.
+        (bool subProcExist, string? subProcErr) = AllSubProcessesExist(MainProcess);
+        if (!subProcExist)
+        {
+            return (false, $"Error validating main process: {subProcErr}");
+        }
+        foreach ((string name, UserDefinedProcess udp) in _LetDefinitions)
+        {
+            (subProcExist, subProcErr) = AllSubProcessesExist(udp.Processes);
+            if (!subProcExist)
+            {
+                return (false, $"Error validating {name} process: {subProcErr}");
+            }
+        }
+
+        (bool recursionFound, string? recurseDesc) = CheckForRecursion();
+        if (recursionFound)
+        {
+            return (false, $"Recursion detected: {recurseDesc}.");
+        }
+
+        // FIXME: Add type-checking.
+
+        return (true, null);
+    }
+
+    private List<CallProcess> FindAllSubProcessCalls(ProcessGroup pg)
+    {
+        List<CallProcess> foundCP = new();
+        foreach ((IProcess p, bool _) in pg.Processes)
+        {
+            if (p is CallProcess cp)
+            {
+                foundCP.Add(cp);
+            }
+            else if (p is IfProcess ip)
+            {
+                AddIfProcessCalls(ip, foundCP);
+            }
+            else if (p is ParallelCompositionProcess pcp)
+            {
+                AddParallelProcessCalls(pcp, foundCP);
+            }
+        }
+        return foundCP;
+    }
+
+    private void AddIfProcessCalls(IfProcess ip, List<CallProcess> foundCP)
+    {
+        if (ip.GuardedProcess is CallProcess icp)
+        {
+            foundCP.Add(icp);
+        }
+        else if (ip.GuardedProcess is ProcessGroup ipg)
+        {
+            foundCP.AddRange(FindAllSubProcessCalls(ipg));
+        }
+
+        IProcess? elseIP = ip.ElseProcess;
+        if (elseIP != null)
+        {
+            if (elseIP is CallProcess eicp)
+            {
+                foundCP.Add(eicp);
+            }
+            else if (elseIP is ProcessGroup eipg)
+            {
+                foundCP.AddRange(FindAllSubProcessCalls(eipg));
+            }
+        }
+    }
+
+    private void AddParallelProcessCalls(ParallelCompositionProcess pcp, List<CallProcess> foundCP)
+    {
+        foreach ((IProcess innerP, bool _) in pcp.Processes)
+        {
+            if (innerP is CallProcess pcp_cp)
+            {
+                foundCP.Add(pcp_cp);
+            }
+            else if (innerP is IfProcess pcp_ip)
+            {
+                AddIfProcessCalls(pcp_ip, foundCP);
+            }
+            else if (innerP is ParallelCompositionProcess pcp_pcp)
+            {
+                AddParallelProcessCalls(pcp_pcp, foundCP);
+            }
+        }
+    }
+
+    private (bool, string?) AllSubProcessesExist(ProcessGroup proc)
+    {
+        List<CallProcess> allCP = FindAllSubProcessCalls(proc);
+
+        foreach (CallProcess cp in allCP)
+        {
+            string procName = cp.CallSpecification.Name;
+            if (!_LetDefinitions.TryGetValue(cp.CallSpecification.Name, out UserDefinedProcess? up))
+            {
+                return (false, $"No process defined with name {procName}.");
+            }
+            int actualParaCount = cp.CallSpecification.Parameters.Count;
+            int expectedParaCount = up.Parameters.Count;
+            if (actualParaCount != expectedParaCount)
+            {
+                return (false, $"Expected {expectedParaCount} parameters, found {actualParaCount} parameters in call to {procName}.");
+            }
+            // FIXME: In future check that the paramter types match.
+        }
+
+        return (true, null);
+    }
+
+    private (bool, string?) CheckForRecursion()
+    {
+        Dictionary<string, HashSet<string>> calledNames = new();
+
+        // Build a dictionary of sets of each let statements names.
+        foreach ((string name, UserDefinedProcess udp) in _LetDefinitions)
+        {
+            List<CallProcess> allCalls = FindAllSubProcessCalls(udp.Processes);
+            HashSet<string> calledProcesses = new(from ac in allCalls select ac.CallSpecification.Name);
+            if (calledProcesses.Contains(name))
+            {
+                return (true, name);
+            }
+            calledNames[name] = calledProcesses;
+        }
+
+        Stack<string> callStack = new();
+        foreach (string name in calledNames.Keys)
+        {
+            string? find = FoundRecursion(callStack, name, calledNames);
+            if (find != null)
+            {
+                return (true, $"{find} within callstack for {name}");
+            }
+        }
+        return (false, null);
+    }
+
+    private string? FoundRecursion(Stack<string> callStack, string nextCall, Dictionary<string, HashSet<string>> calledNames)
+    {
+        if (callStack.Contains(nextCall))
+        {
+            return nextCall;
+        }
+        HashSet<string> nextCalledItems = calledNames[nextCall];
+        if (nextCalledItems.Count == 0)
+        {
+            return null;
+        }
+        callStack.Push(nextCall);
+        foreach (string item in nextCalledItems)
+        {
+            string? find = FoundRecursion(callStack, item, calledNames);
+            if (find != null)
+            {
+                return find; // Don't bother with resetting stack, not important.
+            }
+        }
+        callStack.Pop(); // Get nextCall off the stack.
+        return null;
     }
 
     #endregion

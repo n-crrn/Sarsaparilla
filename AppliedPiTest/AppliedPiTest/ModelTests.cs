@@ -274,6 +274,29 @@ public class ModelTests
         }
     }
 
+    [TestMethod]
+    public void RecurseLintTest()
+    {
+        string testSource = "let testProcA = testProcB; in(c, A: bitstring).\n" +
+            "let testProcB = testProcA; out(c, someValue).\n" +
+            "process testProcA | testProcB.\n";
+        Network nw = Network.CreateFromCode(testSource);
+        Assert.IsNotNull(nw.MainProcess);
+        (bool good, string? _) = nw.Lint();
+        Assert.IsFalse(good, "No issues found when recursion problem should have been found.");
+    }
+
+    [TestMethod]
+    public void UndefinedProcessLintTest()
+    {
+        string testSource = "let testProcA = testProcB; in(c, A: bitstring).\n" +
+            "process testProcA | testProcB.\n";
+        Network nw = Network.CreateFromCode(testSource);
+        Assert.IsNotNull(nw.MainProcess);
+        (bool good, string? _) = nw.Lint();
+        Assert.IsFalse(good, "No issues found when calling non-existant process.");
+    }
+
     #region Test convenience methods.
 
     private static void AssertListsMatch<T>(List<T> expectedList, IReadOnlyList<T> checkList, string description)
