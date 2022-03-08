@@ -125,6 +125,7 @@ public class QueryEngine
 
         // Check nessions for a attacks.
         CurrentNessionManager = new(StateSet, SystemRules.ToList(), TransferringRules.ToList());
+        int maxElab = When == null ? -1 : (SystemRules.Count + TransferringRules.Count) * 2;
         await CurrentNessionManager.Elaborate((List<Nession> nextLevelNessions) =>
             {
                 onStartNextLevel?.Invoke();
@@ -166,7 +167,7 @@ public class QueryEngine
                     atLeastOneAttack |= foundAttack != null;
                 }
                 return atLeastOneAttack;
-            });
+            }, maxElab);
 
         onCompletion?.Invoke();
         await Task.Delay(1);
