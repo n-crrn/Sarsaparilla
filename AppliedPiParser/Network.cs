@@ -15,18 +15,7 @@ namespace AppliedPi;
 public class Network
 {
 
-    public Network()
-    {
-        _PiTypes = new() { "bitstring" };
-        _FreeDeclarations = new();
-        _Constants = new();
-        _Tables = new();
-        _Events = new();
-        _Queries = new();
-        _Constructors = new();
-        _Destructors = new();
-        _LetDefinitions = new();
-    }
+    public Network() { }
 
     public static Network CreateFromCode(string appliedPiCode)
     {
@@ -50,59 +39,78 @@ public class Network
 
     #region PiType declarations.
 
-    internal List<string> _PiTypes;
+    internal List<string> _PiTypes = new() { "bitstring" };
 
     public IReadOnlyList<string> PiTypes { get => _PiTypes.ToImmutableList(); }
 
     #endregion
     #region Free name declarations.
 
-    internal List<FreeDeclaration> _FreeDeclarations;
+    internal List<FreeDeclaration> _FreeDeclarations = new();
 
     public IReadOnlyList<FreeDeclaration> FreeDeclarations { get => _FreeDeclarations; }
 
     #endregion
     #region Constant declarations.
 
-    internal List<Constant> _Constants;
+    internal List<Constant> _Constants = new();
 
     public IReadOnlyList<Constant> Constants { get => _Constants; }
 
     #endregion
     #region Table declarations.
 
-    internal List<Table> _Tables;
+    internal List<Table> _Tables = new();
 
     public IReadOnlyList<Table> Tables { get => _Tables; }
 
     #endregion
     #region Event declarations.
 
-    internal List<Event> _Events;
+    internal List<Event> _Events = new();
 
     public IReadOnlyList<Event> Events { get => _Events; }
 
     #endregion
     #region Query declarations.
 
-    internal List<Query> _Queries;
+    internal List<Query> _Queries = new();
 
     public IReadOnlyList<Query> Queries { get => _Queries; }
 
     #endregion
     #region Constructor and destructor declarations.
 
-    internal List<Constructor> _Constructors;
-    internal List<Destructor> _Destructors;
+    internal List<Constructor> _Constructors = new();
+    internal List<Destructor> _Destructors = new();
 
     public IReadOnlyList<Constructor> Constructors => _Constructors;
 
     public IReadOnlyList<Destructor> Destructors => _Destructors;
 
     #endregion
+    #region Statement initialisation declarations.
+
+    internal List<Term> _InitialStates = new();
+
+    public IReadOnlyList<Term> InitialStates => _InitialStates;
+
+    public Term? GetStateCell(string cellName)
+    {
+        foreach (Term t in _InitialStates)
+        {
+            if (t.Name == cellName)
+            {
+                return t;
+            }
+        }
+        return null;
+    }
+
+    #endregion
     #region Processes (including let statements).
 
-    private readonly SortedList<string, UserDefinedProcess> _LetDefinitions;
+    private readonly SortedList<string, UserDefinedProcess> _LetDefinitions = new();
     public ProcessGroup? MainProcess;
 
     // FIXME: Include a method to return a "compiled" process, that includes all the let declarations

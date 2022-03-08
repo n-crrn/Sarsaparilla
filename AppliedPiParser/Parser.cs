@@ -358,7 +358,8 @@ public class Parser
         "out",
         "if",
         "then",
-        "else"
+        "else",
+        "init-state"
     };
 
     internal static bool IsValidName(string token)
@@ -435,6 +436,8 @@ public class Parser
                     return TableStatement.CreateFromStatement(this);
                 case "type":
                     return TypeStatement.CreateFromStatement(this);
+                case "init-state":
+                    return InitStateStatement.CreateFromStatement(this);
                 case "query":
                     return QueryStatement.CreateFromStatement(this);
                 case "not": // Fallthrough...

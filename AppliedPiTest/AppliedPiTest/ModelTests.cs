@@ -36,6 +36,7 @@ public class ModelTests
             "fun sencrypt(bitstring,nonce): bitstring.\n" +
             "reduc forall x: bitstring, y: skey; decrypt(encrypt(x, y),y) = x.\n" +
             "table keys(host, pkey).\n" +
+            "init-state SD(D).\n" +
             "query x: host, y: host; inj-event(endB(x)) ==> inj-event(startB(x)).\n" +
             "const c1: tag [data].\n" +
             "const c2: kitten.\n";
@@ -68,6 +69,10 @@ public class ModelTests
         {
             new("keys", new() { "host", "pkey" })
         };
+        List<Term> expectedStates = new()
+        {
+            new("SD", new() { new("D") })
+        };
         List<Query> expectedQueries = new()
         {
             new(new("inj-event", new() { new("endB", new() { new("x") }) }),
@@ -88,6 +93,7 @@ public class ModelTests
         AssertListsMatch(expectedConstructors, nw.Constructors, "Constructors");
         AssertListsMatch(expectedDestructors, nw.Destructors, "Destructors");
         AssertListsMatch(expectedTables, nw.Tables, "Tables");
+        AssertListsMatch(expectedStates, nw.InitialStates, "Init States");
         AssertListsMatch(expectedQueries, nw.Queries, "Queries");
         AssertListsMatch(expectedConstants, nw.Constants, "Contants");
     }

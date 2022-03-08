@@ -34,7 +34,7 @@ public class LetStatement : IStatement
 
     public ProcessGroup SubProcesses { get; init; }
 
-    #region IStatement implementation
+    #region IStatement implementation.
 
     public string StatementType => "Let";
 

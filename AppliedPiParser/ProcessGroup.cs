@@ -59,15 +59,6 @@ public class ProcessGroup : IProcess
 
     #endregion
 
-    //public List<string> RequiredNames { get; init; }
-
-    /*private List<string> CollectRequiredNames()
-    {
-        List<string> found = new();
-        // FIXME: Write me.
-        return found;
-    }*/
-
     public void SubstituteVariables(List<(string, string)> substitutions)
     {
         // FIXME: Write me.
