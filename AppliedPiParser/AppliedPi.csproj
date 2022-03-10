@@ -6,4 +6,8 @@
 	<WarningLevel>5</WarningLevel>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\StatefulHorn\StatefulHorn.csproj" />
+  </ItemGroup>
+
 </Project>
