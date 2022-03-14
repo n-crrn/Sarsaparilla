@@ -23,8 +23,8 @@ public static class StatefulHornTranslator
 
         // Translate free names and constants.
         IEnumerable<NameMessage> basicNames = from fd in nw.FreeDeclarations 
-                                              where !fd.IsPrivate 
-                                              select new NameMessage(fd.Name);
+                                              where !fd.Value.IsPrivate 
+                                              select new NameMessage(fd.Key);
         IEnumerable<NameMessage> constNames = from cd in nw.Constants
                                               select new NameMessage(cd.Name);
         Dictionary<string, NameMessage> knownConstants = new();

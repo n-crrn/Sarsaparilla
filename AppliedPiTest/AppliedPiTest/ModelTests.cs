@@ -41,13 +41,13 @@ public class ModelTests
             "const c1: tag [data].\n" +
             "const c2: kitten.\n";
 
-        List<string> expectedPiTypes = new() { "bitstring", "kitten", "dog", "host" };
-        List<FreeDeclaration> expectedFreeDecls = new()
+        List<string> expectedPiTypes = new() { Network.ChannelType, Network.BitstringType, "kitten", "dog", "host" };
+        Dictionary<string, FreeDeclaration> expectedFreeDecls = new()
         {
-            new("A", "channel", false),
-            new("B", "channel", false),
-            new("C", "channel", false),
-            new("D", "kitten", true)
+            { "A", new("A", "channel", false) },
+            { "B", new("B", "channel", false) },
+            { "C", new("C", "channel", false) },
+            { "D", new("D", "kitten", true) }
         };
         Dictionary<string, Event> expectedEvents = new()
         {
@@ -88,7 +88,7 @@ public class ModelTests
 
         // Go through and check that everything matches.
         AssertListsMatch(expectedPiTypes, nw.PiTypes, "PiTypes");
-        AssertListsMatch(expectedFreeDecls, nw.FreeDeclarations, "Free Declarations");
+        AssertDictionariesMatch(expectedFreeDecls, nw.FreeDeclarations, "Free Declarations");
         AssertDictionariesMatch(expectedEvents, nw.Events, "Events");
         AssertDictionariesMatch(expectedConstructors, nw.Constructors, "Constructors");
         AssertListsMatch(expectedDestructors, nw.Destructors, "Destructors");

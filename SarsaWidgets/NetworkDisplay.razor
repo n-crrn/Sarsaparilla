@@ -38,7 +38,7 @@ else
             {
                 <div class='section'>
                     <div class='section-header'>Frees</div>
-                    @foreach (FreeDeclaration fd in Network.FreeDeclarations)
+                    @foreach ((string _, FreeDeclaration fd) in Network.FreeDeclarations)
                     {
                         <div class='entry'>
                             <span class='name'>@fd.Name</span>

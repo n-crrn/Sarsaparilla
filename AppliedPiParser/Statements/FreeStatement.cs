@@ -29,7 +29,7 @@ public class FreeStatement : IStatement
     {
         foreach (string n in Names)
         {
-            nw._FreeDeclarations.Add(new FreeDeclaration(n, Type, DeclaredPrivate));
+            nw._FreeDeclarations[n] = new FreeDeclaration(n, Type, DeclaredPrivate);
         }
     }
 

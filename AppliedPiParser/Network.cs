@@ -39,16 +39,19 @@ public class Network
 
     #region PiType declarations.
 
-    internal List<string> _PiTypes = new() { "bitstring" };
+    public static readonly string ChannelType = "channel";
+    public static readonly string BitstringType = "bitstring";
+
+    internal List<string> _PiTypes = new() { ChannelType, BitstringType };
 
     public IReadOnlyList<string> PiTypes { get => _PiTypes.ToImmutableList(); }
 
     #endregion
     #region Free name declarations.
 
-    internal List<FreeDeclaration> _FreeDeclarations = new();
+    internal Dictionary<string, FreeDeclaration> _FreeDeclarations = new();
 
-    public IReadOnlyList<FreeDeclaration> FreeDeclarations { get => _FreeDeclarations; }
+    public IReadOnlyDictionary<string, FreeDeclaration> FreeDeclarations { get => _FreeDeclarations; }
 
     #endregion
     #region Constant declarations.

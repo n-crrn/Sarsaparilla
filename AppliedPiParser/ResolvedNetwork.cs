@@ -1,33 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using AppliedPi.Model;
 using AppliedPi.Processes;
 
 namespace AppliedPi;
 
+public enum TermSource
+{
+    Free,
+    Constant,
+    Nonce,
+    Input,
+    Let,
+    Table,
+    Constructor
+}
+
 /// <summary>
 /// Describes a complete process. That is, a single (composite) process that completely describes
 /// a network. All terms have an associated type, and all variables have something (name, nonce or
 /// read input value) assigned to them.
 /// </summary>
-public class ResolvedProcess
+public class ResolvedNetwork
 {
-
-    public enum TermSource
-    {
-        Free,
-        Constant,
-        Nonce,
-        Input,
-        Let,
-        Table,
-        Constructor
-    }
 
     public Dictionary<Term, (TermSource Source, string PiType)> TermDetails { get; } = new();
 
@@ -37,7 +36,7 @@ public class ResolvedProcess
 
     #region Creating from a network.
 
-    public static ResolvedProcess ResolveNetwork(Network nw)
+    public static ResolvedNetwork From(Network nw)
     {
         ProcessGroup? main = nw.MainProcess;
         if (main == null)
@@ -45,7 +44,7 @@ public class ResolvedProcess
             throw new ArgumentException("Network does not have a main process.");
         }
 
-        ResolvedProcess rp = new();
+        ResolvedNetwork rp = new();
         foreach ((IProcess process, bool repl) in main.Processes)
         {
             IProcess updatedProcess = rp.ResolveProcess(process, nw);
@@ -69,7 +68,7 @@ public class ResolvedProcess
                 ResolveIfProcess(ip, nw);
                 break;
             case InChannelProcess icp:
-                ResolveInChannelProcess(icp);
+                ResolveInChannelProcess(icp, nw);
                 break;
             case OutChannelProcess ocp:
                 ResolveOutChannelProcess(ocp, nw);
@@ -181,8 +180,12 @@ public class ResolvedProcess
         }
     }
 
-    private void ResolveInChannelProcess(InChannelProcess icp)
+    private void ResolveInChannelProcess(InChannelProcess icp, Network nw)
     {
+        if (!CheckChannel(nw, icp.Channel))
+        {
+            throw new ArgumentException($"Channel {icp.Channel} not properly defined in call to 'in'.");
+        }
         foreach ((string varName, string piType) in icp.ReceivePattern)
         {
             Term varTerm = new(varName);
@@ -196,10 +199,28 @@ public class ResolvedProcess
 
     private void ResolveOutChannelProcess(OutChannelProcess ocp, Network nw)
     {
+        if (!CheckChannel(nw, ocp.Channel))
+        {
+            throw new ArgumentException($"Channel {ocp.Channel} not properly defined in call to 'out'.");
+        }
         if (!CheckTermDetailsValid(ocp.SentTerm, nw, this))
         {
             throw new ArgumentException($"Invalid term {ocp.SentTerm}.");
         }
+    }
+
+    private bool CheckChannel(Network nw, string channelName)
+    {
+        if (nw.FreeDeclarations.TryGetValue(channelName, out FreeDeclaration? fd))
+        {
+            Debug.Assert(fd != null);
+            if (fd.PiType == Network.ChannelType)
+            {
+                TermDetails[new Term(channelName)] = (TermSource.Free, Network.ChannelType);
+                return true;
+            }
+        }
+        return false;
     }
 
     private void ResolveLetProcess(LetProcess lp, Network nw)
@@ -312,14 +333,10 @@ public class ResolvedProcess
 
         if (t.Parameters.Count == 0)
         {
-            // Search for term in the free declarations.
-            foreach (FreeDeclaration freeDecl in nw.FreeDeclarations)
+            if (nw.FreeDeclarations.TryGetValue(t.Name, out FreeDeclaration? freeDecl))
             {
-                if (freeDecl.Name == t.Name)
-                {
-                    TermDetails[t] = (TermSource.Free, freeDecl.PiType);
-                    return true;
-                }
+                TermDetails[t] = (TermSource.Free, freeDecl.PiType);
+                return true;
             }
 
             // Search for term in the constants declarations.
@@ -360,7 +377,7 @@ public class ResolvedProcess
         }
     }
 
-    private static bool CheckTermDetailsValid(Term t, Network nw, ResolvedProcess rp)
+    private static bool CheckTermDetailsValid(Term t, Network nw, ResolvedNetwork rp)
     {
         if (t.IsConstructed)
         {
@@ -448,12 +465,28 @@ public class ResolvedProcess
         _ProcessSequence.AddRange(sequence);
     }
 
+    public void Describe(TextWriter writer)
+    {
+        writer.WriteLine("--- Resolved terms are  ---");
+        foreach ((Term t, (TermSource src, string piType)) in TermDetails)
+        {
+            writer.WriteLine($"\t{t}\t{src}\t{piType}");
+        }
+        writer.WriteLine("--- Process sequence is ---");
+        foreach ((IProcess p, bool repl) in _ProcessSequence)
+        {
+            string replPrefix = repl ? "!" : "";
+            writer.WriteLine($"{replPrefix}\t{p}");
+        }
+        writer.WriteLine("---------------------------");
+    }
+
     #endregion
     #region Basic object overrides.
 
     public override bool Equals(object? obj)
     {
-        if (obj is not ResolvedProcess rp || 
+        if (obj is not ResolvedNetwork rp || 
             TermDetails.Count != rp.TermDetails.Count ||
             _ProcessSequence.Count != rp._ProcessSequence.Count)
         {
