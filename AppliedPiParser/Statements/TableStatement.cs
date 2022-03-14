@@ -24,7 +24,7 @@ public class TableStatement : IStatement
 
     public void ApplyTo(Network nw)
     {
-        nw._Tables.Add(new Table(Name, Columns));
+        nw._Tables[Name] = new Table(Name, Columns);
     }
 
     #endregion

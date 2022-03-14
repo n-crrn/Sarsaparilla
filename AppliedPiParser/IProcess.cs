@@ -1,4 +1,7 @@
-﻿namespace AppliedPi;
+﻿using System.Collections.Generic;
+using AppliedPi.Model;
+
+namespace AppliedPi;
 
 public interface IProcess
 {
@@ -6,8 +9,9 @@ public interface IProcess
 
     public string ToString();
 
-    // FIXME: Consider whether there is a requirement for listing the variables
-    // required for this to work, and listing the variables created.
+    public IEnumerable<string> Terms();
+
+    public IProcess ResolveTerms(SortedList<string, string> subs);
 
     // FIXME: Add a facility to provide a formatted string in the Pi calculus.
 }

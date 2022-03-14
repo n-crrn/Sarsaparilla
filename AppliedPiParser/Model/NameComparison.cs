@@ -21,8 +21,18 @@ public class NameComparison : IComparison
 
     public string Variable2 { get; init; }
 
+    #region IComparison implementation.
+
     public SortedSet<string> Variables { get => new() { Variable1, Variable2 }; }
 
+    public IComparison ResolveTerms(SortedList<string, string> subs)
+    {
+        string v1 = subs.GetValueOrDefault(Variable1, Variable1);
+        string v2 = subs.GetValueOrDefault(Variable2, Variable2);
+        return new NameComparison(IsEquals, v1, v2);
+    }
+
+    #endregion
     #region Basic object overrides.
 
     public override bool Equals(object? obj)
@@ -32,10 +42,7 @@ public class NameComparison : IComparison
 
     public override int GetHashCode() => Variable1.GetHashCode();
 
-    public override string ToString()
-    {
-        return IsEquals ? $"{Variable1} == {Variable2}" : $"{Variable1} <> {Variable2}";
-    }
+    public override string ToString() => IsEquals ? $"{Variable1} == {Variable2}" : $"{Variable1} <> {Variable2}";
 
     #endregion
 }

@@ -1,4 +1,5 @@
-﻿using AppliedPi.Model;
+﻿using System.Collections.Generic;
+using AppliedPi.Model;
 
 namespace AppliedPi.Processes;
 
@@ -11,6 +12,10 @@ public class EventProcess : IProcess
     {
         Event = ev;
     }
+
+    public Term Event { get; init; }
+
+    #region Basic object overrides.
 
     public override bool Equals(object? obj)
     {
@@ -25,7 +30,14 @@ public class EventProcess : IProcess
 
     public override string ToString() => $"event {Event}";
 
-    public Term Event { get; init; }
+    #endregion
+    #region IProcess implementation.
 
     public IProcess? Next { get; set; }
+
+    public IEnumerable<string> Terms() => Event.BasicSubTerms;
+
+    public IProcess ResolveTerms(SortedList<string, string> subs) => new EventProcess(Event.ResolveTerm(subs));
+
+    #endregion
 }

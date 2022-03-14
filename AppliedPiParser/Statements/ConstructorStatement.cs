@@ -30,7 +30,7 @@ public class ConstructorStatement : IStatement
 
     public void ApplyTo(Network nw)
     {
-        nw._Constructors.Add(new Constructor(Name, ParameterTypes, PiType));
+        nw._Constructors[Name] = new Constructor(Name, ParameterTypes, PiType);
     }
 
     #endregion

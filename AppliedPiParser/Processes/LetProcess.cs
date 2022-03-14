@@ -1,4 +1,5 @@
-﻿using AppliedPi.Model;
+﻿using System.Collections.Generic;
+using AppliedPi.Model;
 
 namespace AppliedPi.Processes;
 
@@ -18,8 +19,28 @@ public class LetProcess : IProcess
 
     public ITermGenerator RightHandSide { get; init; }
 
+    #region IProcess implementation.
+
     public IProcess? Next { get; set; }
 
+    public IEnumerable<string> Terms()
+    {
+        foreach (TuplePattern.Element ele in LeftHandSide.Elements)
+        {
+            yield return ele.Name;
+        }
+        foreach (string t in RightHandSide.BasicSubTerms)
+        {
+            yield return t;
+        }
+    }
+
+    public IProcess ResolveTerms(SortedList<string, string> subs)
+    {
+        return new LetProcess(LeftHandSide.ResolveTerms(subs), RightHandSide.ResolveTerm(subs));
+    }
+
+    #endregion
     #region Basic object overrides.
 
     public override bool Equals(object? obj)

@@ -30,17 +30,6 @@ public class BooleanComparison : IComparison
 
     public IComparison RightInput { get; init; }
 
-    public SortedSet<string> Variables
-    {
-        get
-        {
-            SortedSet<string> inVars = new();
-            inVars.UnionWith(LeftInput.Variables);
-            inVars.UnionWith(RightInput.Variables);
-            return inVars;
-        }
-    }
-
     public static bool IsValidTypeString(string token)
     {
         return token == "&&" || token == "||";
@@ -59,6 +48,25 @@ public class BooleanComparison : IComparison
         throw new ArgumentException($"Token not recognised, should be '&&' or '||', not '{token}'.");
     }
 
+    #region IComparison implementation.
+
+    public SortedSet<string> Variables
+    {
+        get
+        {
+            SortedSet<string> inVars = new();
+            inVars.UnionWith(LeftInput.Variables);
+            inVars.UnionWith(RightInput.Variables);
+            return inVars;
+        }
+    }
+
+    public IComparison ResolveTerms(SortedList<string, string> subs)
+    {
+        return new BooleanComparison(Operator, LeftInput.ResolveTerms(subs), RightInput.ResolveTerms(subs));
+    }
+
+    #endregion
     #region Basic object overrides.
 
     public override bool Equals(object? obj)

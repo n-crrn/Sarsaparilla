@@ -38,7 +38,80 @@ public class ProcessGroup : IProcess
 
     public List<(IProcess Process, bool Replicated)> Processes { get; init; }
 
-    #region Basic object overrides - important for unit testing.
+    public IEnumerable<string> VariablesDefined
+    {
+        get
+        {
+            List<IProcess> toConsider = new(from p in Processes select p.Process);
+
+            // Can't use iterator, it would be invalided if toConsider is added to.
+            for (int i = 0; i < toConsider.Count; i++)
+            {
+                IProcess proc = toConsider[i];
+
+                // Consider variable containing processes...
+                if (proc is InChannelProcess icp)
+                {
+                    foreach ((string varName, string _) in icp.ReceivePattern)
+                    {
+                        yield return varName;
+                    }
+                }
+                else if (proc is LetProcess lp)
+                {
+                    foreach ((Term assignedTerm, string? _) in lp.LeftHandSide.AssignedTerms)
+                    {
+                        yield return assignedTerm.Name;
+                    }
+                }
+                else if (proc is NewProcess np)
+                {
+                    yield return np.Variable;
+                }
+                // ...and then other-process containing processes.
+                else if (proc is ProcessGroup pg)
+                {
+                    toConsider.AddRange(from p in pg.Processes select p.Process);
+                }
+                else if (proc is IfProcess ip)
+                {
+                    toConsider.Add(ip.GuardedProcess);
+                    if (ip.ElseProcess != null)
+                    {
+                        toConsider.Add(ip.ElseProcess);
+                    }
+                }
+                else if (proc is ParallelCompositionProcess pcp)
+                {
+                    toConsider.AddRange(from p in pcp.Processes select p.Process);
+                }
+            }
+        }
+    }
+
+    #region IProcess implementation.
+
+    public IProcess? Next { get; set; }
+
+    public IEnumerable<string> Terms()
+    {
+        foreach ((IProcess subProcess, bool _) in Processes)
+        {
+            foreach (string itg in subProcess.Terms())
+            {
+                yield return itg;
+            }
+        }
+    }
+
+    public IProcess ResolveTerms(SortedList<string, string> subs)
+    {
+        var updatedProcs = from p in Processes select (p.Process.ResolveTerms(subs), p.Replicated);
+        return new ProcessGroup(new(updatedProcs));
+    }
+
+    #endregion
+    #region Basic object overrides.
 
     public override bool Equals(object? obj)
     {
@@ -53,17 +126,6 @@ public class ProcessGroup : IProcess
     }
 
     #endregion
-    #region IProcess implementation (excluding ToString())
-
-    public IProcess? Next { get; set; }
-
-    #endregion
-
-    public void SubstituteVariables(List<(string, string)> substitutions)
-    {
-        // FIXME: Write me.
-        throw new NotImplementedException();
-    }
 
     public string FullDescription
     {

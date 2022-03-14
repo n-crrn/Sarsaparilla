@@ -26,7 +26,9 @@ public class Term : ITermGenerator
 
     public string Name { get; init; }
 
-    public bool IsTuple => Name == "";
+    public bool IsTuple => Name == string.Empty;
+
+    public bool IsConstructed => Name != string.Empty && _Parameters.Count > 0;
 
     private readonly List<Term> _Parameters;
     public IReadOnlyList<Term> Parameters
@@ -56,7 +58,7 @@ public class Term : ITermGenerator
         return this; // No substitution, nothing gained from copying self.
     }
 
-    public SortedSet<string> Variables
+    public SortedSet<string> BasicSubTerms
     {
         get
         {
@@ -65,7 +67,7 @@ public class Term : ITermGenerator
             {
                 foreach (Term p in Parameters)
                 {
-                    vars.UnionWith(p.Variables);
+                    vars.UnionWith(p.BasicSubTerms);
                 }
             }
             else
@@ -82,18 +84,17 @@ public class Term : ITermGenerator
     #endregion
     #region Basic object overrides.
 
-    public override bool Equals(object? obj)
-    {
-        if (obj is Term t)
-        {
-            return Name.Equals(t.Name) && _Parameters.SequenceEqual(t._Parameters);
-        }
-        return false;
-    }
+    public override bool Equals(object? obj) => obj is Term t && Name.Equals(t.Name) && _Parameters.SequenceEqual(t._Parameters);
 
     public override int GetHashCode()
     {
-        return Name.GetHashCode();
+        // Randomly selected prime numbers.
+        int hc = 7901 * 7907 + Name.GetHashCode();
+        foreach (Term p in _Parameters)
+        {
+            hc = hc * 7907 + p.GetHashCode();
+        }
+        return hc;
     }
 
     public static bool operator ==(Term? t1, Term? t2) => Equals(t1, t2);

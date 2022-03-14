@@ -35,7 +35,7 @@ public static class StatefulHornTranslator
         }
 
         // Translate constructors.
-        foreach (Constructor c in nw.Constructors)
+        foreach ((string _, Constructor c) in nw.Constructors)
         {
             List<string> paramNames = VariableNamesForTypesList(c.ParameterTypes);
             List<IMessage> paramVarMsgs = new(from p in paramNames select VarOrConstMessage(p, knownConstants));

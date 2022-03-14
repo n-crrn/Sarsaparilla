@@ -1,4 +1,6 @@
-﻿using AppliedPi.Model;
+﻿using System.Collections.Generic;
+using System.Linq;
+using AppliedPi.Model;
 
 namespace AppliedPi.Processes;
 
@@ -17,8 +19,10 @@ public class IfProcess : IProcess
     {
         if (obj is IfProcess ip)
         {
-            bool elseEquals = (ElseProcess == null && ip.ElseProcess == null) || (ElseProcess != null && ElseProcess.Equals(ip.ElseProcess));
-            return Comparison.Equals(ip.Comparison) && GuardedProcess.Equals(ip.GuardedProcess) && elseEquals;
+            return Comparison.Equals(ip.Comparison) &&
+                   GuardedProcess.Equals(ip.GuardedProcess) &&
+                   ((ElseProcess == null && ip.ElseProcess == null) ||
+                    (ElseProcess != null && ElseProcess.Equals(ip.ElseProcess)));
         }
         return false;
     }
@@ -42,6 +46,8 @@ public class IfProcess : IProcess
     public IProcess GuardedProcess { get; init; }
 
     public IProcess? ElseProcess { get; init; }
+
+    #region IProcess Implementation.
 
     private IProcess? _Next;
     public IProcess? Next
@@ -69,4 +75,24 @@ public class IfProcess : IProcess
         }
         p.Next = newNext;
     }
+
+    public IEnumerable<string> Terms()
+    {
+        IEnumerable<string> terms = Comparison.Variables.Concat(GuardedProcess.Terms());
+        if (ElseProcess != null)
+        {
+            terms = terms.Concat(ElseProcess.Terms());
+        }
+        return terms;
+    }
+
+    public IProcess ResolveTerms(SortedList<string, string> subs)
+    {
+        IComparison newComparison = Comparison.ResolveTerms(subs);
+        IProcess newGProc = GuardedProcess.ResolveTerms(subs);
+        IProcess? newEProc = ElseProcess?.ResolveTerms(subs);
+        return new IfProcess(newComparison, newGProc, newEProc);
+    }
+
+    #endregion
 }

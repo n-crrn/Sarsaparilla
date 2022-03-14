@@ -49,15 +49,15 @@ public class ModelTests
             new("C", "channel", false),
             new("D", "kitten", true)
         };
-        List<Event> expectedEvents = new()
+        Dictionary<string, Event> expectedEvents = new()
         {
-            new("beginB", new() { "host", "host" }),
-            new("endB", new() { "host", "host" })
+            { "beginB", new("beginB", new() { "host", "host" }) },
+            { "endB", new("endB", new() { "host", "host" }) }
         };
-        List<Constructor> expectedConstructors = new()
+        Dictionary<string, Constructor> expectedConstructors = new()
         {
-            new("pk", new() { "skey" }, "pkey"),
-            new("sencrypt", new() { "bitstring", "nonce" }, "bitstring")
+            { "pk", new("pk", new() { "skey" }, "pkey") },
+            { "sencrypt", new("sencrypt", new() { "bitstring", "nonce" }, "bitstring") }
         };
         List<Destructor> expectedDestructors = new()
         {
@@ -65,9 +65,9 @@ public class ModelTests
                 "x",
                 new() { { "x", "bitstring" }, { "y", "skey" } })
         };
-        List<Table> expectedTables = new()
+        Dictionary<string, Table> expectedTables = new()
         {
-            new("keys", new() { "host", "pkey" })
+            { "keys", new("keys", new() { "host", "pkey" }) }
         };
         List<Term> expectedStates = new()
         {
@@ -89,10 +89,10 @@ public class ModelTests
         // Go through and check that everything matches.
         AssertListsMatch(expectedPiTypes, nw.PiTypes, "PiTypes");
         AssertListsMatch(expectedFreeDecls, nw.FreeDeclarations, "Free Declarations");
-        AssertListsMatch(expectedEvents, nw.Events, "Events");
-        AssertListsMatch(expectedConstructors, nw.Constructors, "Constructors");
+        AssertDictionariesMatch(expectedEvents, nw.Events, "Events");
+        AssertDictionariesMatch(expectedConstructors, nw.Constructors, "Constructors");
         AssertListsMatch(expectedDestructors, nw.Destructors, "Destructors");
-        AssertListsMatch(expectedTables, nw.Tables, "Tables");
+        AssertDictionariesMatch(expectedTables, nw.Tables, "Tables");
         AssertListsMatch(expectedStates, nw.InitialStates, "Init States");
         AssertListsMatch(expectedQueries, nw.Queries, "Queries");
         AssertListsMatch(expectedConstants, nw.Constants, "Contants");
@@ -323,6 +323,23 @@ public class ModelTests
         foreach (T expected in expectedList)
         {
             Assert.IsTrue(checkList.Contains(expected), $"Item {expected} missing from {description}.");
+        }
+    }
+
+    private static void AssertDictionariesMatch<T>(
+        Dictionary<string, T> expected,
+        IReadOnlyDictionary<string, T> check,
+        string desc)
+    {
+        HashSet<string> expectedKeys = new(from kv in expected select kv.Key);
+        HashSet<string> checkKeys = new(from kv in check select kv.Key);
+        if (!expectedKeys.SetEquals(checkKeys))
+        {
+            Assert.Fail($"Keys for {desc} do not match");
+        }
+        foreach (string key in expectedKeys)
+        {
+            Assert.AreEqual(expected[key], check[key], $"Item {desc} does not match.");
         }
     }
 

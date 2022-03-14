@@ -19,5 +19,5 @@ public interface ITermGenerator
     /// <summary>
     /// Provides the list of variables or names that can be substituted.
     /// </summary>
-    public SortedSet<string> Variables { get; }
+    public SortedSet<string> BasicSubTerms { get; }
 }

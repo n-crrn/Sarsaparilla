@@ -11,6 +11,23 @@ public class InsertTableProcess : IProcess
         TableTerm = tableDesc;
     }
 
+    private readonly Term TableTerm;
+
+    public string TableName => TableTerm.Name;
+
+    public IReadOnlyList<Term> WriteTerms => TableTerm.Parameters;
+
+    #region IProcess implementation.
+
+    public IProcess? Next { get; set; }
+
+    public IEnumerable<string> Terms() => TableTerm.BasicSubTerms;
+
+    public IProcess ResolveTerms(SortedList<string, string> subs) => new InsertTableProcess(TableTerm.ResolveTerm(subs));
+
+    #endregion
+    #region Basic object overrides.
+
     public override bool Equals(object? obj)
     {
         return obj is InsertTableProcess itp && TableTerm == itp.TableTerm;
@@ -24,11 +41,5 @@ public class InsertTableProcess : IProcess
 
     public override string ToString() => $"insert {TableTerm}";
 
-    private readonly Term TableTerm;
-
-    public string TableName => TableTerm.Name;
-
-    public IReadOnlyList<Term> WriteTerms => TableTerm.Parameters;
-
-    public IProcess? Next { get; set; }
+    #endregion
 }

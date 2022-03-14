@@ -68,7 +68,7 @@ else
             {
                 <div class='section'>
                     <div class='section-header'>Tables</div>
-                    @foreach (Table t in Network.Tables)
+                    @foreach ((string _, Table t) in Network.Tables)
                     {
                         <div class='entry'>@t</div>
                     }
@@ -79,7 +79,7 @@ else
             {
                 <div class='section'>
                     <div class='section-header'>Events</div>
-                    @foreach (Event ev in Network.Events)
+                    @foreach ((string _, Event ev) in Network.Events)
                     {
                         <div class='entry'>
                             <span class='name'>@ev.Name</span>
@@ -98,7 +98,7 @@ else
         <div class='section-grouping'>
             <div class='section constructor-destructor'>
                 <div class='section-header'>Constructors</div>
-                @foreach (Constructor c in Network.Constructors)
+                @foreach ((string _, Constructor c) in Network.Constructors)
                 {
                     <div class='entry'>
                         <span class='name'>@c.Name</span>

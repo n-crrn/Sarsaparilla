@@ -60,16 +60,16 @@ public class Network
     #endregion
     #region Table declarations.
 
-    internal List<Table> _Tables = new();
+    internal Dictionary<string, Table> _Tables = new();
 
-    public IReadOnlyList<Table> Tables { get => _Tables; }
+    public IReadOnlyDictionary<string, Table> Tables { get => _Tables; }
 
     #endregion
     #region Event declarations.
 
-    internal List<Event> _Events = new();
+    internal Dictionary<string, Event> _Events = new();
 
-    public IReadOnlyList<Event> Events { get => _Events; }
+    public IReadOnlyDictionary<string, Event> Events { get => _Events; }
 
     #endregion
     #region Query declarations.
@@ -81,10 +81,10 @@ public class Network
     #endregion
     #region Constructor and destructor declarations.
 
-    internal List<Constructor> _Constructors = new();
+    internal Dictionary<string, Constructor> _Constructors = new();
     internal List<Destructor> _Destructors = new();
 
-    public IReadOnlyList<Constructor> Constructors => _Constructors;
+    public IReadOnlyDictionary<string, Constructor> Constructors => _Constructors;
 
     public IReadOnlyList<Destructor> Destructors => _Destructors;
 
@@ -120,8 +120,6 @@ public class Network
     {
         _LetDefinitions[proc.Name] = proc;
     }
-
-    public bool HasDefinitionFor(string name) => _LetDefinitions.ContainsKey(name);
 
     public IReadOnlyDictionary<string, UserDefinedProcess> LetDefinitions => _LetDefinitions;
 

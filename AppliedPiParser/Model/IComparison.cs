@@ -9,6 +9,8 @@ public interface IComparison
     /// </summary>
     public SortedSet<string> Variables { get; }
 
+    public IComparison ResolveTerms(SortedList<string, string> subs);
+
     // Though every object has a ToString method, explicitly specifying it here simplifies
     // the null linting in ComparisonParser.Node.
     public string ToString();

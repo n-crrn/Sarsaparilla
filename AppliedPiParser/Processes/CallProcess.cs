@@ -1,4 +1,5 @@
-﻿using AppliedPi.Model;
+﻿using System.Collections.Generic;
+using AppliedPi.Model;
 
 namespace AppliedPi.Processes;
 
@@ -11,8 +12,17 @@ public class CallProcess : IProcess
 
     public Term CallSpecification { get; init; }
 
+    public string Name => CallSpecification.Name;
+
+    #region IProcess implementation.
+
     public IProcess? Next { get; set; }
 
+    public IEnumerable<string> Terms() => CallSpecification.BasicSubTerms;
+
+    public IProcess ResolveTerms(SortedList<string, string> subs) => new CallProcess(CallSpecification.ResolveTerm(subs));
+
+    #endregion
     #region Basic object overrides.
 
     public override bool Equals(object? obj)

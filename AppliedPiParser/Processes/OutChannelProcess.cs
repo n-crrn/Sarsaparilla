@@ -1,4 +1,5 @@
-﻿using AppliedPi.Model;
+﻿using System.Collections.Generic;
+using AppliedPi.Model;
 
 namespace AppliedPi.Processes;
 
@@ -9,6 +10,17 @@ public class OutChannelProcess : IProcess
         Channel = channelName;
         SentTerm = sent;
     }
+
+    #region IProcess implementation.
+
+    public IProcess? Next { get; set; }
+
+    public IEnumerable<string> Terms() => SentTerm.BasicSubTerms;
+
+    public IProcess ResolveTerms(SortedList<string, string> subs) => new OutChannelProcess(Channel, SentTerm.ResolveTerm(subs));
+
+    #endregion
+    #region Basic object overrides.
 
     public override bool Equals(object? obj)
     {
@@ -27,5 +39,5 @@ public class OutChannelProcess : IProcess
 
     public Term SentTerm { get; init; }
 
-    public IProcess? Next { get; set; }
+    #endregion
 }

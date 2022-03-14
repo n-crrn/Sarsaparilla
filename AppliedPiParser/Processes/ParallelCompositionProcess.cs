@@ -10,10 +10,40 @@ public class ParallelCompositionProcess : IProcess
         Processes = new() { (proc, replicated) };
     }
 
+    public List<(IProcess Process, bool Replicated)> Processes { get; init; }
+
     public void Add(IProcess proc, bool replicated)
     {
         Processes.Add((proc, replicated));
     }
+
+    #region IProcess implementation.
+
+    public IProcess? Next { get; set; }
+
+    public IEnumerable<string> Terms()
+    {
+        IEnumerable<string> terms = Processes[0].Process.Terms();
+        for (int i = 1; i < Processes.Count; i++)
+        {
+            terms = terms.Concat(Processes[i].Process.Terms());
+        }
+        return terms;
+    }
+
+    public IProcess ResolveTerms(SortedList<string, string> subs)
+    {
+        ParallelCompositionProcess pcp = new(Processes[0].Process, Processes[0].Replicated);
+        for (int i = 1; i < Processes.Count; i++)
+        {
+            (IProcess p, bool repl) = Processes[i];
+            pcp.Add(p, repl);
+        }
+        return pcp;
+    }
+
+    #endregion
+    #region Basic object overrides.
 
     public override bool Equals(object? obj)
     {
@@ -57,7 +87,5 @@ public class ParallelCompositionProcess : IProcess
         return "(" + string.Join(" | ", procAsString) + ")";
     }
 
-    public List<(IProcess Process, bool Replicated)> Processes { get; init; }
-
-    public IProcess? Next { get; set; }
+    #endregion
 }

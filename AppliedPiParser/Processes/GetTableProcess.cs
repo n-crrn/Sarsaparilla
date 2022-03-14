@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace AppliedPi.Processes;
 
@@ -24,5 +25,18 @@ public class GetTableProcess : IProcess
 
     public List<(bool, string)> MatchAssignList;
 
+    #region IProcess implementation.
+
     public IProcess? Next { get; set; }
+
+    public IEnumerable<string> Terms() => from ma in MatchAssignList select ma.Item2;
+
+    public IProcess ResolveTerms(SortedList<string, string> subs)
+    {
+        List<(bool, string)> newMAList = new(from ma in MatchAssignList
+                                             select (ma.Item1, subs.GetValueOrDefault(ma.Item2, ma.Item2)));
+        return new GetTableProcess(TableName, newMAList);
+    }
+
+    #endregion
 }

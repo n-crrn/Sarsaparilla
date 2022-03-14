@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 
+using AppliedPi.Model;
+
 namespace AppliedPi;
 
 public class UserDefinedProcess
@@ -19,6 +21,43 @@ public class UserDefinedProcess
 
     public ProcessGroup Processes { get; init; }
 
+    /// <summary>
+    /// User friendly description of the process, including its name and list of parameters.
+    /// </summary>
+    public string Title
+    {
+        get
+        {
+            String allParams = string.Join(", ", from p in Parameters select $"{p.Name}: {p.PiType}");
+            return $"{Name}({allParams})";
+        }
+    }
+
+    public ProcessGroup ResolveForCall(int callIndex, List<string> parameterValues)
+    {
+        if (parameterValues.Count != Parameters.Count)
+        {
+            throw new ArgumentException("Number of parameter values must match number of parameters");
+        }
+
+        SortedList<string, string> subs = new();
+
+        // Add in the paramters.
+        for (int i = 0; i < parameterValues.Count; i++)
+        {
+            subs[Parameters[i].Name] = parameterValues[i];
+        }
+
+        // Update the variables defined during the run.
+        string prefix = callIndex == 0 ? $"{Name}@" : $"{Name}@{callIndex}@";
+        foreach (string varName in Processes.VariablesDefined)
+        {
+            subs[varName] = prefix + varName;
+        }
+
+        return (ProcessGroup)Processes.ResolveTerms(subs);
+    }
+
     #region Basic object overrides.
 
     public override bool Equals(object? obj)
@@ -30,15 +69,6 @@ public class UserDefinedProcess
     }
 
     public override int GetHashCode() => Name.GetHashCode();
-
-    public string Title
-    {
-        get
-        {
-            String allParams = string.Join(", ", from p in Parameters select $"{p.Name}: {p.PiType}");
-            return $"{Name}({allParams})";
-        }
-    }
 
     public override string ToString() => Title;
 

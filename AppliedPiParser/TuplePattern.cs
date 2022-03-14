@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 
+using AppliedPi.Model;
+
 namespace AppliedPi;
 
 public class TuplePattern
@@ -20,6 +22,8 @@ public class TuplePattern
             Name = n;
             Type = tpe;
         }
+
+        public Element Resolve(SortedList<string, string> subs) => new(IsMatcher, subs.GetValueOrDefault(Name, Name), Type);
 
         public override bool Equals(object? obj)
         {
@@ -57,6 +61,12 @@ public class TuplePattern
     }
 
     public List<Element> Elements { get; init; }
+
+    public TuplePattern ResolveTerms(SortedList<string, string> subs) => new(new(from e in Elements select e.Resolve(subs)));
+
+    public IEnumerable<Term> MatchTerms => from e in Elements where e.IsMatcher select new Term(e.Name);
+
+    public IEnumerable<(Term, string?)> AssignedTerms => from e in Elements where !e.IsMatcher select (new Term(e.Name), e.Type);
 
     #region Basic object overrides - required for unit testing.
 

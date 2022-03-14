@@ -1,4 +1,6 @@
-﻿namespace AppliedPi.Processes;
+﻿using System.Collections.Generic;
+
+namespace AppliedPi.Processes;
 
 /// <summary>
 /// Creates a nonce value set in a variable.
@@ -10,6 +12,27 @@ public class NewProcess : IProcess
         Variable = varName;
         PiType = type;
     }
+
+    public string Variable { get; init; }
+
+    public string PiType { get; init; }
+
+    #region IProcess implementation.
+
+    public IProcess? Next { get; set; }
+
+    public IEnumerable<string> Terms()
+    {
+        yield return Variable;
+    }
+
+    public IProcess ResolveTerms(SortedList<string, string> subs)
+    {
+        return new NewProcess(subs.GetValueOrDefault(Variable, Variable), PiType);
+    }
+
+    #endregion
+    #region Basic object overrides.
 
     public override bool Equals(object? obj)
     {
@@ -24,9 +47,5 @@ public class NewProcess : IProcess
 
     public override string ToString() => $"new {Variable}: {PiType}";
 
-    public string Variable { get; init; }
-
-    public string PiType { get; init; }
-
-    public IProcess? Next { get; set; }
+    #endregion
 }

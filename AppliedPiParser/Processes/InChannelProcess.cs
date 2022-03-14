@@ -11,6 +11,26 @@ public class InChannelProcess : IProcess
         ReceivePattern = pattern;
     }
 
+    public string Channel { get; init; }
+
+    public List<(string, string)> ReceivePattern { get; init; }
+
+    #region IProcess implementation.
+
+    public IProcess? Next { get; set; }
+
+    public IEnumerable<string> Terms() => from rp in ReceivePattern select rp.Item1;
+
+    public IProcess ResolveTerms(SortedList<string, string> subs)
+    {
+        List<(string, string)> newPat = new(from rp in ReceivePattern
+                                            select (subs.GetValueOrDefault(rp.Item1, rp.Item1), rp.Item2));
+        return new InChannelProcess(Channel, newPat);
+    }
+
+    #endregion
+    #region Basic object overrides.
+
     public override bool Equals(object? obj)
     {
         return obj is InChannelProcess icp && Channel == icp.Channel && ReceivePattern.SequenceEqual(icp.ReceivePattern);
@@ -44,9 +64,5 @@ public class InChannelProcess : IProcess
         }
     }
 
-    public string Channel { get; init; }
-
-    public List<(string, string)> ReceivePattern { get; init; }
-
-    public IProcess? Next { get; set; }
+    #endregion
 }

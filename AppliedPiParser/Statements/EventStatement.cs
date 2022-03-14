@@ -24,7 +24,7 @@ public class EventStatement : IStatement
 
     public void ApplyTo(Network nw)
     {
-        nw._Events.Add(new Event(Name, Parameters));
+        nw._Events[Name] = new Event(Name, Parameters);
     }
 
     #endregion

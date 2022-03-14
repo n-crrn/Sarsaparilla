@@ -32,14 +32,14 @@ public class IfTerm : ITermGenerator
         throw new NotImplementedException();
     }
 
-    public SortedSet<string> Variables
+    public SortedSet<string> BasicSubTerms
     {
         get
         {
             SortedSet<string> variables = new();
             variables.UnionWith(Comparison.Variables);
-            variables.UnionWith(TrueTermValue.Variables);
-            variables.UnionWith(FalseTermValue.Variables);
+            variables.UnionWith(TrueTermValue.BasicSubTerms);
+            variables.UnionWith(FalseTermValue.BasicSubTerms);
             return variables;
         }
     }
