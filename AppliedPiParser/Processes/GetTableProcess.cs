@@ -25,6 +25,22 @@ public class GetTableProcess : IProcess
 
     public List<(bool, string)> MatchAssignList;
 
+    #region Basic object overrides.
+
+    public override bool Equals(object? obj)
+    {
+        return obj is GetTableProcess gtp &&
+            TableName.Equals(gtp.TableName) &&
+            MatchAssignList.Equals(gtp.MatchAssignList);
+    }
+
+    public override int GetHashCode() => TableName.GetHashCode();
+
+    public static bool operator ==(GetTableProcess p1, GetTableProcess p2) => p1.Equals(p2);
+
+    public static bool operator !=(GetTableProcess p1, GetTableProcess p2) => !p1.Equals(p2);
+
+    #endregion
     #region IProcess implementation.
 
     public IProcess? Next { get; set; }
