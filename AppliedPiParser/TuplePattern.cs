@@ -39,7 +39,7 @@ public class TuplePattern
         public override string ToString()
         {
             string matcherStr = IsMatcher ? "=" : "";
-            string typeStr = Type ?? "";
+            string typeStr = Type == null ? "" : $": {Type}";
             return $"{matcherStr}{Name}{typeStr}";
         }
     }
@@ -55,9 +55,9 @@ public class TuplePattern
         return new TuplePattern(asElements);
     }
 
-    public static TuplePattern CreateSingle(string soleElement)
+    public static TuplePattern CreateSingle(string soleElement, string? piType = null)
     {
-        return new(new List<Element>() { new(false, soleElement, null) });
+        return new(new List<Element>() { new(false, soleElement, piType) });
     }
 
     public List<Element> Elements { get; init; }

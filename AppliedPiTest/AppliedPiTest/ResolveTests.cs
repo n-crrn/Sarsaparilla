@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using AppliedPi.Model;
 using AppliedPi.Processes;
@@ -23,15 +20,12 @@ public class ResolveTests
     [TestMethod]
     public void BasicResolutionTest()
     {
+        // Create test ResolvedNetwork first - see if it raises exceptions during creation.
         string basicSource =
         @"(* Full test of basic processes - that is, excluding CallProcess. *)
 free c: channel.
 type key.
-type nonce.
-fun encrypt(bitstring, key): bitstring.
-reduc forall x: bitstring, y: key; decrypt(encrypt(x, y),y) = x.
 event gotKey(key).
-const defaultKey: key.
 
 process
     new Kas: key;
@@ -59,16 +53,65 @@ process
         ResolvedNetwork expectedResNw = new();
         expectedResNw.DirectSet(details, sequence);
 
+        // Check the network correct.
         CheckResolvedNetworks(expectedResNw, resNw);
     }
 
-    /*
     [TestMethod]
     public void FullResolutionTest()
     {
+        // Create test ResolvedNetwork first - see if it raises exceptions during creation.
+        string source =
+            @"(* Full test of calling processings. *)
+free c: channel.
+type key.
+fun encrypt(bitstring, key): bitstring.
+reduc forall x: bitstring, y: key; decrypt(encrypt(x, y),y) = x.
+event gotValue(bitstring).
+const Good: bitstring.
 
+(* Sub-processes *)
+let rx(k: key) = in(c, value: bitstring);
+                 let x: bitstring = decrypt(value, k) in event gotValue(x).
+let send(k: key) = out(c, encrypt(Good, k)).
+
+(* Main *)
+process
+    new kValue: key;
+    (! send(kValue) | ! rx(kValue)).
+";
+        Network nw = Network.CreateFromCode(source);
+        ResolvedNetwork resNw = ResolvedNetwork.From(nw);
+
+        // Create expected ResolvedNetwork.
+        Dictionary<Term, (TermSource Source, string PiType)> details = new()
+        {
+            { new("c"),        (TermSource.Free, Network.ChannelType) },
+            { new("Good"),     (TermSource.Constant, Network.BitstringType) },
+            { new("kValue"),   (TermSource.Nonce, "key") },
+            { new("rx@value"), (TermSource.Input, Network.BitstringType) },
+            { new("rx@x"),     (TermSource.Let, Network.BitstringType) }
+        };
+        List<(IProcess, bool Replicated)> sequence = new()
+        {
+            (new NewProcess("kValue", "key"), false),
+            (new ParallelCompositionProcess(new List<(IProcess Process, bool Replicated)>()
+            {
+                (new OutChannelProcess("c", new Term("encrypt", new() { new("Good"), new("kValue") })), true),
+                (new ProcessGroup(new()
+                {
+                    (new InChannelProcess("c", new() { ("rx@value", "bitstring") }), false),
+                    (new LetProcess(TuplePattern.CreateSingle("rx@x", "bitstring"), new Term("decrypt", new() { new("rx@value"), new("kValue")})), false),
+                    (new EventProcess(new("gotValue", new() { new("rx@x") })), false)
+                }), true)
+            }), false)
+        };
+        ResolvedNetwork expectedResNW = new();
+        expectedResNW.DirectSet(details, sequence);
+
+        // Check the network correct.
+        CheckResolvedNetworks(expectedResNW, resNw);
     }
-    */
 
     private static void CheckResolvedNetworks(ResolvedNetwork expected, ResolvedNetwork result)
     {

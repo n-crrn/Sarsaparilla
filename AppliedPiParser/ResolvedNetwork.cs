@@ -45,6 +45,14 @@ public class ResolvedNetwork
         }
 
         ResolvedNetwork rp = new();
+
+        // Add constants.
+        foreach (Constant c in nw.Constants)
+        {
+            Term ct = new(c.Name);
+            rp.TermDetails[ct] = (TermSource.Constant, c.PiType);
+        }
+
         foreach ((IProcess process, bool repl) in main.Processes)
         {
             IProcess updatedProcess = rp.ResolveProcess(process, nw);
@@ -65,7 +73,7 @@ public class ResolvedNetwork
                 ResolveEventProcess(evp, nw);
                 break;
             case IfProcess ip:
-                ResolveIfProcess(ip, nw);
+                toInclude = ResolveIfProcess(ip, nw);
                 break;
             case InChannelProcess icp:
                 ResolveInChannelProcess(icp, nw);
@@ -80,13 +88,16 @@ public class ResolvedNetwork
                 ResolveNewProcess(np);
                 break;
             case ParallelCompositionProcess pcp:
-                ResolveParallelCompositionProcess(pcp, nw);
+                toInclude = ResolveParallelCompositionProcess(pcp, nw);
                 break;
             case GetTableProcess gtp:
                 ResolveGetTableProcess(gtp, nw);
                 break;
             case InsertTableProcess itp:
                 ResolveInsertTableProcess(itp, nw);
+                break;
+            case ProcessGroup pg:
+                toInclude = ResolveProcessGroup(pg, nw);
                 break;
         }
         return toInclude;
@@ -162,7 +173,7 @@ public class ResolvedNetwork
         }
     }
 
-    private void ResolveIfProcess(IfProcess ip, Network nw)
+    private IfProcess ResolveIfProcess(IfProcess ip, Network nw)
     {
         foreach (string vars in ip.Comparison.Variables)
         {
@@ -173,11 +184,13 @@ public class ResolvedNetwork
                 throw new ArgumentException($"Term {varTerm} does not exist.");
             }
         }
-        ResolveProcess(ip.GuardedProcess, nw);
+        IProcess newGuarded = ResolveProcess(ip.GuardedProcess, nw);
+        IProcess? newElse = null;
         if (ip.ElseProcess != null)
         {
-            ResolveProcess(ip.ElseProcess, nw);
+            newElse = ResolveProcess(ip.ElseProcess, nw);
         }
+        return new(ip.Comparison, newGuarded, newElse);
     }
 
     private void ResolveInChannelProcess(InChannelProcess icp, Network nw)
@@ -262,12 +275,19 @@ public class ResolvedNetwork
         TermDetails[newTerm] = (TermSource.Nonce, np.PiType);
     }
 
-    private void ResolveParallelCompositionProcess(ParallelCompositionProcess pcp, Network nw)
+    private ParallelCompositionProcess ResolveParallelCompositionProcess(ParallelCompositionProcess pcp, Network nw)
     {
-        foreach ((IProcess p, bool _) in pcp.Processes)
+        return new(from pr in pcp.Processes select ResolveParallelSubProcess(pr.Process, pr.Replicated, nw));
+    }
+
+    private (IProcess, bool) ResolveParallelSubProcess(IProcess p, bool repl, Network nw)
+    {
+        IProcess rp = ResolveProcess(p, nw);
+        if (rp is ProcessGroup pg && pg.Processes.Count == 1)
         {
-            ResolveProcess(p, nw);
+            return (pg.Processes[0].Process, repl || pg.Processes[0].Replicated);
         }
+        return (rp, repl);
     }
 
     private void ResolveGetTableProcess(GetTableProcess gtp, Network nw)
@@ -321,6 +341,18 @@ public class ResolvedNetwork
                 throw new ArgumentException($"Write term does not have correct type (expected {table.Columns[i]}, got {piType}).");
             }
         }
+    }
+
+    private IProcess ResolveProcessGroup(ProcessGroup pg, Network nw)
+    {
+        List<(IProcess Process, bool Replicated)> resolved = new(from pr in pg.Processes
+                                                                 select (ResolveProcess(pr.Process, nw), pr.Replicated));
+        if (resolved.Count == 1 && !(resolved[0].Replicated))
+        {
+            // If there is only one sub-process without replication, we can promote it.
+            return resolved[0].Process;
+        }
+        return new ProcessGroup(resolved);
     }
 
     private bool ResolveTerm(Term t, Network nw)
@@ -390,7 +422,7 @@ public class ResolvedNetwork
                 for (int i = 0; i < t.Parameters.Count; i++)
                 {
                     Term innerTerm = t.Parameters[i];
-                    if (t.IsConstructed)
+                    if (innerTerm.IsConstructed)
                     {
                         if (!nw.Constructors.TryGetValue(innerTerm.Name, out Constructor? innerCtr))
                         {
@@ -403,7 +435,7 @@ public class ResolvedNetwork
                             return false;
                         }
                     }
-                    else if (t.IsTuple)
+                    else if (innerTerm.IsTuple)
                     {
                         // We don't do tuples within constructors.
                         return false;
@@ -412,10 +444,15 @@ public class ResolvedNetwork
                     {
                         if (!rp.TermDetails.TryGetValue(innerTerm, out (TermSource Source, string PiType) innerTermDetails))
                         {
-                            // Inner term not previously defined.
-                            return false;
+                            // Inner term not previously pulled in by a process - let's see if it
+                            // is a valid item and pull it in if required.
+                            (bool found, string? piType) = TryResolveBasicTerm(innerTerm, nw, rp);
+                            if (!found || !string.Equals(piType, ctor.ParameterTypes[i]))
+                            {
+                                return false;
+                            }
                         }
-                        if (innerTermDetails.PiType != ctor.ParameterTypes[i])
+                        else if (innerTermDetails.PiType != ctor.ParameterTypes[i])
                         {
                             // The inner variable type does not match the parameter type.
                             return false;
@@ -423,7 +460,10 @@ public class ResolvedNetwork
                     }
                 }
             }
-            return false;
+            else
+            {
+                return false;
+            }
         }
         else if (t.IsTuple)
         {
@@ -436,6 +476,31 @@ public class ResolvedNetwork
             }
         }
         return true;
+    }
+
+    private static (bool, string?) TryResolveBasicTerm(Term t, Network nw, ResolvedNetwork rp)
+    {
+        Debug.Assert(!t.IsConstructed);
+        // Check constants.
+        foreach (Constant c in nw.Constants)
+        {
+            if (c.Name == t.Name)
+            {
+                rp.TermDetails[t] = (TermSource.Constant, c.PiType);
+                return (true, c.PiType);
+            }
+        }
+        // Check free-names.
+        // FIXME: Does the "private" data need to be noted here?
+        foreach ((string _, FreeDeclaration fd) in nw.FreeDeclarations)
+        {
+            if (fd.Name == t.Name)
+            {
+                rp.TermDetails[t] = (TermSource.Free, fd.PiType);
+                return (true, fd.PiType);
+            }
+        }
+        return (false, null);
     }
 
     #endregion
