@@ -42,9 +42,9 @@ public class Network
     public static readonly string ChannelType = "channel";
     public static readonly string BitstringType = "bitstring";
 
-    internal List<string> _PiTypes = new() { ChannelType, BitstringType };
+    internal HashSet<string> _PiTypes = new() { ChannelType, BitstringType };
 
-    public IReadOnlyList<string> PiTypes { get => _PiTypes.ToImmutableList(); }
+    public IReadOnlySet<string> PiTypes { get => _PiTypes.ToImmutableHashSet(); }
 
     #endregion
     #region Free name declarations.
@@ -56,9 +56,9 @@ public class Network
     #endregion
     #region Constant declarations.
 
-    internal List<Constant> _Constants = new();
+    internal HashSet<Constant> _Constants = new();
 
-    public IReadOnlyList<Constant> Constants { get => _Constants; }
+    public IReadOnlySet<Constant> Constants { get => _Constants; }
 
     #endregion
     #region Table declarations.
@@ -77,26 +77,28 @@ public class Network
     #endregion
     #region Query declarations.
 
-    internal List<Query> _Queries = new();
+    internal HashSet<Query> _Queries = new();
 
-    public IReadOnlyList<Query> Queries { get => _Queries; }
+    public IReadOnlySet<Query> Queries { get => _Queries; }
 
     #endregion
     #region Constructor and destructor declarations.
 
     internal Dictionary<string, Constructor> _Constructors = new();
-    internal List<Destructor> _Destructors = new();
+    internal HashSet<Destructor> _Destructors = new();
 
     public IReadOnlyDictionary<string, Constructor> Constructors => _Constructors;
 
-    public IReadOnlyList<Destructor> Destructors => _Destructors;
+    public IReadOnlySet<Destructor> Destructors => _Destructors;
 
     #endregion
     #region Statement initialisation declarations.
 
-    internal List<Term> _InitialStates = new();
+    // FIXME: Consideration to be given to making this a dictionary.
 
-    public IReadOnlyList<Term> InitialStates => _InitialStates;
+    internal HashSet<Term> _InitialStates = new();
+
+    public IReadOnlySet<Term> InitialStates => _InitialStates;
 
     public Term? GetStateCell(string cellName)
     {
@@ -309,16 +311,26 @@ public class Network
 
     public override bool Equals(object? obj)
     {
+        // Note that there are no fancy equality tests such as bisimilarity tests.
+        // This is a straight forward case of "are the processes defined exactly the same way?"
         return obj != null &&
             obj is Network nw &&
-            _PiTypes.SequenceEqual(nw._PiTypes) &&
-            _FreeDeclarations.SequenceEqual(nw._FreeDeclarations) &&
-            _Constants.SequenceEqual(nw._Constants) &&
-            _Tables.SequenceEqual(nw._Tables) &&
-            _Events.SequenceEqual(nw._Events) &&
-            _Queries.SequenceEqual(nw._Queries) &&
-            _Constructors.SequenceEqual(nw._Constructors) &&
-            _Destructors.SequenceEqual(nw._Destructors);
+            _PiTypes.SetEquals(nw._PiTypes) &&
+            DictionariesMatch(_FreeDeclarations, nw._FreeDeclarations) &&
+            _Constants.SetEquals(nw._Constants) &&
+            DictionariesMatch(_Tables, nw._Tables) &&
+            DictionariesMatch(_Events, nw._Events) &&
+            _Queries.SetEquals(nw._Queries) &&
+            DictionariesMatch(_Constructors, nw._Constructors) &&
+            _Destructors.SetEquals(nw._Destructors) &&
+            _InitialStates.SetEquals(nw._InitialStates) &&
+            DictionariesMatch(_LetDefinitions, nw._LetDefinitions) &&
+            ProcessGroup.Equals(MainProcess, nw.MainProcess);
+    }
+
+    private static bool DictionariesMatch<T1,T2>(IReadOnlyDictionary<T1,T2> d1, IReadOnlyDictionary<T1,T2> d2)
+    {
+        return d1.Count == d2.Count && !(d1.Except(d2).Any());
     }
 
     public override int GetHashCode() => (Constructors, Destructors).GetHashCode();

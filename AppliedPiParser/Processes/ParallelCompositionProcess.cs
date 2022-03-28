@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace AppliedPi.Processes;
@@ -8,6 +9,15 @@ public class ParallelCompositionProcess : IProcess
     public ParallelCompositionProcess(IProcess proc, bool replicated)
     {
         Processes = new() { (proc, replicated) };
+    }
+
+    public ParallelCompositionProcess(IEnumerable<(IProcess Process, bool Replicated)> newProcesses)
+    {
+        Processes = new(newProcesses);
+        if (Processes.Count == 0)
+        {
+            throw new ArgumentException("Parallel composition process must have at least once process.");
+        }
     }
 
     public List<(IProcess Process, bool Replicated)> Processes { get; init; }

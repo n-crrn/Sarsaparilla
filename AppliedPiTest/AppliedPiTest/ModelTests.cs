@@ -41,7 +41,7 @@ public class ModelTests
             "const c1: tag [data].\n" +
             "const c2: kitten.\n";
 
-        List<string> expectedPiTypes = new() { Network.ChannelType, Network.BitstringType, "kitten", "dog", "host" };
+        HashSet<string> expectedPiTypes = new() { Network.ChannelType, Network.BitstringType, "kitten", "dog", "host" };
         Dictionary<string, FreeDeclaration> expectedFreeDecls = new()
         {
             { "A", new("A", "channel", false) },
@@ -59,7 +59,7 @@ public class ModelTests
             { "pk", new("pk", new() { "skey" }, "pkey") },
             { "sencrypt", new("sencrypt", new() { "bitstring", "nonce" }, "bitstring") }
         };
-        List<Destructor> expectedDestructors = new()
+        HashSet<Destructor> expectedDestructors = new()
         {
             new(new("decrypt", new() { new("encrypt", new() { new("x"), new("y") }), new("y") }),
                 "x",
@@ -69,17 +69,17 @@ public class ModelTests
         {
             { "keys", new("keys", new() { "host", "pkey" }) }
         };
-        List<Term> expectedStates = new()
+        HashSet<Term> expectedStates = new()
         {
             new("SD", new() { new("D") })
         };
-        List<Query> expectedQueries = new()
+        HashSet<Query> expectedQueries = new()
         {
             new(new("inj-event", new() { new("endB", new() { new("x") }) }),
                 new("inj-event", new() { new("startB", new() { new("x") }) }),
                 new() { { "x", "host" }, { "y", "host" } })
         };
-        List<Constant> expectedConstants = new() {
+        HashSet<Constant> expectedConstants = new() {
             new("c1", "tag", "data"),
             new("c2", "kitten", "")
         };
@@ -87,15 +87,15 @@ public class ModelTests
         Network nw = Network.CreateFromCode(testSource);
 
         // Go through and check that everything matches.
-        AssertListsMatch(expectedPiTypes, nw.PiTypes, "PiTypes");
+        Assert.IsTrue(expectedPiTypes.SetEquals(nw.PiTypes), "PiTypes don't match.");
         AssertDictionariesMatch(expectedFreeDecls, nw.FreeDeclarations, "Free Declarations");
         AssertDictionariesMatch(expectedEvents, nw.Events, "Events");
         AssertDictionariesMatch(expectedConstructors, nw.Constructors, "Constructors");
-        AssertListsMatch(expectedDestructors, nw.Destructors, "Destructors");
+        Assert.IsTrue(expectedDestructors.SetEquals(nw.Destructors), "Destructors");
         AssertDictionariesMatch(expectedTables, nw.Tables, "Tables");
-        AssertListsMatch(expectedStates, nw.InitialStates, "Init States");
-        AssertListsMatch(expectedQueries, nw.Queries, "Queries");
-        AssertListsMatch(expectedConstants, nw.Constants, "Contants");
+        Assert.IsTrue(expectedStates.SetEquals(nw.InitialStates), "Init states don't match.");
+        Assert.IsTrue(expectedQueries.SetEquals(nw.Queries), "Queries don't match.");
+        Assert.IsTrue(expectedConstants.SetEquals(nw.Constants), "Constants don't match.");
     }
 
     /// <summary>
@@ -304,27 +304,6 @@ public class ModelTests
     }
 
     #region Test convenience methods.
-
-    private static void AssertListsMatch<T>(List<T> expectedList, IReadOnlyList<T> checkList, string description)
-    {
-        Assert.AreEqual(expectedList.Count, checkList.Count, $"List size don't match for {description}.");
-
-        // Double check that there are no duplicates in the expectedList. This shouldn't
-        // happen, but this is a test and we can use this little bit of extra assurance.
-        for (int i = 0; i < expectedList.Count; i++)
-        {
-            T item1 = expectedList[i];
-            for (int j = i + 1; j < expectedList.Count; j++)
-            {
-                T item2 = expectedList[j];
-                Assert.AreNotEqual(item1, item2);
-            }
-        }
-        foreach (T expected in expectedList)
-        {
-            Assert.IsTrue(checkList.Contains(expected), $"Item {expected} missing from {description}.");
-        }
-    }
 
     private static void AssertDictionariesMatch<T>(
         Dictionary<string, T> expected,
