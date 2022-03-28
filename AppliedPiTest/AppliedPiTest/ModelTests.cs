@@ -108,6 +108,8 @@ public class ModelTests
             "let bv = pk(A) in out(c, bv);\n" +
             "let (=xB, =pkB) = checksign(cert2, pk2) in\n" +
             "in(c, other: bitstring);\n" +
+            "mutate(SD, new_value);\n" +
+            "get keys(=xC, cd) in\n" +
             "insert keys(A, bv).";
         Network nw = Network.CreateFromCode(testSource);
         Assert.IsNotNull(nw.MainProcess);
@@ -129,6 +131,8 @@ public class ModelTests
             new OutChannelProcess("c", new Term("bv", new())),
             new LetProcess(new(let2Elements), new Term("checksign", new() { new Term("cert2"), new Term("pk2") })),
             new InChannelProcess("c", new() { ("other", "bitstring") }),
+            new MutateProcess("SD", new("new_value")),
+            new GetTableProcess("keys", new() { (true, "xC"), (false, "cd") }),
             new InsertTableProcess(new Term("keys", new() { new("A"), new("bv") }))
         };
         ProcessGroup expectedMain = new(new List<(IProcess, bool)>(from p in processes select (p, false)));

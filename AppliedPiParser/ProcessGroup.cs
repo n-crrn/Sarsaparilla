@@ -193,6 +193,7 @@ public class ProcessGroup : IProcess
                     "if" => ReadIfProcess(p),
                     "get" => ReadTableGetProcess(p),
                     "insert" => ReadTableInsertProcess(p),
+                    "mutate" => ReadMutateProcess(p),
                     "(" => ReadCompoundProcess(p),
                     _ => ReadPossibleCallProcess(token, p) // Last one may return null.
                 };
@@ -450,6 +451,25 @@ public class ProcessGroup : IProcess
         Term t = Term.ReadTerm(p, stmtType);
         p.ReadStatementEnd(stmtType);
         return new InsertTableProcess(t);
+    }
+
+    private static IProcess ReadMutateProcess(Parser p)
+    {
+        string stmtType = "Mutate";
+        p.ReadExpectedToken("(", stmtType);
+        string stateCellName = p.ReadNameToken(stmtType);
+        p.ReadExpectedToken(",", stmtType);
+        (Term setTerm, string? maybeToken) = Term.ReadTermAndNextToken(p, stmtType);
+        if (maybeToken == null)
+        {
+            p.ReadExpectedToken(")", stmtType);
+        }
+        else
+        {
+            UnexpectedTokenException.Check(")", maybeToken, stmtType);
+        }
+        p.ReadStatementEnd(stmtType);
+        return new MutateProcess(stateCellName, setTerm);
     }
 
     private static IProcess ReadCompoundProcess(Parser p)

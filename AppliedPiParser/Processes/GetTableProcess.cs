@@ -31,7 +31,7 @@ public class GetTableProcess : IProcess
     {
         return obj is GetTableProcess gtp &&
             TableName.Equals(gtp.TableName) &&
-            MatchAssignList.Equals(gtp.MatchAssignList);
+            MatchAssignList.SequenceEqual(gtp.MatchAssignList);
     }
 
     public override int GetHashCode() => TableName.GetHashCode();
