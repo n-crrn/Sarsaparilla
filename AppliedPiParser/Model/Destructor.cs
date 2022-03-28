@@ -30,5 +30,5 @@ public class Destructor
             ParameterTypes.SequenceEqual(d.ParameterTypes);
     }
 
-    public override int GetHashCode() => RightHandSide.GetHashCode();
+    public override int GetHashCode() => LeftHandSide.GetHashCode();
 }
