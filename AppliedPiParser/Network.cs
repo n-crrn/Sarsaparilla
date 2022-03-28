@@ -96,13 +96,13 @@ public class Network
 
     // FIXME: Consideration to be given to making this a dictionary.
 
-    internal HashSet<Term> _InitialStates = new();
+    internal HashSet<StateCell> _StateCells = new();
 
-    public IReadOnlySet<Term> InitialStates => _InitialStates;
+    public IReadOnlySet<StateCell> StateCells => _StateCells;
 
-    public Term? GetStateCell(string cellName)
+    public StateCell? GetStateCell(string cellName)
     {
-        foreach (Term t in _InitialStates)
+        foreach (StateCell t in _StateCells)
         {
             if (t.Name == cellName)
             {
@@ -323,7 +323,7 @@ public class Network
             _Queries.SetEquals(nw._Queries) &&
             DictionariesMatch(_Constructors, nw._Constructors) &&
             _Destructors.SetEquals(nw._Destructors) &&
-            _InitialStates.SetEquals(nw._InitialStates) &&
+            _StateCells.SetEquals(nw._StateCells) &&
             DictionariesMatch(_LetDefinitions, nw._LetDefinitions) &&
             ProcessGroup.Equals(MainProcess, nw.MainProcess);
     }

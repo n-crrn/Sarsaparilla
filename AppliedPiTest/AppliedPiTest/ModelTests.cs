@@ -36,7 +36,7 @@ public class ModelTests
             "fun sencrypt(bitstring,nonce): bitstring.\n" +
             "reduc forall x: bitstring, y: skey; decrypt(encrypt(x, y),y) = x.\n" +
             "table keys(host, pkey).\n" +
-            "init-state SD(D).\n" +
+            "state SD: kitten = D.\n" +
             "query x: host, y: host; inj-event(endB(x)) ==> inj-event(startB(x)).\n" +
             "const c1: tag [data].\n" +
             "const c2: kitten.\n";
@@ -69,9 +69,9 @@ public class ModelTests
         {
             { "keys", new("keys", new() { "host", "pkey" }) }
         };
-        HashSet<Term> expectedStates = new()
+        HashSet<StateCell> expectedStates = new()
         {
-            new("SD", new() { new("D") })
+            new("SD", new("D"), "kitten")
         };
         HashSet<Query> expectedQueries = new()
         {
@@ -93,7 +93,7 @@ public class ModelTests
         AssertDictionariesMatch(expectedConstructors, nw.Constructors, "Constructors");
         Assert.IsTrue(expectedDestructors.SetEquals(nw.Destructors), "Destructors");
         AssertDictionariesMatch(expectedTables, nw.Tables, "Tables");
-        Assert.IsTrue(expectedStates.SetEquals(nw.InitialStates), "Init states don't match.");
+        Assert.IsTrue(expectedStates.SetEquals(nw.StateCells), "Init states don't match.");
         Assert.IsTrue(expectedQueries.SetEquals(nw.Queries), "Queries don't match.");
         Assert.IsTrue(expectedConstants.SetEquals(nw.Constants), "Constants don't match.");
     }
