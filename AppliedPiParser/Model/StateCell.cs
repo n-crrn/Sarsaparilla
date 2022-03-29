@@ -6,12 +6,12 @@ public class StateCell
     {
         Name = name;
         InitialValue = initValue;
-        Type = type;
+        PiType = type;
     }
 
     public string Name { get; init; }
 
-    public string? Type { get; init; }
+    public string? PiType { get; init; }
 
     public Term InitialValue { get; init; }
 
@@ -19,7 +19,7 @@ public class StateCell
     {
         return obj is StateCell sc &&
             Name.Equals(sc.Name) &&
-            string.Equals(Type, sc.Type) &&
+            string.Equals(PiType, sc.PiType) &&
             InitialValue.Equals(sc.InitialValue);
     }
 

@@ -55,7 +55,7 @@ else
                     <div class='section-header'>Constants</div>
                     @foreach (Constant c in Network.Constants)
                     {
-                        <div class='constant entry'>
+                        <div class='entry'>
                             <span class='name'>@c.Name</span>
                             <span class='op'>:</span>
                             <span class='type'>@c.PiType</span>
@@ -89,6 +89,21 @@ else
                                 <span class='type'>@t</span>
                             }
                             <span class='op'>)</span>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (Network.StateCells.Count > 0)
+            {
+                <div class='section'>
+                    <div class='section-header'>State Cells</div>
+                    @foreach (StateCell sc in Network.StateCells)
+                    {
+                        <div class='entry'>
+                            <span class='name'>@sc.Name</span>
+                            <span class='op'>:</span>
+                            <span class='type'>@sc.PiType</span>
                         </div>
                     }
                 </div>
