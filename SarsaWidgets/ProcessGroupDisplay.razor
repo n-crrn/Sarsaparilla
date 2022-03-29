@@ -54,6 +54,7 @@ else
             NewProcess np => NewTemplate(np),
             OutChannelProcess ocp => OutChannelTemplate(ocp),
             ParallelCompositionProcess pcp => ParallelCompositionTemplate(pcp),
+            MutateProcess mp => MutateTemplate(mp),
             ProcessGroup g => ProcessGroupTemplate(g),
             _ => throw new NotImplementedException($"Unrecognised process type {proc.GetType()}")
         };
@@ -147,6 +148,20 @@ else
                         </div>
                     </div>
                 }
+        </div>
+    ;
+    }
+
+    private RenderFragment MutateTemplate(MutateProcess mp)
+    {
+        return
+            @<div class='mutate-process'>
+                mutate
+                <span class='op'>(</span>
+                @mp.StateCellName
+                <span class='op'>,</span>
+                @mp.NewValue
+                <span class='op'>)</span>
             </div>
         ;
     }
