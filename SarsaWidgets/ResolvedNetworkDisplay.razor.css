@@ -1,0 +1,54 @@
+﻿.outer {
+    background-color: var(--background-theme-color);
+    color: var(--foreground-theme-color);
+    margin: 2px;
+    padding: 10px;
+}
+
+.no-items-message {
+    font-style: italic;
+    text-align: center;
+}
+
+.section {
+    border: solid 1px var(--foreground-theme-color);
+    margin: 5px;
+}
+    
+.section-header {
+    background-color: var(--foreground-theme-color);
+    color: var(--background-theme-color);
+    font-weight: bold;
+    padding: 5px;
+    text-align: center;
+}
+
+/* --- Symbol components formatting --- */
+
+.symbol-entry {
+    margin: 3px;
+}
+
+.term {
+    color: deepskyblue;
+}
+
+.op {
+    font-weight: bold;
+}
+
+.type {
+    color: orange;
+}
+
+.term-source {
+    font-style: italic;
+}
+
+    .term-source::before {
+        content: "(";
+    }
+    
+    .term-source::after {
+        content: ")";
+    }

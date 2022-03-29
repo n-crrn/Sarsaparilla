@@ -18,13 +18,46 @@
 
 .outer {
     background-color: var(--background-theme-color);
+    display: flex;
+    flex-direction: column;
+}
+
+.parallel-process {
+    display: flex;
+    flex-direction: row;
+}
+
+.parallel-process-inner {
+    flex-grow: 1;
+    flex-basis: 0px;
+    display: flex;
+    flex-direction: row;
+}
+
+.repl-op {
+    width: 20px;
+    padding: 5px;
+    text-align: center;
+    font-weight: bold;
+    background-color: var(--foreground-theme-color);
+    color: var(--background-theme-color);
+}
+
+.nest {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    margin-left: 5px;
 }
 
 .entry {
     border-bottom: solid 1px var(--subtle-border-theme-color, darkgrey);
     padding: 5px;
+    display: flex;
+    flex-direction: row;
 }
 
-.entry:last-of-type {
-    border-bottom: none;
-}
+    .entry:last-of-type {
+        border-bottom: none;
+    }
+

@@ -34,6 +34,15 @@ public class ResolvedNetwork
 
     public IReadOnlyList<(IProcess Process, bool Replicated)> ProcessSequence => _ProcessSequence;
 
+    public ProcessGroup AsGroup()
+    {
+        if (_ProcessSequence.Count == 0)
+        {
+            throw new MemberAccessException("Cannot retrieve process sequence as group if there are no processes");
+        }
+        return new(_ProcessSequence);
+    }
+
     #region Creating from a network.
 
     public static ResolvedNetwork From(Network nw)

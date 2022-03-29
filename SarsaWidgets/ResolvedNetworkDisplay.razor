@@ -1,0 +1,75 @@
+﻿@*
+ * Displays the details of resolved π network, where all types and identifiers have been 
+ * determined.
+*@
+
+@using AppliedPi
+@using AppliedPi.Model
+
+<div class='outer'>
+    @if (ResolvedNetwork == null)
+    {
+        <div class='no-items-message'>
+            No network to display.
+        </div>
+    }
+    else
+    {
+        @if (ResolvedNetwork.TermDetails.Count == 0)
+        {
+            <p class='no-items-message'>There are no terms to display.</p>
+        }
+        else
+        {
+            @if (SourceNetwork != null)
+            {
+                <button @onclick=ToggleSourceNetworkVisible>Toggle Source Network Visible</button>
+                if (ShowSourceNetwork)
+                {
+                    <div class='source-network'>
+                        <NetworkDisplay Network=@SourceNetwork/>
+                    </div>
+                }
+            }
+
+            <div class='section'>
+                <div class='section-header'>
+                    Known Symbols
+                </div>
+                @foreach ((Term t, (TermSource src, string piType)) in ResolvedNetwork.TermDetails) {
+                    <div class='symbol-entry'>
+                        <span class='term'>@t</span>
+                        <span class='op'>:</span>
+                        <span class='type'>@piType</span>
+                        <span class='term-source'>@src</span>
+                    </div>
+                }
+            </div>
+
+            <div class='section'>
+                <div class='section-header'>
+                    Whole Process
+                </div>
+                <ProcessGroupDisplay Processes=ResolvedNetwork.AsGroup()/>
+            </div>
+        }
+    }
+</div>
+
+@code {
+
+    [Parameter]
+    public Network? SourceNetwork { get; set; }
+
+    [Parameter]
+    public bool ShowSourceNetwork { get; set; }
+
+    [Parameter]
+    public ResolvedNetwork? ResolvedNetwork { get; set; }
+
+    #region Callbacks.
+
+    private void ToggleSourceNetworkVisible() => ShowSourceNetwork = !ShowSourceNetwork;
+
+    #endregion
+}

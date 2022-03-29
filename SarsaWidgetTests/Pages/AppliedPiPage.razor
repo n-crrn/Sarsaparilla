@@ -12,7 +12,7 @@
     <p>Blank:</p>
     <AppliedPiEditor/>
     <p>Preset text:</p>
-    <AppliedPiEditor Text=@PiTestSource/>
+    <AppliedPiEditor Text=@PiNetworkTestSource/>
 </section>
 
 <section>
@@ -20,8 +20,14 @@
     <NetworkDisplay Network=@TestNetwork/>
 </section>
 
+<section>
+    <h2>Resolved Network Display</h2>
+
+    <ResolvedNetworkDisplay SourceNetwork=ResolveTestNw ResolvedNetwork=ResolveTestResolvedNw/>
+</section>
+
 @code {
-    private static readonly string PiTestSource =
+    private static readonly string PiNetworkTestSource =
         "free A, B, C: channel.\n" +
         "free D: kitten [private].\n" +
         "type kitten.\n" +
@@ -46,5 +52,34 @@
         "        insert some_keys(h, key);" +
         "    else insert some_keys(h, other_key).";
 
-    private readonly Network TestNetwork = Network.CreateFromCode(PiTestSource);
+    private readonly Network TestNetwork = Network.CreateFromCode(PiNetworkTestSource);
+
+    private static readonly string ResolvedPiNetworkTestSource =
+        @"(* Full test of calling processings. *)
+free c: channel.
+type key.
+fun encrypt(bitstring, key): bitstring.
+reduc forall x: bitstring, y: key; decrypt(encrypt(x, y),y) = x.
+event gotValue(bitstring).
+const Good: bitstring.
+
+(* Sub-processes *)
+let rx(k: key) = in(c, value: bitstring);
+                 let x: bitstring = decrypt(value, k) in event gotValue(x).
+let send(k: key) = out(c, encrypt(Good, k)).
+
+(* Main *)
+process
+    new kValue: key;
+    (! send(kValue) | ! rx(kValue)).";
+
+    private readonly Network ResolveTestNw;
+
+    private readonly ResolvedNetwork ResolveTestResolvedNw;
+
+    public AppliedPiPage()
+    {
+        ResolveTestNw = Network.CreateFromCode(ResolvedPiNetworkTestSource);
+        ResolveTestResolvedNw = ResolvedNetwork.From(ResolveTestNw);
+    }
 }

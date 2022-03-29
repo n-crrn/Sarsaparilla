@@ -21,9 +21,11 @@ else
             <div class='entry'>
                 @if (replicated)
                 {
-                    <span class='op'>!</span>
+                    <div class='repl-op'>!</div>
                 }
-                @Template(process)
+                <div class='nest'>
+                    @Template(process)
+                </div>
             </div>
         }
     </div>
@@ -52,6 +54,7 @@ else
             NewProcess np => NewTemplate(np),
             OutChannelProcess ocp => OutChannelTemplate(ocp),
             ParallelCompositionProcess pcp => ParallelCompositionTemplate(pcp),
+            ProcessGroup g => ProcessGroupTemplate(g),
             _ => throw new NotImplementedException($"Unrecognised process type {proc.GetType()}")
         };
     }
@@ -137,13 +140,22 @@ else
                     <div class='parallel-process-inner'>
                         @if(replicated)
                         {
-                            <span class='op'>!</span>
+                            <div class='repl-op'>!</div>
                         }
-                        @Template(ip)
+                        <div class='nest'>
+                            @Template(ip)
+                        </div>
                     </div>
                 }
             </div>
-            ;
+        ;
+    }
+
+    private RenderFragment ProcessGroupTemplate(ProcessGroup g)
+    {
+        return
+            @<ProcessGroupDisplay Processes=g/>
+        ;
     }
 
     #endregion
