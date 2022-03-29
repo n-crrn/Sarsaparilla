@@ -77,7 +77,7 @@
         {
             DemonstrationRule1,
             parser.Parse("R_1 = k(x)(a3) -[ (SD(init[]), a0), (SD(m), a3) : {a0 =< a3} ]-> <a3: SD(h(m, x))>"),
-            parser.Parse("R_2 ⋈_{know(x_1, y)} R_3 = n([bob_l], l_sl[]), n([bob_r], l_sr[]), k(m_f) -[ ]-> k(enc_a(<m_f, [bob_l], [bob_r]>, pk(sksd[])))"),
+            parser.Parse("R_2 ⋈_{know(x_1, y)} R_3 = n([bob_l]), n([bob_r]), k(m_f) -[ ]-> k(enc_a(<m_f, [bob_l], [bob_r]>, pk(sksd[])))"),
             parser.Parse("k(x), k(y) -[ ]-> a(x, y)"),
             parser.Parse("i(value)(a0) -[ (SD(init[]), a0) ]-> <a0: SD(value)>"),
             parser.Parse("k(bob_l[]), k(bob_r[]) -[ ]-> l(<bob_l[], bob_r[]>)")
