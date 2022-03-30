@@ -14,7 +14,7 @@ public interface ITermGenerator
     /// </summary>
     /// <param name="varSubstitutions">List of variable substitions to be evaluated.</param>
     /// <returns>A term with the given variable substitutions made.</returns>
-    public Term ResolveTerm(SortedList<string, string> varSubstitutions);
+    public Term ResolveTerm(IReadOnlyDictionary<string, string> varSubstitutions);
 
     /// <summary>
     /// Provides the list of variables or names that can be substituted.

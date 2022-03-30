@@ -11,15 +11,10 @@ namespace AppliedPi;
 
 public class ProcessGroup : IProcess
 {
-    public ProcessGroup(List<(IProcess, bool)> toBeLinked)
+    public ProcessGroup(IEnumerable<IProcess> toBeLinked)
     {
-        Debug.Assert(toBeLinked.Count > 0);
-        Processes = toBeLinked;
-        for (int i = 1; i < Processes.Count; i++)
-        {
-            Processes[i - 1].Process.Next = Processes[i].Process;
-        }
-        //RequiredNames = CollectRequiredNames();
+        Processes = new(toBeLinked);
+        Debug.Assert(Processes.Count > 0);
     }
 
     /// <summary>
@@ -27,75 +22,22 @@ public class ProcessGroup : IProcess
     /// with parallel processes.
     /// </summary>
     /// <param name="singleContained">The newly contained sub-process.</param>
-    /// <param name="replicated">Whether that sub-process is replicated.</param>
-    public ProcessGroup(IProcess singleContained, bool replicated)
+    public ProcessGroup(IProcess singleContained)
     {
-        Processes = new() { (singleContained, replicated) };
-        // No need to link if there is only one.
+        Processes = new() { singleContained };
     }
 
-    public IProcess First => Processes[0].Process;
+    public IProcess First => Processes.First();
 
-    public List<(IProcess Process, bool Replicated)> Processes { get; init; }
+    public List<IProcess> Processes { get; init; }
 
-    public IEnumerable<string> VariablesDefined
-    {
-        get
-        {
-            List<IProcess> toConsider = new(from p in Processes select p.Process);
-
-            // Can't use iterator, it would be invalided if toConsider is added to.
-            for (int i = 0; i < toConsider.Count; i++)
-            {
-                IProcess proc = toConsider[i];
-
-                // Consider variable containing processes...
-                if (proc is InChannelProcess icp)
-                {
-                    foreach ((string varName, string _) in icp.ReceivePattern)
-                    {
-                        yield return varName;
-                    }
-                }
-                else if (proc is LetProcess lp)
-                {
-                    foreach ((Term assignedTerm, string? _) in lp.LeftHandSide.AssignedTerms)
-                    {
-                        yield return assignedTerm.Name;
-                    }
-                }
-                else if (proc is NewProcess np)
-                {
-                    yield return np.Variable;
-                }
-                // ...and then other-process containing processes.
-                else if (proc is ProcessGroup pg)
-                {
-                    toConsider.AddRange(from p in pg.Processes select p.Process);
-                }
-                else if (proc is IfProcess ip)
-                {
-                    toConsider.Add(ip.GuardedProcess);
-                    if (ip.ElseProcess != null)
-                    {
-                        toConsider.Add(ip.ElseProcess);
-                    }
-                }
-                else if (proc is ParallelCompositionProcess pcp)
-                {
-                    toConsider.AddRange(from p in pcp.Processes select p.Process);
-                }
-            }
-        }
-    }
+    public IProcess TryPromote() => Processes.Count == 1 ? Processes[0] : this;
 
     #region IProcess implementation.
 
-    public IProcess? Next { get; set; }
-
     public IEnumerable<string> Terms()
     {
-        foreach ((IProcess subProcess, bool _) in Processes)
+        foreach (IProcess subProcess in Processes)
         {
             foreach (string itg in subProcess.Terms())
             {
@@ -104,10 +46,19 @@ public class ProcessGroup : IProcess
         }
     }
 
-    public IProcess ResolveTerms(SortedList<string, string> subs)
+    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
-        var updatedProcs = from p in Processes select (p.Process.ResolveTerms(subs), p.Replicated);
-        return new ProcessGroup(new(updatedProcs));
+        return new ProcessGroup(from p in Processes select p.ResolveTerms(subs));
+    }
+
+    public IEnumerable<string> VariablesDefined()
+    {
+        IEnumerable<string> all = Enumerable.Empty<string>();
+        foreach (IProcess p in Processes)
+        {
+            all = all.Concat(p.VariablesDefined());
+        }
+        return all;
     }
 
     #endregion
@@ -127,23 +78,7 @@ public class ProcessGroup : IProcess
 
     #endregion
 
-    public string FullDescription
-    {
-        get
-        {
-            StringBuilder builder = new();
-            foreach ((IProcess p, bool replicated) in Processes)
-            {
-                if (replicated)
-                {
-                    builder.Append('!');
-                }
-                builder.Append(p.ToString());
-                builder.Append('\n');
-            }
-            return builder.ToString();
-        }
-    }
+    public string FullDescription => string.Join('\n', Processes);
 
     #region Applied Pi Code parsing.
 
@@ -151,64 +86,48 @@ public class ProcessGroup : IProcess
     {
         try
         {
-            List<(IProcess, bool)> processes = new();
+            List<IProcess> processes = new();
             ParallelCompositionProcess? parallelRegister = null;
-            bool replicated = false;
             string token = p.ReadNextToken();
             do
             {
-                if (!replicated)
+                if (token == "|")
                 {
-                    if (token == "|")
+                    // Pop the last process off the end of the processes list, and create
+                    // a parallel register.
+                    if (processes.Count == 0)
                     {
-                        // Pop the last process off the end of the processes list, and create
-                        // a parallel register.
-                        if (processes.Count == 0)
-                        {
-                            return (null, $"Parallel composition operator '|' at beginning.");
-                        }
-                        if (null == parallelRegister)
-                        {
-                            // Swap out the last process on the list with a new parallel composition.
-                            (IProcess lastProcess, bool lastReplicated) = processes[^1];
-                            processes.RemoveAt(processes.Count - 1);
-                            parallelRegister = new(lastProcess, lastReplicated);
-                            processes.Add((parallelRegister!, false));
-                        }
-                        // Start on the next process.
-                        token = p.ReadNextToken();
+                        return (null, $"Parallel composition operator '|' at beginning.");
                     }
-                    else
+                    if (null == parallelRegister)
                     {
-                        parallelRegister = null;
+                        // Swap out the last process on the list with a new parallel composition.
+                        IProcess lastProcess = processes[^1];
+                        processes.RemoveAt(processes.Count - 1);
+                        parallelRegister = new(lastProcess);
+                        processes.Add(parallelRegister!);
                     }
+                    // Start on the next process.
+                    token = p.ReadNextToken();
                 }
-                IProcess? nextProcess = token switch
+                else
                 {
-                    "in" => ReadInChannelProcess(p),
-                    "out" => ReadOutChannelProcess(p),
-                    "event" => ReadEventProcess(p),
-                    "new" => ReadNewProcess(p),
-                    "let" => ReadLetProcess(p),
-                    "if" => ReadIfProcess(p),
-                    "get" => ReadTableGetProcess(p),
-                    "insert" => ReadTableInsertProcess(p),
-                    "mutate" => ReadMutateProcess(p),
-                    "(" => ReadCompoundProcess(p),
-                    _ => ReadPossibleCallProcess(token, p) // Last one may return null.
-                };
+                    parallelRegister = null;
+                }
+
+                IProcess? nextProcess = ReadNextProcess(p, token);
                 if (nextProcess != null)
                 {
                     if (parallelRegister != null)
                     {
-                        parallelRegister.Add(nextProcess, replicated);
+                        parallelRegister.Add(nextProcess);
                     }
                     else
                     {
-                        processes.Add((nextProcess, replicated));
+                        processes.Add(nextProcess);
                     }
                 }
-                replicated = token == "!";
+
                 token = p.ReadNextToken();
             } while (token != "." && token != ")");
             return (new ProcessGroup(processes), null);
@@ -217,6 +136,35 @@ public class ProcessGroup : IProcess
         {
             return (null, ex.Message);
         }
+    }
+
+    private static IProcess? ReadNextProcess(Parser p, string token)
+    {
+        return token switch
+        {
+            "!" => ReadReplicateProcess(p),
+            "in" => ReadInChannelProcess(p),
+            "out" => ReadOutChannelProcess(p),
+            "event" => ReadEventProcess(p),
+            "new" => ReadNewProcess(p),
+            "let" => ReadLetProcess(p),
+            "if" => ReadIfProcess(p),
+            "get" => ReadTableGetProcess(p),
+            "insert" => ReadTableInsertProcess(p),
+            "mutate" => ReadMutateProcess(p),
+            "(" => ReadCompoundProcess(p),
+            _ => ReadPossibleCallProcess(token, p) // Last one may return null.
+        };
+    }
+
+    private static IProcess ReadReplicateProcess(Parser p)
+    {
+        IProcess? innerProcess = ReadNextProcess(p, p.ReadNextToken());
+        if (innerProcess == null)
+        {
+            throw new ProcessGroupParseException("The replicate operation has to apply to a process.");
+        }
+        return new ReplicateProcess(innerProcess);
     }
 
     private static IProcess ReadInChannelProcess(Parser p)
@@ -315,20 +263,33 @@ public class ProcessGroup : IProcess
         UnexpectedTokenException.Check("=", token, stmtType);
 
         string peekToken = p.PeekNextToken();
-        LetProcess process;
+        ITermGenerator ifTerm;
         if (peekToken == "if")
         {
             _ = p.ReadNextToken();
-            process = new(tp, ReadIfTerm(p, stmtType));
+            ifTerm = ReadIfTerm(p, stmtType);
         }
         else
         {
-            Term value = Term.ReadTerm(p, stmtType);
-            process = new(tp, value);
+            ifTerm = Term.ReadTerm(p, stmtType);
         }
-        //UnexpectedTokenException.Check("in", token, stmtType);
         p.ReadExpectedToken("in", stmtType);
-        return process;
+
+        IProcess? guardedProcess = ReadNextProcess(p, p.ReadNextToken());
+        if (guardedProcess == null)
+        {
+            throw new ProcessGroupParseException("A let expression cannot be the final process in a collection.");
+        }
+
+        peekToken = p.PeekNextToken();
+        IProcess? elseProcess = null;
+        if (peekToken == "else")
+        {
+            _ = p.ReadNextToken();
+            elseProcess = ReadNextProcess(p, p.ReadNextToken());
+        }
+
+        return new(tp, ifTerm, guardedProcess, elseProcess);
     }
 
     private static IfTerm ReadIfTerm(Parser p, string stmtType)
@@ -360,50 +321,22 @@ public class ProcessGroup : IProcess
         IComparison cmp = ReadComparisonAndThen(p);
 
         // Read through the guarded process.
-        ProcessGroup guardedProcesses = ReadIfSubProcess(p);
+        IProcess? guardedProcesses = ReadNextProcess(p, p.ReadNextToken());
+        if (guardedProcesses == null)
+        {
+            throw new ProcessGroupParseException("Guarded process not found when parsing 'if' clause.");
+        }
 
         // Is there an else process?
-        ProcessGroup? elseProcesses = null;
+        IProcess? elseProcesses = null;
         string token = p.PeekNextToken();
         if (token == "else")
         {
             _ = p.ReadNextToken();
-            elseProcesses = ReadIfSubProcess(p);
+            elseProcesses = ReadNextProcess(p, p.ReadNextToken());
         }
 
-        return new IfProcess(cmp, guardedProcesses.First, elseProcesses?.First);
-    }
-
-    private static ProcessGroup ReadIfSubProcess(Parser p)
-    {
-        List<(IProcess, bool)> processes = new();
-        string token = p.ReadNextToken();
-        while (token == "let")
-        {
-            processes.Add((ReadLetProcess(p), false));
-            token = p.ReadNextToken();
-        }
-        bool replicated = token == "!";
-        if (replicated)
-        {
-            token = p.ReadNextToken();
-        }
-        IProcess? guardedProcess = token switch
-        {
-            "in" => ReadInChannelProcess(p),
-            "out" => ReadOutChannelProcess(p),
-            "event" => ReadEventProcess(p),
-            "if" => ReadIfProcess(p),
-            "get" => ReadTableGetProcess(p),
-            "insert" => ReadTableInsertProcess(p),
-            _ => null
-        };
-        if (guardedProcess == null)
-        {
-            throw new UnexpectedTokenException("in, out, event, if, get or insert", token, "if");
-        }
-        processes.Add((guardedProcess, replicated));
-        return new(processes);
+        return new IfProcess(cmp, guardedProcesses, elseProcesses);
     }
 
     private static IComparison ReadComparisonAndThen(Parser p)

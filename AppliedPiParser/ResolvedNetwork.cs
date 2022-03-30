@@ -17,7 +17,8 @@ public enum TermSource
     Input,
     Let,
     Table,
-    Constructor
+    Constructor,
+    StateCell
 }
 
 /// <summary>
@@ -30,9 +31,9 @@ public class ResolvedNetwork
 
     public Dictionary<Term, (TermSource Source, string PiType)> TermDetails { get; } = new();
 
-    private readonly List<(IProcess Process, bool Replicated)> _ProcessSequence = new();
+    private readonly List<IProcess> _ProcessSequence = new();
 
-    public IReadOnlyList<(IProcess Process, bool Replicated)> ProcessSequence => _ProcessSequence;
+    public IReadOnlyList<IProcess> ProcessSequence => _ProcessSequence;
 
     public ProcessGroup AsGroup()
     {
@@ -62,10 +63,10 @@ public class ResolvedNetwork
             rp.TermDetails[ct] = (TermSource.Constant, c.PiType);
         }
 
-        foreach ((IProcess process, bool repl) in main.Processes)
+        foreach (IProcess process in main.Processes)
         {
             IProcess updatedProcess = rp.ResolveProcess(process, nw);
-            rp._ProcessSequence.Add((updatedProcess, repl));
+            rp._ProcessSequence.Add(updatedProcess);
         }
         return rp;
     }
@@ -91,7 +92,7 @@ public class ResolvedNetwork
                 ResolveOutChannelProcess(ocp, nw);
                 break;
             case LetProcess lp:
-                ResolveLetProcess(lp, nw);
+                toInclude = ResolveLetProcess(lp, nw);
                 break;
             case NewProcess np:
                 ResolveNewProcess(np);
@@ -108,6 +109,18 @@ public class ResolvedNetwork
             case ProcessGroup pg:
                 toInclude = ResolveProcessGroup(pg, nw);
                 break;
+            case MutateProcess mp:
+                ResolveMutateProcess(mp, nw);
+                break;
+            case ReplicateProcess rp:
+                toInclude = ResolveReplicateProcess(rp, nw);
+                break;
+            default:
+                throw new NotImplementedException("Process type not included for ResolveProcess algorithm.");
+        }
+        if (toInclude is ProcessGroup lpg)
+        {
+            toInclude = lpg.TryPromote();
         }
         return toInclude;
     }
@@ -150,10 +163,10 @@ public class ResolvedNetwork
         ProcessGroup varRenamedGroup = udp.ResolveForCall(cpc, parameters);
 
         // Fully resolve the sub-process.
-        List<(IProcess Process, bool Replicated)> updatedGroupDetails = new();
-        foreach ((IProcess p, bool r) in varRenamedGroup.Processes)
+        List<IProcess> updatedGroupDetails = new();
+        foreach (IProcess p in varRenamedGroup.Processes)
         {
-            updatedGroupDetails.Add((ResolveProcess(p, nw), r));
+            updatedGroupDetails.Add(ResolveProcess(p, nw));
         }
         return new ProcessGroup(updatedGroupDetails);
     }
@@ -223,7 +236,7 @@ public class ResolvedNetwork
     {
         if (!CheckChannel(nw, ocp.Channel))
         {
-            throw new ArgumentException($"Channel {ocp.Channel} not properly defined in call to 'out'.");
+            throw new ArgumentException($"Channel {ocp.Channel} not defined when call made to 'out'.");
         }
         if (!CheckTermDetailsValid(ocp.SentTerm, nw, this))
         {
@@ -245,7 +258,7 @@ public class ResolvedNetwork
         return false;
     }
 
-    private void ResolveLetProcess(LetProcess lp, Network nw)
+    private IProcess ResolveLetProcess(LetProcess lp, Network nw)
     {
         // Unfortunately, we cannot exhaustively check the types in these assignments. The
         // authoritative implementation (ProVerif) allows some absurd happenings within its
@@ -272,6 +285,9 @@ public class ResolvedNetwork
             Term rhsSubTerm = new(rhsSubTermStr);
             ResolveTerm(rhsSubTerm, nw);
         }
+        IProcess guardedProc = ResolveProcess(lp.GuardedProcess, nw);
+        IProcess? elseProc = lp.ElseProcess == null ? null : ResolveProcess(lp.ElseProcess!, nw);
+        return new LetProcess(lp.LeftHandSide, lp.RightHandSide, guardedProc, elseProc);
     }
 
     private void ResolveNewProcess(NewProcess np)
@@ -286,17 +302,16 @@ public class ResolvedNetwork
 
     private ParallelCompositionProcess ResolveParallelCompositionProcess(ParallelCompositionProcess pcp, Network nw)
     {
-        return new(from pr in pcp.Processes select ResolveParallelSubProcess(pr.Process, pr.Replicated, nw));
+        return new(from p in pcp.Processes select TryPromoteFromGroup(p, nw));
     }
 
-    private (IProcess, bool) ResolveParallelSubProcess(IProcess p, bool repl, Network nw)
+    private IProcess TryPromoteFromGroup(IProcess p, Network nw)
     {
-        IProcess rp = ResolveProcess(p, nw);
-        if (rp is ProcessGroup pg && pg.Processes.Count == 1)
+        if (p is ProcessGroup pg)
         {
-            return (pg.Processes[0].Process, repl || pg.Processes[0].Replicated);
+            p = pg.TryPromote();
         }
-        return (rp, repl);
+        return ResolveProcess(p, nw);
     }
 
     private void ResolveGetTableProcess(GetTableProcess gtp, Network nw)
@@ -354,14 +369,39 @@ public class ResolvedNetwork
 
     private IProcess ResolveProcessGroup(ProcessGroup pg, Network nw)
     {
-        List<(IProcess Process, bool Replicated)> resolved = new(from pr in pg.Processes
-                                                                 select (ResolveProcess(pr.Process, nw), pr.Replicated));
-        if (resolved.Count == 1 && !(resolved[0].Replicated))
+        List<IProcess> resolved = new(from p in pg.Processes select (ResolveProcess(p, nw)));
+        if (resolved.Count == 1)
         {
-            // If there is only one sub-process without replication, we can promote it.
-            return resolved[0].Process;
+            return resolved[0];
         }
         return new ProcessGroup(resolved);
+    }
+
+    private void ResolveMutateProcess(MutateProcess mp, Network nw)
+    {
+        if (!CheckStateCell(nw, mp.StateCellName))
+        {
+            throw new ArgumentException($"Channel {mp.StateCellName} not defined when call made to 'mutate'.");
+        }
+        if (!CheckTermDetailsValid(mp.NewValue, nw, this))
+        {
+            throw new ArgumentException($"Invalid term {mp.NewValue}");
+        }
+    }
+
+    private bool CheckStateCell(Network nw, string stateCellName)
+    {
+        StateCell? sc = nw.GetStateCell(stateCellName);
+        if (sc != null)
+        {
+            TermDetails[new Term(stateCellName)] = (TermSource.StateCell, Network.StateCellType);
+        }
+        return sc != null;
+    }
+
+    private IProcess ResolveReplicateProcess(ReplicateProcess rp, Network nw)
+    {
+        return new ReplicateProcess(ResolveProcess(rp.Process, nw));
     }
 
     private bool ResolveTerm(Term t, Network nw)
@@ -509,6 +549,13 @@ public class ResolvedNetwork
                 return (true, fd.PiType);
             }
         }
+        // Final check - state-cells.
+        StateCell? sc = nw.GetStateCell(t.Name);
+        if (sc != null)
+        {
+            rp.TermDetails[t] = (TermSource.StateCell, Network.StateCellType);
+            return (true, Network.StateCellType);
+        }
         return (false, null);
     }
 
@@ -529,7 +576,7 @@ public class ResolvedNetwork
     /// </param>
     public void DirectSet(
         Dictionary<Term, (TermSource, string)> termDetails,
-        List<(IProcess Process, bool Replicated)> sequence)
+        List<IProcess> sequence)
     {
         Debug.Assert(TermDetails.Count == 0 && _ProcessSequence.Count == 0);
         foreach ((Term t, (TermSource, string) details) in termDetails)
@@ -547,11 +594,7 @@ public class ResolvedNetwork
             writer.WriteLine($"\t{t}\t{src}\t{piType}");
         }
         writer.WriteLine("--- Process sequence is ---");
-        foreach ((IProcess p, bool repl) in _ProcessSequence)
-        {
-            string replPrefix = repl ? "!" : "";
-            writer.WriteLine($"{replPrefix}\t{p}");
-        }
+        writer.WriteLine(string.Join('\n', _ProcessSequence));
         writer.WriteLine("---------------------------");
     }
 

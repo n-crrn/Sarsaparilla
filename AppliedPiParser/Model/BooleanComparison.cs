@@ -61,7 +61,7 @@ public class BooleanComparison : IComparison
         }
     }
 
-    public IComparison ResolveTerms(SortedList<string, string> subs)
+    public IComparison ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         return new BooleanComparison(Operator, LeftInput.ResolveTerms(subs), RightInput.ResolveTerms(subs));
     }

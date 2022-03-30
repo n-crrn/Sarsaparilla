@@ -50,7 +50,7 @@ public class UserDefinedProcess
 
         // Update the variables defined during the run.
         string prefix = callIndex == 0 ? $"{Name}@" : $"{Name}@{callIndex}@";
-        foreach (string varName in Processes.VariablesDefined)
+        foreach (string varName in Processes.VariablesDefined())
         {
             subs[varName] = prefix + varName;
         }

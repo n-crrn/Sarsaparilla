@@ -19,16 +19,19 @@ public class NewProcess : IProcess
 
     #region IProcess implementation.
 
-    public IProcess? Next { get; set; }
-
     public IEnumerable<string> Terms()
     {
         yield return Variable;
     }
 
-    public IProcess ResolveTerms(SortedList<string, string> subs)
+    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         return new NewProcess(subs.GetValueOrDefault(Variable, Variable), PiType);
+    }
+
+    public IEnumerable<string> VariablesDefined()
+    {
+        yield return Variable;
     }
 
     #endregion

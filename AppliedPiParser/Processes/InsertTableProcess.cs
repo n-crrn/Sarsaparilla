@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 using AppliedPi.Model;
 
@@ -19,11 +20,14 @@ public class InsertTableProcess : IProcess
 
     #region IProcess implementation.
 
-    public IProcess? Next { get; set; }
-
     public IEnumerable<string> Terms() => TableTerm.BasicSubTerms;
 
-    public IProcess ResolveTerms(SortedList<string, string> subs) => new InsertTableProcess(TableTerm.ResolveTerm(subs));
+    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    {
+        return new InsertTableProcess(TableTerm.ResolveTerm(subs));
+    }
+
+    public IEnumerable<string> VariablesDefined() => Enumerable.Empty<string>();
 
     #endregion
     #region Basic object overrides.

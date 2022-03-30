@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using AppliedPi.Model;
 
 namespace AppliedPi.Processes;
@@ -13,11 +14,11 @@ public class OutChannelProcess : IProcess
 
     #region IProcess implementation.
 
-    public IProcess? Next { get; set; }
-
     public IEnumerable<string> Terms() => SentTerm.BasicSubTerms;
 
-    public IProcess ResolveTerms(SortedList<string, string> subs) => new OutChannelProcess(Channel, SentTerm.ResolveTerm(subs));
+    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs) => new OutChannelProcess(Channel, SentTerm.ResolveTerm(subs));
+
+    public IEnumerable<string> VariablesDefined() => Enumerable.Empty<string>();
 
     #endregion
     #region Basic object overrides.

@@ -9,19 +9,23 @@ namespace AppliedPi.Processes;
 /// </summary>
 public class LetProcess : IProcess
 {
-    public LetProcess(TuplePattern lhs, ITermGenerator rhs)
+    public LetProcess(TuplePattern lhs, ITermGenerator rhs, IProcess guardedProcess, IProcess? elseProcess = null)
     {
         LeftHandSide = lhs;
         RightHandSide = rhs;
+        GuardedProcess = guardedProcess;
+        ElseProcess = elseProcess;
     }
 
     public TuplePattern LeftHandSide { get; init; }
 
     public ITermGenerator RightHandSide { get; init; }
 
-    #region IProcess implementation.
+    public IProcess GuardedProcess { get; init; }
 
-    public IProcess? Next { get; set; }
+    public IProcess? ElseProcess { get; init; }
+
+    #region IProcess implementation.
 
     public IEnumerable<string> Terms()
     {
@@ -35,17 +39,28 @@ public class LetProcess : IProcess
         }
     }
 
-    public IProcess ResolveTerms(SortedList<string, string> subs)
+    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
-        return new LetProcess(LeftHandSide.ResolveTerms(subs), RightHandSide.ResolveTerm(subs));
+        return new LetProcess(
+            LeftHandSide.ResolveTerms(subs),
+            RightHandSide.ResolveTerm(subs),
+            GuardedProcess.ResolveTerms(subs),
+            ElseProcess?.ResolveTerms(subs));
     }
+
+    public IEnumerable<string> VariablesDefined() => LeftHandSide.AssignedVariables;
 
     #endregion
     #region Basic object overrides.
 
     public override bool Equals(object? obj)
     {
-        return obj is LetProcess lp && LeftHandSide.Equals(lp.LeftHandSide) && RightHandSide.Equals(lp.RightHandSide);
+        return obj is LetProcess lp &&
+            LeftHandSide.Equals(lp.LeftHandSide) &&
+            RightHandSide.Equals(lp.RightHandSide) &&
+            GuardedProcess.Equals(lp.GuardedProcess) &&
+            ((ElseProcess == null && lp.ElseProcess == null) ||
+             (ElseProcess != null && ElseProcess.Equals(lp.ElseProcess)));
     }
 
     public override int GetHashCode() => LeftHandSide.GetHashCode();

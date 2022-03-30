@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using AppliedPi.Model;
 
 namespace AppliedPi.Processes;
@@ -16,11 +17,11 @@ public class CallProcess : IProcess
 
     #region IProcess implementation.
 
-    public IProcess? Next { get; set; }
-
     public IEnumerable<string> Terms() => CallSpecification.BasicSubTerms;
 
-    public IProcess ResolveTerms(SortedList<string, string> subs) => new CallProcess(CallSpecification.ResolveTerm(subs));
+    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs) => new CallProcess(CallSpecification.ResolveTerm(subs));
+
+    public IEnumerable<string> VariablesDefined() => Enumerable.Empty<string>();
 
     #endregion
     #region Basic object overrides.

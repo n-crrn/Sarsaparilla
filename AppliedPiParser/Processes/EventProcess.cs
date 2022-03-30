@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using AppliedPi.Model;
 
 namespace AppliedPi.Processes;
@@ -15,6 +16,15 @@ public class EventProcess : IProcess
 
     public Term Event { get; init; }
 
+    #region IProcess implementation.
+
+    public IEnumerable<string> Terms() => Event.BasicSubTerms;
+
+    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs) => new EventProcess(Event.ResolveTerm(subs));
+
+    public IEnumerable<string> VariablesDefined() => Enumerable.Empty<string>();
+
+    #endregion
     #region Basic object overrides.
 
     public override bool Equals(object? obj)
@@ -29,15 +39,6 @@ public class EventProcess : IProcess
     public static bool operator !=(EventProcess ep1, EventProcess ep2) => !Equals(ep1, ep2);
 
     public override string ToString() => $"event {Event}";
-
-    #endregion
-    #region IProcess implementation.
-
-    public IProcess? Next { get; set; }
-
-    public IEnumerable<string> Terms() => Event.BasicSubTerms;
-
-    public IProcess ResolveTerms(SortedList<string, string> subs) => new EventProcess(Event.ResolveTerm(subs));
 
     #endregion
 }

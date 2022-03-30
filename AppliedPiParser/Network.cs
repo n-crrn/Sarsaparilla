@@ -41,8 +41,9 @@ public class Network
 
     public static readonly string ChannelType = "channel";
     public static readonly string BitstringType = "bitstring";
+    public static readonly string StateCellType = "state-cell";
 
-    internal HashSet<string> _PiTypes = new() { ChannelType, BitstringType };
+    internal HashSet<string> _PiTypes = new() { ChannelType, BitstringType, StateCellType };
 
     public IReadOnlySet<string> PiTypes { get => _PiTypes.ToImmutableHashSet(); }
 
@@ -169,7 +170,7 @@ public class Network
     private List<CallProcess> FindAllSubProcessCalls(ProcessGroup pg)
     {
         List<CallProcess> foundCP = new();
-        foreach ((IProcess p, bool _) in pg.Processes)
+        foreach (IProcess p in pg.Processes)
         {
             if (p is CallProcess cp)
             {
@@ -214,7 +215,7 @@ public class Network
 
     private void AddParallelProcessCalls(ParallelCompositionProcess pcp, List<CallProcess> foundCP)
     {
-        foreach ((IProcess innerP, bool _) in pcp.Processes)
+        foreach (IProcess innerP in pcp.Processes)
         {
             if (innerP is CallProcess pcp_cp)
             {

@@ -13,6 +13,39 @@ public class IfProcess : IProcess
         ElseProcess = elseProc;
     }
 
+    public IComparison Comparison { get; init; }
+
+    public IProcess GuardedProcess { get; init; }
+
+    public IProcess? ElseProcess { get; init; }
+
+    #region IProcess Implementation.
+
+    public IEnumerable<string> Terms()
+    {
+        IEnumerable<string> terms = Comparison.Variables.Concat(GuardedProcess.Terms());
+        if (ElseProcess != null)
+        {
+            terms = terms.Concat(ElseProcess.Terms());
+        }
+        return terms;
+    }
+
+    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    {
+        IComparison newComparison = Comparison.ResolveTerms(subs);
+        IProcess newGProc = GuardedProcess.ResolveTerms(subs);
+        IProcess? newEProc = ElseProcess?.ResolveTerms(subs);
+        return new IfProcess(newComparison, newGProc, newEProc);
+    }
+
+    public IEnumerable<string> VariablesDefined()
+    {
+        IEnumerable<string> vd = GuardedProcess.VariablesDefined();
+        return ElseProcess == null ? vd : vd.Concat(ElseProcess.VariablesDefined());
+    }
+
+    #endregion
     #region Basic object overrides.
 
     public override bool Equals(object? obj)
@@ -37,61 +70,6 @@ public class IfProcess : IProcess
     {
         string guardedDesc = $"if {Comparison} then {GuardedProcess};";
         return ElseProcess == null ? guardedDesc : guardedDesc + $" else {ElseProcess}";
-    }
-
-    #endregion
-
-    public IComparison Comparison { get; init; }
-
-    public IProcess GuardedProcess { get; init; }
-
-    public IProcess? ElseProcess { get; init; }
-
-    #region IProcess Implementation.
-
-    private IProcess? _Next;
-    public IProcess? Next
-    {
-        get => _Next;
-        set
-        {
-            _Next = value;
-            if (value != null)
-            {
-                FillNextOnProcess(GuardedProcess, value);
-                if (ElseProcess != null)
-                {
-                    FillNextOnProcess(ElseProcess, value);
-                }
-            }
-        }
-    }
-
-    private static void FillNextOnProcess(IProcess p, IProcess newNext)
-    {
-        while (p.Next != null)
-        {
-            p = p.Next;
-        }
-        p.Next = newNext;
-    }
-
-    public IEnumerable<string> Terms()
-    {
-        IEnumerable<string> terms = Comparison.Variables.Concat(GuardedProcess.Terms());
-        if (ElseProcess != null)
-        {
-            terms = terms.Concat(ElseProcess.Terms());
-        }
-        return terms;
-    }
-
-    public IProcess ResolveTerms(SortedList<string, string> subs)
-    {
-        IComparison newComparison = Comparison.ResolveTerms(subs);
-        IProcess newGProc = GuardedProcess.ResolveTerms(subs);
-        IProcess? newEProc = ElseProcess?.ResolveTerms(subs);
-        return new IfProcess(newComparison, newGProc, newEProc);
     }
 
     #endregion

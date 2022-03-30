@@ -17,15 +17,21 @@ public class InChannelProcess : IProcess
 
     #region IProcess implementation.
 
-    public IProcess? Next { get; set; }
-
     public IEnumerable<string> Terms() => from rp in ReceivePattern select rp.Item1;
 
-    public IProcess ResolveTerms(SortedList<string, string> subs)
+    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         List<(string, string)> newPat = new(from rp in ReceivePattern
                                             select (subs.GetValueOrDefault(rp.Item1, rp.Item1), rp.Item2));
         return new InChannelProcess(Channel, newPat);
+    }
+
+    public IEnumerable<string> VariablesDefined()
+    {
+        foreach ((string varName, string _) in ReceivePattern)
+        {
+            yield return varName;
+        }
     }
 
     #endregion

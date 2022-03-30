@@ -25,7 +25,7 @@ public class IfTerm : ITermGenerator
 
     #region ITermGenerator implementation.
 
-    public Term ResolveTerm(SortedList<string, string> varSubstitutions)
+    public Term ResolveTerm(IReadOnlyDictionary<string, string> varSubstitutions)
     {
         // FIXME: This is to be implemented when the IComparison interface is updated with the
         // logic for evaluating comparisons.

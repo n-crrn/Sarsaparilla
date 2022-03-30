@@ -16,13 +16,9 @@ else if (Processes.Processes.Count == 0)
 else 
 {
     <div class='outer'>
-        @foreach ((IProcess process, bool replicated) in Processes.Processes)
+        @foreach (IProcess process in Processes.Processes)
         {
             <div class='entry'>
-                @if (replicated)
-                {
-                    <div class='repl-op'>!</div>
-                }
                 <div class='nest'>
                     @Template(process)
                 </div>
@@ -56,6 +52,7 @@ else
             ParallelCompositionProcess pcp => ParallelCompositionTemplate(pcp),
             MutateProcess mp => MutateTemplate(mp),
             ProcessGroup g => ProcessGroupTemplate(g),
+            ReplicateProcess rp => ReplicateTemplate(rp),
             _ => throw new NotImplementedException($"Unrecognised process type {proc.GetType()}")
         };
     }
@@ -136,13 +133,9 @@ else
     {
         return
             @<div class='parallel-process'>
-                @foreach ((IProcess ip, bool replicated) in pcp.Processes)
+                @foreach (IProcess ip in pcp.Processes)
                 {
                     <div class='parallel-process-inner'>
-                        @if(replicated)
-                        {
-                            <div class='repl-op'>!</div>
-                        }
                         <div class='nest'>
                             @Template(ip)
                         </div>
@@ -168,8 +161,18 @@ else
 
     private RenderFragment ProcessGroupTemplate(ProcessGroup g)
     {
+        return @<ProcessGroupDisplay Processes=g/>;
+    }
+
+    private RenderFragment ReplicateTemplate(ReplicateProcess rp)
+    {
         return
-            @<ProcessGroupDisplay Processes=g/>
+            @<div class='replicate'>
+                <div class='repl-op'>!</div>
+                <div class='nest'>
+                    @Template(rp.Process)
+                </div>
+            </div>
         ;
     }
 

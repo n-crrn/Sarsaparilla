@@ -38,7 +38,7 @@ public class Term : ITermGenerator
 
     #region ITermGenerator implementation.
 
-    public Term ResolveTerm(SortedList<string, string> varSubstitutions)
+    public Term ResolveTerm(IReadOnlyDictionary<string, string> varSubstitutions)
     {
         // If this is not a leaf node, then we conduct the substitutions on the child
         // parameters and return a Term with the otherwise same name.

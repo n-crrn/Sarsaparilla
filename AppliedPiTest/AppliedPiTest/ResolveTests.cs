@@ -43,12 +43,12 @@ process
             { new("Kas"), (TermSource.Nonce, "key") },
             { new("tv"), (TermSource.Input, "key") }
         };
-        List<(IProcess Process, bool Replicated)> sequence = new()
+        List<IProcess> sequence = new()
         {
-            (new NewProcess("Kas", "key"), false),
-            (new OutChannelProcess("c", new("Kas")), false),
-            (new InChannelProcess("c", new() { ("tv", "key") }), false),
-            (new EventProcess(new("gotKey", new() { new("tv") })), false)
+            new NewProcess("Kas", "key"),
+            new OutChannelProcess("c", new("Kas")),
+            new InChannelProcess("c", new() { ("tv", "key") }),
+            new EventProcess(new("gotKey", new() { new("tv") }))
         };
         ResolvedNetwork expectedResNw = new();
         expectedResNw.DirectSet(details, sequence);
@@ -92,19 +92,26 @@ process
             { new("rx@value"), (TermSource.Input, Network.BitstringType) },
             { new("rx@x"),     (TermSource.Let, Network.BitstringType) }
         };
-        List<(IProcess, bool Replicated)> sequence = new()
+        List<IProcess> sequence = new()
         {
-            (new NewProcess("kValue", "key"), false),
-            (new ParallelCompositionProcess(new List<(IProcess Process, bool Replicated)>()
+            new NewProcess("kValue", "key"),
+            new ParallelCompositionProcess(new List<IProcess>()
             {
-                (new OutChannelProcess("c", new Term("encrypt", new() { new("Good"), new("kValue") })), true),
-                (new ProcessGroup(new()
-                {
-                    (new InChannelProcess("c", new() { ("rx@value", "bitstring") }), false),
-                    (new LetProcess(TuplePattern.CreateSingle("rx@x", "bitstring"), new Term("decrypt", new() { new("rx@value"), new("kValue")})), false),
-                    (new EventProcess(new("gotValue", new() { new("rx@x") })), false)
-                }), true)
-            }), false)
+                new ReplicateProcess(
+                    new OutChannelProcess("c", new Term("encrypt", new() { new("Good"), new("kValue") }))
+                ),
+                new ReplicateProcess(
+                    new ProcessGroup(new List<IProcess>()
+                    {
+                        new InChannelProcess("c", new() { ("rx@value", "bitstring") }),
+                        new LetProcess(
+                                TuplePattern.CreateSingle("rx@x", "bitstring"),
+                                new Term("decrypt", new() { new("rx@value"), new("kValue")}),
+                                new EventProcess(new("gotValue", new() { new("rx@x") }))
+                            ),
+                    })
+                )
+            })
         };
         ResolvedNetwork expectedResNW = new();
         expectedResNW.DirectSet(details, sequence);

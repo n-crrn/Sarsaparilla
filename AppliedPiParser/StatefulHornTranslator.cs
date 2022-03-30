@@ -22,6 +22,7 @@ public static class StatefulHornTranslator
         // Pi Types are not translated.
 
         // Translate free names and constants.
+        // FIXME: Actually pay attention to whether something is meant to be private.
         IEnumerable<NameMessage> basicNames = from fd in nw.FreeDeclarations 
                                               where !fd.Value.IsPrivate 
                                               select new NameMessage(fd.Key);

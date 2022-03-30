@@ -11,19 +11,33 @@ public class GetTableProcess : IProcess
         MatchAssignList = maList;
     }
 
-    public override string ToString()
-    {
-        List<string> formattedMatches = new();
-        foreach ((bool isMatch, string name) in MatchAssignList)
-        {
-            formattedMatches.Add(isMatch ? "=" + name : name);
-        }
-        return $"get {TableName}(" + string.Join(", ", formattedMatches) + ")";
-    }
-
     public string TableName { get; init; }
 
     public List<(bool, string)> MatchAssignList;
+
+    #region IProcess implementation.
+
+    public IEnumerable<string> Terms() => from ma in MatchAssignList select ma.Item2;
+
+    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    {
+        List<(bool, string)> newMAList = new(from ma in MatchAssignList
+                                             select (ma.Item1, subs.GetValueOrDefault(ma.Item2, ma.Item2)));
+        return new GetTableProcess(TableName, newMAList);
+    }
+
+    public IEnumerable<string> VariablesDefined()
+    {
+        foreach ((bool match, string assign) in MatchAssignList)
+        {
+            if (!match)
+            {
+                yield return assign;
+            }
+        }
+    }
+
+    #endregion
 
     #region Basic object overrides.
 
@@ -40,18 +54,14 @@ public class GetTableProcess : IProcess
 
     public static bool operator !=(GetTableProcess p1, GetTableProcess p2) => !p1.Equals(p2);
 
-    #endregion
-    #region IProcess implementation.
-
-    public IProcess? Next { get; set; }
-
-    public IEnumerable<string> Terms() => from ma in MatchAssignList select ma.Item2;
-
-    public IProcess ResolveTerms(SortedList<string, string> subs)
+    public override string ToString()
     {
-        List<(bool, string)> newMAList = new(from ma in MatchAssignList
-                                             select (ma.Item1, subs.GetValueOrDefault(ma.Item2, ma.Item2)));
-        return new GetTableProcess(TableName, newMAList);
+        List<string> formattedMatches = new();
+        foreach ((bool isMatch, string name) in MatchAssignList)
+        {
+            formattedMatches.Add(isMatch ? "=" + name : name);
+        }
+        return $"get {TableName}(" + string.Join(", ", formattedMatches) + ")";
     }
 
     #endregion

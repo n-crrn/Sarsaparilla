@@ -25,7 +25,7 @@ public class NameComparison : IComparison
 
     public SortedSet<string> Variables { get => new() { Variable1, Variable2 }; }
 
-    public IComparison ResolveTerms(SortedList<string, string> subs)
+    public IComparison ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         string v1 = subs.GetValueOrDefault(Variable1, Variable1);
         string v2 = subs.GetValueOrDefault(Variable2, Variable2);

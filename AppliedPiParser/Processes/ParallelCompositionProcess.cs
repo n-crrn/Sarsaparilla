@@ -6,12 +6,12 @@ namespace AppliedPi.Processes;
 
 public class ParallelCompositionProcess : IProcess
 {
-    public ParallelCompositionProcess(IProcess proc, bool replicated)
+    public ParallelCompositionProcess(IProcess proc)
     {
-        Processes = new() { (proc, replicated) };
+        Processes = new() { proc };
     }
 
-    public ParallelCompositionProcess(IEnumerable<(IProcess Process, bool Replicated)> newProcesses)
+    public ParallelCompositionProcess(IEnumerable<IProcess> newProcesses)
     {
         Processes = new(newProcesses);
         if (Processes.Count == 0)
@@ -20,36 +20,38 @@ public class ParallelCompositionProcess : IProcess
         }
     }
 
-    public List<(IProcess Process, bool Replicated)> Processes { get; init; }
+    public List<IProcess> Processes { get; init; }
 
-    public void Add(IProcess proc, bool replicated)
+    public void Add(IProcess proc)
     {
-        Processes.Add((proc, replicated));
+        Processes.Add(proc);
     }
 
     #region IProcess implementation.
 
-    public IProcess? Next { get; set; }
-
     public IEnumerable<string> Terms()
     {
-        IEnumerable<string> terms = Processes[0].Process.Terms();
+        IEnumerable<string> terms = Processes[0].Terms();
         for (int i = 1; i < Processes.Count; i++)
         {
-            terms = terms.Concat(Processes[i].Process.Terms());
+            terms = terms.Concat(Processes[i].Terms());
         }
         return terms;
     }
 
-    public IProcess ResolveTerms(SortedList<string, string> subs)
+    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
-        ParallelCompositionProcess pcp = new(Processes[0].Process, Processes[0].Replicated);
-        for (int i = 1; i < Processes.Count; i++)
+        return new ParallelCompositionProcess(from p in Processes select p.ResolveTerms(subs));
+    }
+
+    public IEnumerable<string> VariablesDefined()
+    {
+        IEnumerable<string> vars = Enumerable.Empty<string>();
+        foreach (IProcess p in Processes)
         {
-            (IProcess p, bool repl) = Processes[i];
-            pcp.Add(p, repl);
+            vars = vars.Concat(p.VariablesDefined());
         }
-        return pcp;
+        return vars;
     }
 
     #endregion
@@ -68,10 +70,10 @@ public class ParallelCompositionProcess : IProcess
             }
             // A whole extra list is created as there may be instances where multiple
             // matching processes are included.
-            List<(IProcess, bool)> unaccounted = new(pcp.Processes);
-            foreach ((IProcess thisProcess, bool thisReplicated) in Processes)
+            List<IProcess> unaccounted = new(pcp.Processes);
+            foreach (IProcess thisProcess in Processes)
             {
-                if (!unaccounted.Remove((thisProcess, thisReplicated)))
+                if (!unaccounted.Remove(thisProcess))
                 {
                     return false;
                 }
