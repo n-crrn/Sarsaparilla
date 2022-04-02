@@ -6,6 +6,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 using StatefulHorn;
+using StatefulHorn.Messages;
+using AppliedPi.Model;
 
 namespace AppliedPi;
 
@@ -25,6 +27,108 @@ public class StatefulHornTranslation
     public State? QueryWhen { get; internal set; }
 
     public HashSet<Rule> Rules { get; } = new();
+
+    public static (StatefulHornTranslation?, string?) Translate(Network nw)
+    {
+        StatefulHornTranslation trans = new();
+        RuleFactory factory = new();
+        HashSet<string> names = new();
+        HashSet<string> stateCellNames = new();
+
+        // Translate free names and constants to rules without premises.
+        IEnumerable<string> rawNames = (from fd in nw.FreeDeclarations
+                                        where !fd.Value.IsPrivate
+                                        select fd.Key).Concat(from cd in nw.Constants
+                                                              select cd.Name);
+        names.UnionWith(rawNames);
+        foreach (string name in names)
+        {
+            trans.Rules.Add(factory.CreateStateConsistentRule(K(new NameMessage(name))));
+        }
+
+        // Translate constructors.
+        foreach ((string _, Constructor c) in nw.Constructors)
+        {
+            List<IMessage> premises = new(from p in VariableNamesForTypesList(c.ParameterTypes)
+                                          select new VariableMessage(p));
+            factory.RegisterPremises((from pMsg in premises select K(pMsg)).ToArray());
+            trans.Rules.Add(factory.CreateStateConsistentRule(K(new FunctionMessage(c.Name, premises))));
+        }
+
+        // Translate destructors.
+        foreach (Destructor d in nw.Destructors)
+        {
+            IMessage lhsMsg = TermToMessage(d.LeftHandSide, names);
+            // FIXME: More complex logic may be required to handle functions, tuples and names.
+            IMessage rhsMsg = new VariableMessage(d.RightHandSide);
+            factory.RegisterPremise(K(lhsMsg));
+            trans.Rules.Add(factory.CreateStateConsistentRule(K(rhsMsg)));
+        }
+
+        if (nw.MainProcess != null)
+        {
+            // The network needs to be resolved so that it's visible where state operations are needed.
+            ResolvedNetwork resNw;
+            try
+            {
+                resNw = ResolvedNetwork.From(nw);
+            }
+            catch (Exception ex)
+            {
+                return (null, $"Unable to resolve network: {ex}");
+            }
+
+            // FIXME: Complete translation here.
+        }
+
+        return (trans, null);
+    }
+
+    private static StatefulHorn.Event K(IMessage msg) => StatefulHorn.Event.Know(msg);
+
+    /// <summary>
+    /// In typed Applied Pi Calculus, the arguments for a constructor are provided as a list of
+    /// types. Given that it is possible for a constructor to have multiple inputs requiring 
+    /// the same 
+    /// </summary>
+    /// <param name="types"></param>
+    /// <returns></returns>
+    private static List<string> VariableNamesForTypesList(List<string> types)
+    {
+        List<string> names = new(types.Count);
+        Dictionary<string, int> typeCounter = new();
+        foreach (string t in types)
+        {
+            typeCounter.TryGetValue(t, out int tCount);
+            if (tCount == 0)
+            {
+                names.Add(t);
+                tCount = 1;
+            }
+            else
+            {
+                names.Add($"{t}-{tCount}");
+            }
+            typeCounter[t] = tCount + 1;
+
+        }
+        return names;
+    }
+
+    private static IMessage TermToMessage(Term t, HashSet<string> knownNames)
+    {
+        if (t.Parameters.Count == 0)
+        {
+            return VarOrNameMessage(t.Name, knownNames);
+        }
+        IEnumerable<IMessage> subMsgs = from st in t.Parameters select TermToMessage(st, knownNames);
+        return t.IsTuple ? new TupleMessage(subMsgs) : new FunctionMessage(t.Name, new(subMsgs));
+    }
+
+    private static IMessage VarOrNameMessage(string term, HashSet<string> knownNames)
+    {
+        return knownNames.Contains(term) ? new NameMessage(term) : new VariableMessage(term);
+    }
 
     #region Basic object overrides.
 

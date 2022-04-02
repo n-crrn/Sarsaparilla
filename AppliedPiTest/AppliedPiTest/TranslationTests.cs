@@ -17,7 +17,10 @@ public class TranslationTests
 
     private static void DoTest(StatefulHornTranslation expectedSht, Network nw)
     {
-        StatefulHornTranslation sht = StatefulHornTranslator.Translate(nw);
+        //StatefulHornTranslation sht = StatefulHornTranslator.Translate(nw);
+        (StatefulHornTranslation? sht, string? err) = StatefulHornTranslation.Translate(nw);
+        Assert.IsNull(err);
+        Assert.IsNotNull(sht);
         try
         {
             Assert.AreEqual(expectedSht, sht, "Translation for constructors/destructors failed.");
@@ -43,7 +46,7 @@ public class TranslationTests
         Network nw = Network.CreateFromCode(testSource);
 
         // Create expected output for comparison.
-        RuleFactory factory = new RuleFactory();
+        RuleFactory factory = new();
         StatefulHornTranslation expectedSht = new();
         foreach (string name in new string[] { "A", "B", "D" })
         {
