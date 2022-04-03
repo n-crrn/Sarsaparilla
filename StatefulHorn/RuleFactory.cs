@@ -152,6 +152,11 @@ public class RuleFactory
         }
     }
 
+    public void RegisterPremises(Snapshot ss, params Event[] premisesToReg)
+    {
+        RegisterPremises(ss, (IEnumerable<Event>)premisesToReg);
+    }
+
     /// <summary>
     /// Convenience method to register multiple premises at once, and set the snapshot that they
     /// correspond with.
@@ -162,7 +167,7 @@ public class RuleFactory
     /// Thrown if the snapshot is not registered with this RuleFactory instance.
     /// </exception>
     /// <seealso cref="RegisterPremise(Event)"/>
-    public void RegisterPremises(Snapshot ss, params Event[] premisesToReg)
+    public void RegisterPremises(Snapshot ss, IEnumerable<Event> premisesToReg)
     {
         // Make sure that the given snapshot has been registered.
         if (!Snapshots.Contains(ss))

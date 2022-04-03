@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using StatefulHorn;
 using StatefulHorn.Messages;
 using AppliedPi.Model;
+using AppliedPi.Processes;
 
 namespace AppliedPi;
 
@@ -27,6 +28,8 @@ public class StatefulHornTranslation
     public State? QueryWhen { get; internal set; }
 
     public HashSet<Rule> Rules { get; } = new();
+
+    #region Overall translation process.
 
     public static (StatefulHornTranslation?, string?) Translate(Network nw)
     {
@@ -59,7 +62,6 @@ public class StatefulHornTranslation
         foreach (Destructor d in nw.Destructors)
         {
             IMessage lhsMsg = TermToMessage(d.LeftHandSide, names);
-            // FIXME: More complex logic may be required to handle functions, tuples and names.
             IMessage rhsMsg = new VariableMessage(d.RightHandSide);
             factory.RegisterPremise(K(lhsMsg));
             trans.Rules.Add(factory.CreateStateConsistentRule(K(rhsMsg)));
@@ -130,6 +132,108 @@ public class StatefulHornTranslation
         return knownNames.Contains(term) ? new NameMessage(term) : new VariableMessage(term);
     }
 
+    #endregion
+    #region Individual process translations.
+
+    private void Translate(IProcess p, TranslateFrame frame)
+    {
+        // FIXME: Add InsertTableProcess and GetTableProcess constructs. According to the
+        // ProVerif manual, they can be implemented using private channels.
+        switch (p)
+        {
+            case NewProcess np:
+                TranslateNew(np, frame);
+                break;
+            case InChannelProcess icp:
+                TranslateInChannel(icp, frame);
+                break;
+            case OutChannelProcess ocp:
+                TranslateOutChannel(ocp, frame);
+                break;
+            case MutateProcess mp:
+                TranslateMutate(mp, frame);
+                break;
+            case ReplicateProcess rp:
+                TranslateReplicate(rp, frame);
+                break;
+            case ParallelCompositionProcess pcp:
+                TranslateParallel(pcp, frame);
+                break;
+            case ProcessGroup pg:
+                foreach (IProcess subP in pg.Processes)
+                {
+                    Translate(subP, frame);
+                }
+                break;
+            // FIXME: Include LetProcess & IfProcess.
+            default:
+                throw new NotImplementedException($"Process type {p.GetType()} cannot be translated.");
+        };
+    }
+
+    private static void TranslateNew(NewProcess np, TranslateFrame frame)
+    {
+        frame.Substitutions[new VariableMessage(np.Variable)] = NameMessage.Any;
+    }
+
+    private void TranslateInChannel(InChannelProcess icp, TranslateFrame frame)
+    {
+        //frame.Premises.Add(K(icp.))
+    }
+
+    private void TranslateOutChannel(OutChannelProcess ocp, TranslateFrame frame)
+    {
+        // FIXME: Write me.
+    }
+
+    private void TranslateMutate(MutateProcess mp, TranslateFrame frame)
+    {
+        State newState = new(mp.StateCellName, TermToMessage(mp.NewValue, frame.Names));
+        Rules.UnionWith(frame.CreateTransferRules(newState));
+        frame.MutateState(newState);
+    }
+
+    private void TranslateReplicate(ReplicateProcess rp, TranslateFrame frame)
+    {
+        // Straight pass through...
+        Translate(rp.Process, frame);
+    }
+
+    private void TranslateParallel(ParallelCompositionProcess pcp, TranslateFrame frame)
+    {
+        HashSet<StatefulHorn.Event> resultPremises = new();
+        Dictionary<IMessage, IMessage> resultSubstitutions = new();
+        HashSet<StateFrame> resultStateFrames = new();
+
+        foreach (IProcess subProcess in pcp.Processes)
+        {
+            TranslateFrame updateableFrame = frame.Clone();
+            Translate(subProcess, updateableFrame);
+            resultPremises.UnionWith(updateableFrame.Premises);
+            // FIXME: Reconsider whether the following logic is required.
+            MergeDictionaries(updateableFrame.Substitutions, resultSubstitutions);
+            resultStateFrames.UnionWith(updateableFrame.StateFrames);
+        }
+
+        frame.Premises.UnionWith(resultPremises);
+        MergeDictionaries(frame.Substitutions, resultSubstitutions);
+        frame.StateFrames.UnionWith(resultStateFrames);
+    }
+
+    private static void MergeDictionaries(
+        IDictionary<IMessage, IMessage> mainDict,
+        IDictionary<IMessage, IMessage> subsDict)
+    {
+        foreach ((IMessage varName, IMessage varValue) in subsDict)
+        {
+            if (!mainDict.ContainsKey(varName))
+            {
+                mainDict[varName] = varValue;
+            }
+        }
+    }
+
+    #endregion
     #region Basic object overrides.
 
     private static bool IMessageEquals(IMessage? msg1, IMessage? msg2) => msg1 == null ? msg2 == null : msg1.Equals(msg2);

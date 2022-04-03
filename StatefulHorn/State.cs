@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace StatefulHorn;
 
-public class State : ISigmaUnifiable
+public class State : ISigmaUnifiable, IComparable<State>
 {
     public State(string name, IMessage val)
     {
@@ -70,6 +70,11 @@ public class State : ISigmaUnifiable
     public override bool Equals(object? obj) => obj is State s && Name.Equals(s.Name) && Value.Equals(s.Value);
 
     public override int GetHashCode() => Name.GetHashCode();
+
+    #endregion
+    #region IComparable implementation.
+
+    public int CompareTo(State? other) => other == null ? 1 : Name.CompareTo(other.Name);
 
     #endregion
 }
