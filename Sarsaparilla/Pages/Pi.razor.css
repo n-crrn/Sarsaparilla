@@ -14,4 +14,5 @@
 
 .parse-pane-contents {
     flex-grow: 1;
+    overflow: auto;
 }
