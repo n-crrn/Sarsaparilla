@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 
 using AppliedPi.Model;
 using AppliedPi.Processes;
@@ -59,6 +58,23 @@ public class ProcessGroup : IProcess
             all = all.Concat(p.VariablesDefined());
         }
         return all;
+    }
+
+    public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher)
+    {
+        List<IProcess> found = new();
+        foreach (IProcess p in Processes)
+        {
+            if (matcher(p))
+            {
+                found.Add(p);
+            }
+            else
+            {
+                found.AddRange(p.MatchingSubProcesses(matcher));
+            }
+        }
+        return found;
     }
 
     #endregion

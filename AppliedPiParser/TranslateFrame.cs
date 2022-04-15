@@ -10,7 +10,7 @@ namespace AppliedPi;
 
 public class TranslateFrame
 {
-    private static RuleFactory Factory = new();
+    private static readonly RuleFactory Factory = new();
 
     public TranslateFrame(StateFrame initFrame, HashSet<string> names)
     {
@@ -52,7 +52,6 @@ public class TranslateFrame
         List<StateTransferringRule> rules = new();
         foreach (StateFrame sf in StateFrames)
         {
-            List<Snapshot> cellSS = new();
             foreach (State s in sf.Cells)
             {
                 Snapshot ss = Factory.RegisterState(s);

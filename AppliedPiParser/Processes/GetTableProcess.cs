@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace AppliedPi.Processes;
@@ -36,6 +37,8 @@ public class GetTableProcess : IProcess
             }
         }
     }
+
+    public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher) => Enumerable.Empty<IProcess>();
 
     #endregion
 

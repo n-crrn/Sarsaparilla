@@ -162,79 +162,19 @@ public class Network
             return (false, $"Recursion detected: {recurseDesc}.");
         }
 
-        // FIXME: Add type-checking.
+        // Note that full type checking can only be done as part of the resolution process.
 
         return (true, null);
     }
 
-    private List<CallProcess> FindAllSubProcessCalls(ProcessGroup pg)
+    private static IEnumerable<CallProcess> FindAllSubProcessCalls(ProcessGroup pg)
     {
-        List<CallProcess> foundCP = new();
-        foreach (IProcess p in pg.Processes)
-        {
-            if (p is CallProcess cp)
-            {
-                foundCP.Add(cp);
-            }
-            else if (p is IfProcess ip)
-            {
-                AddIfProcessCalls(ip, foundCP);
-            }
-            else if (p is ParallelCompositionProcess pcp)
-            {
-                AddParallelProcessCalls(pcp, foundCP);
-            }
-        }
-        return foundCP;
-    }
-
-    private void AddIfProcessCalls(IfProcess ip, List<CallProcess> foundCP)
-    {
-        if (ip.GuardedProcess is CallProcess icp)
-        {
-            foundCP.Add(icp);
-        }
-        else if (ip.GuardedProcess is ProcessGroup ipg)
-        {
-            foundCP.AddRange(FindAllSubProcessCalls(ipg));
-        }
-
-        IProcess? elseIP = ip.ElseProcess;
-        if (elseIP != null)
-        {
-            if (elseIP is CallProcess eicp)
-            {
-                foundCP.Add(eicp);
-            }
-            else if (elseIP is ProcessGroup eipg)
-            {
-                foundCP.AddRange(FindAllSubProcessCalls(eipg));
-            }
-        }
-    }
-
-    private void AddParallelProcessCalls(ParallelCompositionProcess pcp, List<CallProcess> foundCP)
-    {
-        foreach (IProcess innerP in pcp.Processes)
-        {
-            if (innerP is CallProcess pcp_cp)
-            {
-                foundCP.Add(pcp_cp);
-            }
-            else if (innerP is IfProcess pcp_ip)
-            {
-                AddIfProcessCalls(pcp_ip, foundCP);
-            }
-            else if (innerP is ParallelCompositionProcess pcp_pcp)
-            {
-                AddParallelProcessCalls(pcp_pcp, foundCP);
-            }
-        }
+        return from mp in pg.MatchingSubProcesses((IProcess p) => p is CallProcess) select (CallProcess)mp;
     }
 
     private (bool, string?) AllSubProcessesExist(ProcessGroup proc)
     {
-        List<CallProcess> allCP = FindAllSubProcessCalls(proc);
+        List<CallProcess> allCP = new(FindAllSubProcessCalls(proc));
 
         foreach (CallProcess cp in allCP)
         {
@@ -249,7 +189,6 @@ public class Network
             {
                 return (false, $"Expected {expectedParaCount} parameters, found {actualParaCount} parameters in call to {procName}.");
             }
-            // FIXME: In future check that the paramter types match.
         }
 
         return (true, null);
@@ -262,7 +201,7 @@ public class Network
         // Build a dictionary of sets of each let statements names.
         foreach ((string name, UserDefinedProcess udp) in _LetDefinitions)
         {
-            List<CallProcess> allCalls = FindAllSubProcessCalls(udp.Processes);
+            List<CallProcess> allCalls = new(FindAllSubProcessCalls(udp.Processes));
             HashSet<string> calledProcesses = new(from ac in allCalls select ac.CallSpecification.Name);
             if (calledProcesses.Contains(name))
             {

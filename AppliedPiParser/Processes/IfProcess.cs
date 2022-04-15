@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using AppliedPi.Model;
 
@@ -43,6 +44,34 @@ public class IfProcess : IProcess
     {
         IEnumerable<string> vd = GuardedProcess.VariablesDefined();
         return ElseProcess == null ? vd : vd.Concat(ElseProcess.VariablesDefined());
+    }
+
+    public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher)
+    {
+        List<IProcess> found = new();
+
+        if (matcher(GuardedProcess))
+        {
+            found.Add(GuardedProcess);
+        }
+        else
+        {
+            found.AddRange(GuardedProcess.MatchingSubProcesses(matcher));
+        }
+
+        if (ElseProcess != null)
+        {
+            if (matcher(ElseProcess))
+            {
+                found.Add(ElseProcess);
+            }
+            else
+            {
+                found.AddRange(ElseProcess.MatchingSubProcesses(matcher));
+            }
+        }
+
+        return found;
     }
 
     #endregion

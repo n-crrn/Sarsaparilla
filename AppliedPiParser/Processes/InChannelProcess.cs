@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace AppliedPi.Processes;
@@ -33,6 +34,8 @@ public class InChannelProcess : IProcess
             yield return varName;
         }
     }
+
+    public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher) => Enumerable.Empty<IProcess>();
 
     #endregion
     #region Basic object overrides.

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using AppliedPi.Model;
 
@@ -19,6 +20,8 @@ public class OutChannelProcess : IProcess
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs) => new OutChannelProcess(Channel, SentTerm.ResolveTerm(subs));
 
     public IEnumerable<string> VariablesDefined() => Enumerable.Empty<string>();
+
+    public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher) => Enumerable.Empty<IProcess>();
 
     #endregion
     #region Basic object overrides.

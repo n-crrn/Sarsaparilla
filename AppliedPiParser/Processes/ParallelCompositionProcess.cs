@@ -54,6 +54,23 @@ public class ParallelCompositionProcess : IProcess
         return vars;
     }
 
+    public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher)
+    {
+        List<IProcess> found = new();
+        foreach (IProcess p in Processes)
+        {
+            if (matcher(p))
+            {
+                found.Add(p);
+            }
+            else
+            {
+                found.AddRange(p.MatchingSubProcesses(matcher));
+            }
+        }
+        return found;
+    }
+
     #endregion
     #region Basic object overrides.
 
