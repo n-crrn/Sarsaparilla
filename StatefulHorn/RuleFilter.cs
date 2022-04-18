@@ -50,7 +50,7 @@ public class RuleFilter
         }
     }
 
-    private List<string> SplitIntoTerms(string input)
+    private static List<string> SplitIntoTerms(string input)
     {
         List<string> terms = new();
         int bracketIndent = 0;
