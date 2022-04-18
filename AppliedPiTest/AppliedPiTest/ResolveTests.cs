@@ -37,11 +37,11 @@ process
         ResolvedNetwork resNw = ResolvedNetwork.From(nw);
 
         // Create expected ResolvedNetwork.
-        Dictionary<Term, (TermSource Source, string PiType)> details = new()
+        Dictionary<Term, (TermSource Source, PiType PiType)> details = new()
         {
-            { new("c"), (TermSource.Free, "channel") },
-            { new("Kas"), (TermSource.Nonce, "key") },
-            { new("tv"), (TermSource.Input, "key") }
+            { new("c"), (TermSource.Free, new("channel")) },
+            { new("Kas"), (TermSource.Nonce, new("key")) },
+            { new("tv"), (TermSource.Input, new("key")) }
         };
         List<IProcess> sequence = new()
         {
@@ -84,13 +84,15 @@ process
         ResolvedNetwork resNw = ResolvedNetwork.From(nw);
 
         // Create expected ResolvedNetwork.
-        Dictionary<Term, (TermSource Source, string PiType)> details = new()
+        Dictionary<Term, (TermSource Source, PiType PiType)> details = new()
         {
-            { new("c"),        (TermSource.Free, Network.ChannelType) },
-            { new("Good"),     (TermSource.Constant, Network.BitstringType) },
-            { new("kValue"),   (TermSource.Nonce, "key") },
-            { new("rx@value"), (TermSource.Input, Network.BitstringType) },
-            { new("rx@x"),     (TermSource.Let, Network.BitstringType) }
+            { new("c"),        (TermSource.Free, new(Network.ChannelType)) },
+            { new("Good"),     (TermSource.Constant, new(Network.BitstringType)) },
+            { new("kValue"),   (TermSource.Nonce, new("key")) },
+            { new("encrypt", new() { new("Good"), new("kValue") }),
+                               (TermSource.Constructor, new(Network.BitstringType)) },
+            { new("rx@value"), (TermSource.Input, new(Network.BitstringType)) },
+            { new("rx@x"),     (TermSource.Let, new(Network.BitstringType)) }
         };
         List<IProcess> sequence = new()
         {

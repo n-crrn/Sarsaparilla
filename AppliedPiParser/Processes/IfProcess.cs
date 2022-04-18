@@ -74,6 +74,31 @@ public class IfProcess : IProcess
         return found;
     }
 
+    public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
+    {
+        if (!termResolver.ResolveComparison(Comparison))
+        {
+            errorMessage = $"Undefined terms in comparison {Comparison}";
+            return false;
+        }
+        if (!GuardedProcess.Check(nw, termResolver, out errorMessage))
+        {
+            return false;
+        }
+        if (ElseProcess != null && !ElseProcess.Check(nw, termResolver, out errorMessage))
+        {
+            return false;
+        }
+        errorMessage = null;
+        return true;
+    }
+
+    public IProcess Resolve(Network nw, TermResolver resolver)
+    {
+        resolver.ResolveComparisonOrThrow(Comparison);
+        return new IfProcess(Comparison, GuardedProcess.Resolve(nw, resolver), ElseProcess?.Resolve(nw, resolver));
+    }
+
     #endregion
     #region Basic object overrides.
 

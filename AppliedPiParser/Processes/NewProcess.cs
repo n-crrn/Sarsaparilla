@@ -38,6 +38,19 @@ public class NewProcess : IProcess
 
     public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher) => Enumerable.Empty<IProcess>();
 
+    public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
+    {
+        bool couldRegister = termResolver.Register(new(Variable), new(TermSource.Nonce, new(PiType)));
+        errorMessage = couldRegister ? null : $"Term {Variable} already defined.";
+        return couldRegister;
+    }
+
+    public IProcess Resolve(Network nw, TermResolver resolver)
+    {
+        resolver.Register(new(Variable), new(TermSource.Nonce, new(PiType)));
+        return this;
+    }
+
     #endregion
     #region Basic object overrides.
 

@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 
+using AppliedPi.Model;
+
 namespace AppliedPi.Processes;
 
 public class InChannelProcess : IProcess
@@ -36,6 +38,38 @@ public class InChannelProcess : IProcess
     }
 
     public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher) => Enumerable.Empty<IProcess>();
+
+    public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
+    {
+        if (!termResolver.Resolve(new(Channel), out TermRecord? tr))
+        {
+            errorMessage = $"Input channel {Channel} not recognised.";
+            return false;
+        }
+        if (!tr!.Type.IsChannel)
+        {
+            errorMessage = $"Attempt to use {Channel} as input channel.";
+            return false;
+        }
+        foreach ((string varName, string piType) in ReceivePattern)
+        {
+            Term varTerm = new(varName);
+            termResolver.Register(varTerm, new(TermSource.Input, new(piType)));
+        }
+        errorMessage = null;
+        return true;
+    }
+
+    public IProcess Resolve(Network nw, TermResolver resolver)
+    {
+        resolver.ResolveOrThrow(new(Channel));
+        foreach ((string varName, string piType) in ReceivePattern)
+        {
+            //resolver.ResolveOrThrow(new(varName));
+            resolver.Register(new(varName), new(TermSource.Input, new(piType)));
+        }
+        return this;
+    }
 
     #endregion
     #region Basic object overrides.

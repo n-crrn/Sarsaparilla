@@ -31,6 +31,39 @@ public class MutateProcess : IProcess
 
     public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher) => Enumerable.Empty<IProcess>();
 
+    public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
+    {
+        if (!termResolver.Resolve(new(StateCellName), out TermRecord? cellTr))
+        {
+            errorMessage = $"No state cell with name {StateCellName}.";
+            return false;
+        }
+        if (cellTr!.Source != TermSource.StateCell)
+        {
+            errorMessage = $"Term {StateCellName} is not a state cell.";
+            return false;
+        }
+        if (!termResolver.Resolve(NewValue, out TermRecord? newTr))
+        {
+            errorMessage = $"Could not resolve term {NewValue}.";
+            return false;
+        }
+        if (!cellTr!.Type.Equals(newTr!.Type))
+        {
+            errorMessage = $"Type mismatch, attempt to assign term of type {newTr!.Type} to type {cellTr!.Type}.";
+            return false;
+        }
+        errorMessage = null;
+        return true;
+    }
+
+    public IProcess Resolve(Network nw, TermResolver resolver)
+    {
+        resolver.ResolveOrThrow(new(StateCellName));
+        resolver.ResolveOrThrow(NewValue);
+        return this;
+    }
+
     #endregion
     #region Basic object overrides.
 

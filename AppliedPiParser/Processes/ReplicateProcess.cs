@@ -26,6 +26,16 @@ public class ReplicateProcess : IProcess
 
     public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher) => Enumerable.Empty<IProcess>();
 
+    public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
+    {
+        return Process.Check(nw, termResolver, out errorMessage);
+    }
+
+    public IProcess Resolve(Network nw, TermResolver resolver)
+    {
+        return new ReplicateProcess(Process.Resolve(nw, resolver));
+    }
+
     #endregion
     #region Basic object overrides.
 

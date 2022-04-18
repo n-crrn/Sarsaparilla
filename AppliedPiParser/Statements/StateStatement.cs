@@ -8,11 +8,11 @@ public class StateStatement : IStatement
 
     public string Name { get; init; }
 
-    public string? PiType { get; init; }
+    public string PiType { get; init; }
 
     public Term InitialValue { get; init; }
 
-    public StateStatement(string name, Term init, string? piType = null)
+    public StateStatement(string name, Term init, string piType)
     {
         Name = name;
         PiType = piType;

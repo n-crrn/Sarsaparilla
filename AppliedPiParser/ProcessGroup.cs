@@ -77,6 +77,35 @@ public class ProcessGroup : IProcess
         return found;
     }
 
+    public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
+    {
+        bool foundConc = false;
+        foreach (IProcess subProc in Processes)
+        {
+            if (foundConc)
+            {
+                errorMessage = "Cannot return to sequential processes after entering concurrent processes.";
+                return false;
+            }
+            if (!subProc.Check(nw, termResolver, out errorMessage))
+            {
+                return false;
+            }
+            foundConc = subProc is ParallelCompositionProcess || subProc is ReplicateProcess;
+        }
+        errorMessage = null;
+        return true;
+    }
+
+    public IProcess Resolve(Network nw, TermResolver resolver)
+    {
+        if (Processes.Count == 1)
+        {
+            return Processes[0].Resolve(nw, resolver);
+        }
+        return new ProcessGroup(from p in Processes select p.Resolve(nw, resolver));
+    }
+
     #endregion
     #region Basic object overrides.
 

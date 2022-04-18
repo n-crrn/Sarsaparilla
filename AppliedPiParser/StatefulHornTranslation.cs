@@ -201,7 +201,12 @@ public class StatefulHornTranslation
 
     private void TranslateParallel(ParallelCompositionProcess pcp, TranslateFrame frame)
     {
-        HashSet<StatefulHorn.Event> resultPremises = new();
+        foreach (IProcess p in pcp.Processes)
+        {
+            Translate(p, frame.Clone());
+        }
+
+        /*HashSet<StatefulHorn.Event> resultPremises = new();
         Dictionary<IMessage, IMessage> resultSubstitutions = new();
         HashSet<StateFrame> resultStateFrames = new();
 
@@ -217,7 +222,7 @@ public class StatefulHornTranslation
 
         frame.Premises.UnionWith(resultPremises);
         MergeDictionaries(frame.Substitutions, resultSubstitutions);
-        frame.StateFrames.UnionWith(resultStateFrames);
+        frame.StateFrames.UnionWith(resultStateFrames);*/
     }
 
     private static void MergeDictionaries(

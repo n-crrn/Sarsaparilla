@@ -71,6 +71,24 @@ public class ParallelCompositionProcess : IProcess
         return found;
     }
 
+    public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
+    {
+        foreach (IProcess p in Processes)
+        {
+            if (!p.Check(nw, termResolver, out errorMessage))
+            {
+                return false;
+            }
+        }
+        errorMessage = null;
+        return true;
+    }
+
+    public IProcess Resolve(Network nw, TermResolver resolver)
+    {
+        return new ParallelCompositionProcess(from p in Processes select p.Resolve(nw, resolver));
+    }
+
     #endregion
     #region Basic object overrides.
 

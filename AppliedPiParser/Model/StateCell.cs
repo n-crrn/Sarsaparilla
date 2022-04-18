@@ -2,7 +2,7 @@
 
 public class StateCell
 {
-    public StateCell(string name, Term initValue, string? type = null)
+    public StateCell(string name, Term initValue, string type)
     {
         Name = name;
         InitialValue = initValue;
@@ -11,7 +11,7 @@ public class StateCell
 
     public string Name { get; init; }
 
-    public string? PiType { get; init; }
+    public string PiType { get; init; }
 
     public Term InitialValue { get; init; }
 

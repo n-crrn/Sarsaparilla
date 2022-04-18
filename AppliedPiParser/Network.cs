@@ -61,6 +61,18 @@ public class Network
 
     public IReadOnlySet<Constant> Constants { get => _Constants; }
 
+    public Constant? GetConstant(string name)
+    {
+        foreach (Constant c in Constants)
+        {
+            if (c.Name == name)
+            {
+                return c;
+            }
+        }
+        return null;
+    }
+
     #endregion
     #region Table declarations.
 

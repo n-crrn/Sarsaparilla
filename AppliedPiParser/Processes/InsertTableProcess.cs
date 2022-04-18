@@ -32,6 +32,48 @@ public class InsertTableProcess : IProcess
 
     public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher) => Enumerable.Empty<IProcess>();
 
+    public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
+    {
+        if (!nw.Tables.TryGetValue(TableName, out Table? table))
+        {
+            errorMessage = $"Table {TableName} not defined.";
+            return false;
+        }
+
+        int tableColCount = table!.Columns.Count;
+        int paramCount = TableTerm.Parameters.Count;
+        if (tableColCount != paramCount)
+        {
+            errorMessage = $"Insert has {paramCount} parameters, table has {tableColCount} columns.";
+            return false;
+        }
+        for (int i = 0; i < paramCount; i++)
+        {
+            Term writeTerm = TableTerm.Parameters[i];
+            if (!termResolver.Resolve(writeTerm, out TermRecord? tr))
+            {
+                errorMessage = $"Could not resolve term {writeTerm}.";
+                return false;
+            }
+            if (!tr!.Type.IsBasicType(table!.Columns[i]))
+            {
+                errorMessage = $"Term {writeTerm} has type {tr!.Type}, instead of column type {table!.Columns[i]}.";
+                return false;
+            }
+        }
+        errorMessage = null;
+        return true;
+    }
+
+    public IProcess Resolve(Network nw, TermResolver resolver)
+    {
+        foreach (Term writeTerm in TableTerm.Parameters)
+        {
+            resolver.ResolveOrThrow(writeTerm);
+        }
+        return this;
+    }
+
     #endregion
     #region Basic object overrides.
 
