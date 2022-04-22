@@ -7,7 +7,8 @@ using StatefulHorn;
 namespace AppliedPi;
 
 /// <summary>
-/// Instances of this class are used as part of the 
+/// Instances of this class are used as part of the translation from Applied Pi Calculus to 
+/// StatefulHorn clauses.
 /// </summary>
 public class StateFrame
 {

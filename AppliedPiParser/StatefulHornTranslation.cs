@@ -205,24 +205,6 @@ public class StatefulHornTranslation
         {
             Translate(p, frame.Clone());
         }
-
-        /*HashSet<StatefulHorn.Event> resultPremises = new();
-        Dictionary<IMessage, IMessage> resultSubstitutions = new();
-        HashSet<StateFrame> resultStateFrames = new();
-
-        foreach (IProcess subProcess in pcp.Processes)
-        {
-            TranslateFrame updateableFrame = frame.Clone();
-            Translate(subProcess, updateableFrame);
-            resultPremises.UnionWith(updateableFrame.Premises);
-            // FIXME: Reconsider whether the following logic is required.
-            MergeDictionaries(updateableFrame.Substitutions, resultSubstitutions);
-            resultStateFrames.UnionWith(updateableFrame.StateFrames);
-        }
-
-        frame.Premises.UnionWith(resultPremises);
-        MergeDictionaries(frame.Substitutions, resultSubstitutions);
-        frame.StateFrames.UnionWith(resultStateFrames);*/
     }
 
     private static void MergeDictionaries(
