@@ -11,6 +11,8 @@ public record TermRecord(TermSource Source, PiType Type);
 public class ResolverException : Exception
 {
     public ResolverException(Term term) : base($"Could not resolve {term}.") { }
+
+    public ResolverException(IComparison cmp) : base($"Invalid types in comparison '{cmp}'.") { }
 }
 
 public class TermResolver
@@ -107,28 +109,13 @@ public class TermResolver
         }
     }
 
-    public bool ResolveComparison(IComparison cmp)
-    {
-        foreach (string vName in cmp.Variables)
-        {
-            Term t = new(vName);
-            if (!Registered.ContainsKey(t))
-            {
-                return false;
-            }
-        }
-        return true;
-    }
+    public bool ResolveComparison(IComparison cmp) => cmp.ResolveType(this) == PiType.Bool;
 
     public void ResolveComparisonOrThrow(IComparison cmp)
     {
-        foreach (string vName in cmp.Variables)
+        if (cmp.ResolveType(this) != PiType.Bool)
         {
-            Term v = new(vName);
-            if (!Registered.ContainsKey(v))
-            {
-                throw new ResolverException(v);
-            }
+            throw new ResolverException(cmp);
         }
     }
 

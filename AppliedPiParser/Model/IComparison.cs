@@ -9,7 +9,9 @@ public interface IComparison
     /// </summary>
     public SortedSet<string> Variables { get; }
 
-    public IComparison ResolveTerms(IReadOnlyDictionary<string, string> subs);
+    public IComparison SubstituteTerms(IReadOnlyDictionary<string, string> subs);
+
+    public PiType? ResolveType(TermResolver resolver);
 
     // Though every object has a ToString method, explicitly specifying it here simplifies
     // the null linting in ComparisonParser.Node.

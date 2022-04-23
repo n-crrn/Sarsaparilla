@@ -63,9 +63,16 @@ public class BooleanComparison : IComparison
         }
     }
 
-    public IComparison ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    public IComparison SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
-        return new BooleanComparison(Operator, LeftInput.ResolveTerms(subs), RightInput.ResolveTerms(subs));
+        return new BooleanComparison(Operator, LeftInput.SubstituteTerms(subs), RightInput.SubstituteTerms(subs));
+    }
+
+    public PiType? ResolveType(TermResolver tr)
+    {
+        PiType? lhsType = LeftInput.ResolveType(tr);
+        PiType? rhsType = RightInput.ResolveType(tr);
+        return (lhsType == null || !lhsType.IsBool || rhsType == null || !rhsType.IsBool) ? null : PiType.Bool;
     }
 
     #endregion

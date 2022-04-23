@@ -37,9 +37,16 @@ public class EqualityComparison : IComparison
         }
     }
 
-    public IComparison ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    public IComparison SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
-        return new EqualityComparison(IsEquals, LeftComparison.ResolveTerms(subs), RightComparison.ResolveTerms(subs));
+        return new EqualityComparison(IsEquals, LeftComparison.SubstituteTerms(subs), RightComparison.SubstituteTerms(subs));
+    }
+
+    public PiType? ResolveType(TermResolver tr)
+    {
+        PiType? lhsType = LeftComparison.ResolveType(tr);
+        PiType? rhsType = RightComparison.ResolveType(tr);
+        return lhsType == rhsType ? PiType.Bool : null;
     }
 
     #endregion

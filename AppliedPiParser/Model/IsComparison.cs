@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace AppliedPi.Model;
 
@@ -13,30 +9,35 @@ namespace AppliedPi.Model;
 public class IsComparison : IComparison
 {
 
-    public IsComparison(string boolName)
+    public IsComparison(string name)
     {
-        BooleanName = boolName;
+        Name = name;
     }
 
-    public string BooleanName { get; init; }
+    public string Name { get; init; }
 
     #region IComparison implementation.
 
-    public SortedSet<string> Variables => new() { BooleanName };
+    public SortedSet<string> Variables => new() { Name };
 
-    public IComparison ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    public IComparison SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
-        return new IsComparison(subs.GetValueOrDefault(BooleanName, BooleanName));
+        return new IsComparison(subs.GetValueOrDefault(Name, Name));
+    }
+
+    public PiType? ResolveType(TermResolver resolver)
+    {
+        return resolver.Resolve(new(Name), out TermRecord? tr) ? tr!.Type : null;
     }
 
     #endregion
     #region Basic object overrides.
 
-    public override bool Equals(object? obj) => obj is IsComparison ic && BooleanName.Equals(ic.BooleanName);
+    public override bool Equals(object? obj) => obj is IsComparison ic && Name.Equals(ic.Name);
 
-    public override int GetHashCode() => BooleanName.GetHashCode();
+    public override int GetHashCode() => Name.GetHashCode();
 
-    public override string ToString() => BooleanName;
+    public override string ToString() => Name;
 
     #endregion
 }

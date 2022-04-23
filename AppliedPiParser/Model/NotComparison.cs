@@ -20,9 +20,14 @@ public class NotComparison : IComparison
 
     public SortedSet<string> Variables => InnerComparison.Variables;
 
-    public IComparison ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    public IComparison SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
-        return new NotComparison((BooleanComparison)InnerComparison.ResolveTerms(subs));
+        return new NotComparison((BooleanComparison)InnerComparison.SubstituteTerms(subs));
+    }
+
+    public PiType? ResolveType(TermResolver tr)
+    {
+        return InnerComparison.ResolveType(tr) == PiType.Bool ? PiType.Bool : null;
     }
 
     #endregion

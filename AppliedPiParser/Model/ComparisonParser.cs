@@ -45,7 +45,7 @@ public static class ComparisonParser
 
         public bool IsOperator => Comparison != null && (IsOpenBracket || IsShutBracket || MaybeNameComparison || IsBooleanComparison || IsNot);
 
-        public IComparison AsComparison => Comparison != null ? Comparison : new IsComparison(Token!);
+        public IComparison AsComparison => Comparison ?? new IsComparison(Token!);
 
         public override string ToString() => Token ?? Comparison!.ToString();
 

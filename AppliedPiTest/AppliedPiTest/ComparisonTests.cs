@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
-
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+using AppliedPi;
 using AppliedPi.Model;
 
 namespace SarsaparillaTests.AppliedPiTest;
@@ -42,5 +43,32 @@ public class ComparisonTests
     {
         IComparison parsedCmp = ComparisonParser.Parse(tokens);
         Assert.AreEqual(expectedCmp, parsedCmp);
+    }
+
+    [TestMethod]
+    public void TypeTest()
+    {
+        // Resolver for the tests.
+        TermResolver tr = new(new());
+        tr.Register(new("bsA"), new(TermSource.Free, PiType.BitString));
+        tr.Register(new("bsB"), new(TermSource.Free, PiType.BitString));
+        tr.Register(new("boolC"), new(TermSource.Free, PiType.Bool));
+
+        // Correct examples.
+        IComparison cmp1 = new BooleanComparison(
+            BooleanComparison.Type.And,
+            new EqualityComparison(true, "bsA", "bsB"),
+            new IsComparison("boolC"));
+        Assert.AreEqual(PiType.Bool, cmp1.ResolveType(tr));
+
+        IComparison cmp2 = new NotComparison(new EqualityComparison(false, "bsA", "bsB"));
+        Assert.AreEqual(PiType.Bool, cmp2.ResolveType(tr));
+
+        // Incorrect examples.
+        IComparison cmp3 = new BooleanComparison(BooleanComparison.Type.And, "bsA", "boolC");
+        Assert.IsNull(cmp3.ResolveType(tr));
+
+        IComparison cmp4 = new EqualityComparison(true, "bsA", "boolC");
+        Assert.IsNull(cmp4.ResolveType(tr));
     }
 }

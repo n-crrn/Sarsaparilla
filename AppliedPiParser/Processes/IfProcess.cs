@@ -34,7 +34,7 @@ public class IfProcess : IProcess
 
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
-        IComparison newComparison = Comparison.ResolveTerms(subs);
+        IComparison newComparison = Comparison.SubstituteTerms(subs);
         IProcess newGProc = GuardedProcess.ResolveTerms(subs);
         IProcess? newEProc = ElseProcess?.ResolveTerms(subs);
         return new IfProcess(newComparison, newGProc, newEProc);
