@@ -12,11 +12,13 @@ public class BooleanComparison : IComparison
     public enum Type
     {
         Or,
-        And,
-        Xor // Is this actually supported in Applied Pi code?
-            // If NOT is to be included, it should be its own class type given that
-            // it is a unitary operation.
+        And
     }
+
+    public BooleanComparison(Type op, string in1, string in2) :
+        this(op, new IsComparison(in1), new IsComparison(in2))
+    { }
+
     public BooleanComparison(Type op, IComparison in1, IComparison in2)
     {
         Operator = op;

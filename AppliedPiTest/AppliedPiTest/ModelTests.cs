@@ -208,14 +208,14 @@ public class ModelTests
         Assert.IsNotNull(nw.MainProcess);
 
         // Build the expected model of processes.
-        BooleanComparison line2Cmp = new(BooleanComparison.Type.And, new NameComparison(false, "h", "A"), new NameComparison(false, "h", "B"));
+        BooleanComparison line2Cmp = new(BooleanComparison.Type.And, new EqualityComparison(false, "h", "A"), new EqualityComparison(false, "h", "B"));
         InsertTableProcess line3 = new(new Term("some_keys", new() { new("h"), new("key") }));
         InsertTableProcess line4 = new(new Term("some_keys", new() { new("h"), new("other_key") }));
         IfProcess lines2to4 = new(line2Cmp, line3, line4);
 
         LetProcess line1 = new(
             TuplePattern.CreateSingle("h"),
-            new IfTerm(new NameComparison(true, "X", "A"), new Term("A"), new Term("C")),
+            new IfTerm(new EqualityComparison(true, "X", "A"), new Term("A"), new Term("C")),
             lines2to4);
 
         ProcessGroup expectedMain = new(new List<IProcess>() { line1 } );

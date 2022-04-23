@@ -5,11 +5,9 @@ using System.Linq;
 namespace AppliedPi.Model;
 
 /// <summary>
-/// This is a convenience class for creating comparisons from tokens. This logic is a
-/// demonstration of a (rare) weakness of modern iterative languages compared with
-/// fully functional languages.
+/// This is a convenience class for creating comparisons from tokens.
 /// </summary>
-internal static class ComparisonParser
+public static class ComparisonParser
 {
     private struct Node
     {
@@ -33,15 +31,21 @@ internal static class ComparisonParser
 
         public bool IsShutBracket => ")" == Token;
 
-        public bool IsNameComparison => "=" == Token || "<>" == Token;
+        public bool MaybeNameComparison => "=" == Token || "<>" == Token;
 
         public bool IsEquals => "=" == Token;
 
         public bool IsBooleanComparison => "&&" == Token || "||" == Token;
 
-        public bool IsName => Comparison == null && !(IsOpenBracket || IsShutBracket || IsNameComparison || IsBooleanComparison);
+        public bool IsNot => "not" == Token;
 
-        public bool IsOperand => Comparison != null || !(IsOpenBracket || IsShutBracket || IsNameComparison || IsBooleanComparison);
+        public bool IsName => Comparison == null && !(IsOpenBracket || IsShutBracket || MaybeNameComparison || IsBooleanComparison || IsNot);
+
+        public bool IsOperand => Comparison != null || !(IsOpenBracket || IsShutBracket || MaybeNameComparison || IsBooleanComparison || IsNot);
+
+        public bool IsOperator => Comparison != null && (IsOpenBracket || IsShutBracket || MaybeNameComparison || IsBooleanComparison || IsNot);
+
+        public IComparison AsComparison => Comparison != null ? Comparison : new IsComparison(Token!);
 
         public override string ToString() => Token ?? Comparison!.ToString();
 
@@ -52,7 +56,7 @@ internal static class ComparisonParser
         }
     }
 
-    public static IComparison Parse(List<string> tokens)
+    public static IComparison Parse(IEnumerable<string> tokens)
     {
         List<Node> nodes = new(from t in tokens select new Node(t));
         return ParseNodes(nodes);
@@ -62,11 +66,11 @@ internal static class ComparisonParser
     {
         // FIXME: Need a better means of expressing error conditions for a comparison, such
         // that the position of the error can be more accurately described.
-        if (nodes[0].IsNameComparison || nodes[0].IsBooleanComparison)
+        if (nodes[0].MaybeNameComparison || nodes[0].IsBooleanComparison)
         {
             throw new UnexpectedTokenException("( or <name>", nodes[0].ToString(), "Comparison");
         }
-        if (nodes[^1].IsNameComparison || nodes[^1].IsBooleanComparison)
+        if (nodes[^1].MaybeNameComparison || nodes[^1].IsBooleanComparison)
         {
             throw new UnexpectedTokenException(") or <name>", nodes[-1].ToString(), "Comparison");
         }
@@ -101,17 +105,37 @@ internal static class ComparisonParser
                     // Overran the end of the tokens - bracket is not shut.
                     throw new UnexpectedTokenException(")", "then", "Comparison");
                 }
-                nodes.RemoveRange(i, subList.Count);
+                nodes.RemoveRange(i, subList.Count + 2); // +2 for the opening and shutting brackets.
                 IComparison subComp = ParseNodes(subList);
                 nodes.Insert(i, new(subComp));
             }
+        }
+
+        // Collapse not operations - note that any brackets will be subsumed.
+        for (int i = 0; i < nodes.Count - 1; i++)
+        {
+            if (nodes[i].Token == "not")
+            {
+                Node notParam = nodes[i + 1];
+                if (notParam.IsOperator)
+                {
+                    throw new UnexpectedTokenException(notParam.Token!, "then", "Comparison");
+                }
+                NotComparison notCmp = notParam.Comparison != null ? new(notParam.Comparison!) : new(notParam.Token!);
+                nodes.RemoveRange(i, 2);
+                nodes.Insert(i, new(notCmp));
+            }
+        }
+        if (nodes[^1].Token == "not")
+        {
+            throw new UnexpectedTokenException("not", "then", "Comparison");
         }
 
         // Collapse the name comparisons.
         for (int i = 1; i < nodes.Count - 1; i++)
         {
             Node n = nodes[i];
-            if (n.IsNameComparison)
+            if (n.MaybeNameComparison)
             {
                 // Check that the input nodes are correctly typed.
                 Node lhs = nodes[i - 1];
@@ -120,7 +144,7 @@ internal static class ComparisonParser
                 {
                     throw new InvalidComparisonException(n.ToString(), lhs.ToString(), rhs.ToString());
                 }
-                Node cmp = new(new NameComparison(n.IsEquals, lhs.ToString(), rhs.ToString()));
+                Node cmp = new(new EqualityComparison(n.IsEquals, lhs.ToString(), rhs.ToString()));
 
                 i--; // Step backwards, we are about to remove these nodes and insert the comparison.
                 nodes.RemoveRange(i, 3);
@@ -138,19 +162,15 @@ internal static class ComparisonParser
             Node lhs = nodes[0];
             Node op = nodes[1];
             Node rhs = nodes[2];
-            if (lhs.Comparison == null || rhs.Comparison == null)
-            {
-                throw new InvalidComparisonException(op.ToString(), lhs.ToString(), rhs.ToString());
-            }
             BooleanComparison.Type opType = BooleanComparison.TypeFromString(op.ToString());
-            Node replacement = new(new BooleanComparison(opType, lhs.Comparison!, rhs.Comparison!));
+            Node replacement = new(new BooleanComparison(opType, lhs.AsComparison, rhs.AsComparison));
             nodes[0] = replacement;
             nodes.RemoveRange(1, 2);
         }
         if (nodes[0].Comparison == null)
         {
-            // It is just a token.
-            throw new InvalidComparisonException($"Token {nodes[0].Token} is not a comparison.");
+            // It is just a token - which may be a boolean name.
+            return new IsComparison(nodes[0].Token!);
         }
         return nodes[0].Comparison!;
     }
