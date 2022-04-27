@@ -469,7 +469,7 @@ public class RuleParser
         }
         else if (topParts.Length == 1)
         {
-            if (ssPieces.Count > 1)
+            if (ssPieces.Count > 1 && HasMultipleOfSameStateCell(ssPieces))
             {
                 throw new RuleParseException(whole, "Multiple snapshots but no description of their relationship provided.");
             }
@@ -480,6 +480,20 @@ public class RuleParser
             ssRels = ParseSnapshotRelationships(whole, topParts[1]);
         }
         return (ssPieces, ssRels);
+    }
+
+    private static bool HasMultipleOfSameStateCell(List<SnapshotPiece> pieces)
+    {
+        HashSet<string> prevSeen = new();
+        foreach (SnapshotPiece p in pieces)
+        {
+            string cellName = p.State.Split("(")[0];
+            if (!prevSeen.Add(cellName))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<SnapshotPiece> ParseSnapshots(string whole, string sDesc)
