@@ -31,11 +31,14 @@ public class BranchDependenceTree
         {
             n = n.Branches[0];
         }
-
-        foreach (ProcessTree.Node b in n.Branches)
+        if (n.IsTerminating)
         {
-            RegisterParentId(startBranch, b.BranchId);
-            BuildFromProcessNodes(b);
+            RegisterParentId(startBranch, n.BranchId);
+            foreach (ProcessTree.Node b in n.Branches)
+            {
+                RegisterParentId(n.BranchId, b.BranchId);
+                BuildFromProcessNodes(b);
+            }
         }
     }
 

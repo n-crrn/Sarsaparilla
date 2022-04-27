@@ -57,6 +57,7 @@ public class ProcessTree
         // New labels for outward branches - this is the terminating process.
         if (next.Branches.Count > 0)
         {
+            next.BranchId = GetNextBranchId();
             foreach (Node branch in next.Branches)
             {
                 LabelBranches(branch, GetNextBranchId());
@@ -104,6 +105,8 @@ public class ProcessTree
                     IsTerminating = true;
                     break;
                 case ReplicateProcess rp:
+                    Node subProcessNode = new(rp.Process);
+                    AddNext(subProcessNode);
                     IsTerminating = true;
                     break;
             }
