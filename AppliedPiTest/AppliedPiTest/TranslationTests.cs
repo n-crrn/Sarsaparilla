@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using AppliedPi;
+using AppliedPi.Translate;
 using StatefulHorn;
 using StatefulHorn.Messages;
 
@@ -15,66 +17,70 @@ namespace SarsaparillaTests.AppliedPiTest;
 public class TranslationTests
 {
 
-    private static void DoTest(StatefulHornTranslation expectedSht, Network nw)
+    [TestMethod]
+    public void TwoBranchTest()
     {
-        //StatefulHornTranslation sht = StatefulHornTranslator.Translate(nw);
-        (StatefulHornTranslation? sht, string? err) = StatefulHornTranslation.Translate(nw);
-        Assert.IsNull(err);
-        Assert.IsNotNull(sht);
+        string testSource =
+@"free c: channel.
+free v: bitstring [private].
+process out(c, v) | in(c, v: bitstring).";
+
+        // The hard-coding below is intentional. Referencing static or instance members of
+        // ChannelCell could result in important changes not been noticed by a coder
+        // amending the translation code.
+        HashSet<State> expectedInits = new()
+        {
+            new State("c@1@Out", new NameMessage("_Initial")),
+            new State("c@2@In", new NameMessage("_Initial"))
+        };
+        RuleParser rp = new();
+        HashSet<Rule> expectedRules = new()
+        {
+            rp.Parse("-[ ]-> k(c[])"),
+            rp.Parse("-[ (c@1@Out(_Initial[]), a0) ]-> <a0: c@1@Out(_Write(v))>"),
+            rp.Parse("-[ (c@2@In(_Initial[]), a0) ]-> <a0: c@2@In(_Waiting[])>"),
+            rp.Parse("-[ (c@1@Out(_Initial[]), a0), (c@1@Out(_Write(v)), a1), (c@2@In(_Waiting[]), b0) : " +
+                     "{ a0 <@ a1 } ]-> <a1: c@1@Out(_Shut[])>, <b0: c@2@In(_Read(v))>"),
+            rp.Parse("k(c[])(a0) -[ (c@1@Out(_Write(_vLatest)), a0) ]-> k(_vLatest)"),
+            rp.Parse("-[ (c@2@In(_Initial[]), a0), (c@2@In(_Waiting[]), a1), (c@2@In(_Read(_v0)), a2) : { a0 <@ a1, a1 <@ a2 } ]-> <a2: c@2@In(_Shut[])>")
+        };
+
+        DoTest(testSource, expectedInits, expectedRules);
+    }
+
+    private static void DoTest(string piSource, HashSet<State> expectedStates, HashSet<Rule> expectedRules)
+    {
+        Network nw = Network.CreateFromCode(piSource);
+        ResolvedNetwork rn = ResolvedNetwork.From(nw);
+        Translation t = Translation.From(rn, nw);
+
         try
         {
-            Assert.AreEqual(expectedSht, sht, "Translation for constructors/destructors failed.");
+            Assert.IsTrue(expectedStates.SetEquals(t.InitialStates), "Initial states do not match.");
         }
         catch (Exception)
         {
-            Console.WriteLine("--- Expected translation ---");
-            expectedSht.Describe(Console.Out);
-            Console.WriteLine("--- Generated translation ---");
-            sht.Describe(Console.Out);
+            Console.WriteLine("Expected following initial states:");
+            Console.WriteLine("  " + string.Join("\n  ", expectedStates));
+            Console.WriteLine("Instead found following initial states:");
+            Console.WriteLine("  " + string.Join("\n  ", t.InitialStates));
             throw;
         }
-    }
 
-    [TestMethod]
-    public void ConstantAndFreeTests()
-    {
-        // Sample input.
-        string testSource =
-            "free A, B: host.\n" +
-            "free C: host [private].\n" +
-            "const D: host.";
-        Network nw = Network.CreateFromCode(testSource);
-
-        // Create expected output for comparison.
-        RuleFactory factory = new();
-        StatefulHornTranslation expectedSht = new();
-        foreach (string name in new string[] { "A", "B", "D" })
+        try
         {
-            expectedSht.Rules.Add(factory.CreateStateConsistentRule(Event.Know(new NameMessage(name))));
+            Assert.IsTrue(expectedRules.SetEquals(t.Rules), "Rules do not match.");
         }
-
-        // Testing and checking.
-        DoTest(expectedSht, nw);
-    }
-
-    [TestMethod]
-    public void ConstructorTests()
-    {
-        string testSource = 
-            "fun pk(skey): pkey.\n" +
-            "reduc forall x: bitstring, y: skey; decrypt(encrypt(x, y), y) = x.";
-        Network nw = Network.CreateFromCode(testSource);
-
-        // Create expected output for comparison.
-        RuleFactory factory = new();
-        StatefulHornTranslation expectedSht = new();
-        factory.RegisterPremise(Event.Know(new VariableMessage("skey")));
-        expectedSht.Rules.Add(factory.CreateStateConsistentRule(Event.Know(MessageParser.ParseMessage("pk(skey)"))));
-        factory.RegisterPremise(Event.Know(MessageParser.ParseMessage("decrypt(encrypt(x, y), y)")));
-        expectedSht.Rules.Add(factory.CreateStateConsistentRule(Event.Know(new VariableMessage("x"))));
-
-        // Testing and checking.
-        DoTest(expectedSht, nw);
+        catch (Exception)
+        {
+            Console.WriteLine("Expected following rules:");
+            Console.WriteLine("  " + string.Join("\n  ", expectedRules) + "\n");
+            Console.WriteLine("Instead found following initial rules:");
+            Console.WriteLine("  " + string.Join("\n  ", t.Rules) + "\n");
+            Console.WriteLine("Differing rules are as follows:");
+            Console.WriteLine("  " + string.Join("\n  ", expectedRules.Except(t.Rules).Union(t.Rules.Except(expectedRules))));
+            throw;
+        }
     }
 
 }
