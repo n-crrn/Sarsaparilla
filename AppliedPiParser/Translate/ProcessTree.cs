@@ -73,9 +73,11 @@ public class ProcessTree
             {
                 case ProcessGroup pg:
                     // Roll out the group...
+                    Process = pg.Processes[0];
                     Node current = this;
-                    foreach (IProcess innerP in pg.Processes)
+                    for (int i = 1; i < pg.Processes.Count; i++)
                     {
+                        IProcess innerP = pg.Processes[i];
                         Node next = new(innerP);
                         current.AddNext(next);
                         current = next;
