@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using StatefulHorn;
 using StatefulHorn.Messages;
@@ -323,7 +324,10 @@ public class ChannelCell
             }
             else
             {
-                int priorUseBId = WhichBranchUsesSocketPrior(bId, finiteBranchReads, depTree);
+                int priorReadUseBId = WhichBranchUsesSocketPrior(bId, finiteBranchReads, depTree);
+                int priorWriteUseBId = WhichBranchUsesSocketPrior(bId, finiteBranchWrites, depTree);
+                int priorUseBId = Math.Max(priorReadUseBId, priorWriteUseBId); // Note the latest read/write.
+                bool readSocket = priorReadUseBId == priorUseBId;
                 if (priorUseBId == -1)
                 {
                     // Assume opened from start.
@@ -334,7 +338,8 @@ public class ChannelCell
                 else
                 {
                     // Open after previous usage is finished.
-                    Snapshot ss = factory.RegisterState(ShutInStateForBranch(priorUseBId));
+                    State prevState = readSocket ? ShutInStateForBranch(priorUseBId) : ShutOutStateForBranch(priorUseBId);
+                    Snapshot ss = factory.RegisterState(prevState);
                     ss.TransfersTo = WaitingInStateForBranch(bId);
                     yield return factory.CreateStateTransferringRule();
                 }
