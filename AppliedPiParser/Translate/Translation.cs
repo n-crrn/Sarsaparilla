@@ -26,7 +26,7 @@ public class Translation
 
     public static Translation From(ResolvedNetwork rn, Network nw)
     {
-        List<Term> cellsInUse = new();
+        HashSet<Term> cellsInUse = new();
         Dictionary<Term, ChannelCell> allCells = new();
 
         // All channels are either free declarations or nonce declarations.
@@ -69,7 +69,7 @@ public class Translation
 
     private static void ProcessNode(
         ProcessTree.Node n,
-        List<Term> cellsInUse,
+        HashSet<Term> cellsInUse,
         Dictionary<Term, ChannelCell> allCells,
         HashSet<StatefulHorn.Event> premises)
     {
@@ -88,8 +88,9 @@ public class Translation
             case InChannelProcess icp:
                 Term readChannel = new(icp.Channel);
                 ChannelCell ic = allCells[readChannel];
+                cellsInUse.Add(readChannel);
                 ic.RegisterRead(n.BranchId);
-                premises.UnionWith(from v in icp.VariablesDefined() select StatefulHorn.Event.Know(new VariableMessage(v)));
+                premises.UnionWith(from v in icp.VariablesDefined() select StatefulHorn.Event.Know(new NameMessage(v)));
                 if (n.HasNext)
                 {
                     ProcessNode(n.Branches[0], cellsInUse, allCells, premises);
@@ -98,8 +99,9 @@ public class Translation
             case OutChannelProcess ocp:
                 Term writeChannel = new(ocp.Channel);
                 ChannelCell wc = allCells[writeChannel];
+                cellsInUse.Add(writeChannel);
                 // FIXME: The following line is hardcore wrong.
-                wc.RegisterWrite(n.BranchId, new VariableMessage(ocp.SentTerm.ToString()), premises);
+                wc.RegisterWrite(n.BranchId, new NameMessage(ocp.SentTerm.ToString()), premises);
                 if (n.HasNext)
                 {
                     ProcessNode(n.Branches[0], cellsInUse, allCells, premises);
