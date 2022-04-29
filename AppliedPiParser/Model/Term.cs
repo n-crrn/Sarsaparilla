@@ -38,6 +38,15 @@ public class Term : ITermGenerator
 
     #region ITermGenerator implementation.
 
+    public Term Substitute(IReadOnlyDictionary<Term, Term> subs)
+    {
+        if (_Parameters.Count > 0)
+        {
+            return new(Name, new(from p in _Parameters select p.Substitute(subs)));
+        }
+        return subs.GetValueOrDefault(this, this);
+    }
+
     public Term ResolveTerm(IReadOnlyDictionary<string, string> varSubstitutions)
     {
         // If this is not a leaf node, then we conduct the substitutions on the child

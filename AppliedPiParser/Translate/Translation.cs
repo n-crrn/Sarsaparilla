@@ -24,12 +24,96 @@ public class Translation
 
     public IReadOnlySet<Rule> Rules { get; init; }
 
+    /// <summary>
+    /// Provides a direct translation of a term to a non-variable message representation.
+    /// </summary>
+    /// <param name="t"></param>
+    /// <returns></returns>
+    private static IMessage TermToMessage(Term t)
+    {
+        if (t.Parameters.Count > 0)
+        {
+            List<IMessage> msgParams = new(from p in t.Parameters select TermToMessage(p));
+            return t.IsTuple ? new TupleMessage(msgParams) : new FunctionMessage(t.Name, msgParams);
+        }
+        return new NameMessage(t.Name);
+    }
+
+    private static StatefulHorn.Event TermToKnow(Term t)
+    {
+        return StatefulHorn.Event.Know(TermToMessage(t));
+    }
+
+    private static Rule TranslateConstructor(Constructor ctr, RuleFactory factory)
+    {
+        HashSet<StatefulHorn.Event> premises = new();
+        List<IMessage> funcParam = new();
+        for (int i = 0; i < ctr.ParameterTypes.Count; i++)
+        {
+            IMessage varMsg = new VariableMessage($"_v{i}");
+            premises.Add(StatefulHorn.Event.Know(varMsg));
+            funcParam.Add(varMsg);
+        }
+        factory.RegisterPremises(premises.ToArray());
+        StatefulHorn.Event result = StatefulHorn.Event.Know(new FunctionMessage(ctr.Name, funcParam));
+        return factory.CreateStateConsistentRule(result);
+    }
+
+    private static IMessage TermWithVarsToMessage(Term t, Network nw)
+    {
+        List<IMessage> parameters = new();
+        if (t.Parameters.Count > 0)
+        {
+            parameters.AddRange(from p in t.Parameters select TermWithVarsToMessage(p, nw));
+            if (t.IsTuple)
+            {
+                return new TupleMessage(parameters);
+            }
+            return new FunctionMessage(t.Name, parameters);
+        }
+        else
+        {
+            // Ensure that the term is not a declared free or a constant.
+            if (nw.FreeDeclarations.ContainsKey(t.Name) || null != nw.GetConstant(t.Name))
+            {
+                return new NameMessage(t.Name);
+            }
+            return new VariableMessage(t.Name);
+        }
+    }
+
+    private static Rule TranslateDestructor(Destructor dtr, Network nw, RuleFactory factory)
+    {
+        IMessage lhs = TermWithVarsToMessage(dtr.LeftHandSide, nw);
+        IMessage rhs = new VariableMessage(dtr.RightHandSide);
+        factory.RegisterPremises(StatefulHorn.Event.Know(lhs));
+        return factory.CreateStateConsistentRule(StatefulHorn.Event.Know(rhs));
+    }
+
     public static Translation From(ResolvedNetwork rn, Network nw)
     {
         HashSet<Term> cellsInUse = new();
         Dictionary<Term, ChannelCell> allCells = new();
+        Dictionary<Term, Term> subs = new();
 
-        // All channels are either free declarations or nonce declarations.
+        RuleFactory factory = new();
+        HashSet<Rule> allRules = new();
+
+        // Transfer the rules for constructors.
+        foreach ((string _, Constructor ctr) in nw.Constructors)
+        {
+            allRules.Add(TranslateConstructor(ctr, factory));
+        }
+
+        // Transfer the rules for destructors.
+        foreach (Destructor dtr in nw.Destructors)
+        {
+            allRules.Add(TranslateDestructor(dtr, nw, factory));
+        }
+
+        // All channels are either free declarations or nonce declarations, so go through and
+        // collect the free declarations. While doing this, start creating the rules for the
+        // free declarations and the constants.
         foreach ((Term term, (TermSource src, PiType type)) in rn.TermDetails)
         {
             if (type == PiType.Channel)
@@ -48,17 +132,25 @@ public class Translation
                 }
                 allCells[term] = cc;
             }
-            // FIXME: Ensure free and constant definitions are transferred across to the ruleset.
+            else if (src == TermSource.Free)
+            {
+                if (!nw.FreeDeclarations[term.Name].IsPrivate)
+                {
+                    allRules.Add(factory.CreateStateConsistentRule(TermToKnow(term)));
+                }
+            }
+            else if (src == TermSource.Constant)
+            {
+                allRules.Add(factory.CreateStateConsistentRule(TermToKnow(term)));
+            }
         }
 
         ProcessTree procTree = new(rn);
         BranchDependenceTree depTree = BranchDependenceTree.From(procTree);
 
-        ProcessNode(procTree.StartNode, cellsInUse, allCells, new());
+        ProcessNode(procTree.StartNode, cellsInUse, allCells, subs, new());
 
-        RuleFactory factory = new();
         HashSet<State> initStates = new();
-        HashSet<Rule> allRules = new();
         foreach (ChannelCell c in allCells.Values)
         {
             c.CollectInitStates(initStates, depTree);
@@ -71,6 +163,7 @@ public class Translation
         ProcessTree.Node n,
         HashSet<Term> cellsInUse,
         Dictionary<Term, ChannelCell> allCells,
+        Dictionary<Term, Term> subs,
         HashSet<StatefulHorn.Event> premises)
     {
         switch (n.Process)
@@ -82,7 +175,7 @@ public class Translation
                 }
                 if (n.HasNext)
                 {
-                    ProcessNode(n.Branches[0], cellsInUse, allCells, premises);
+                    ProcessNode(n.Branches[0], cellsInUse, allCells, subs, premises);
                 }
                 break;
             case InChannelProcess icp:
@@ -93,24 +186,23 @@ public class Translation
                 premises.UnionWith(from v in icp.VariablesDefined() select StatefulHorn.Event.Know(new NameMessage(v)));
                 if (n.HasNext)
                 {
-                    ProcessNode(n.Branches[0], cellsInUse, allCells, premises);
+                    ProcessNode(n.Branches[0], cellsInUse, allCells, subs, premises);
                 }
                 break;
             case OutChannelProcess ocp:
                 Term writeChannel = new(ocp.Channel);
                 ChannelCell wc = allCells[writeChannel];
                 cellsInUse.Add(writeChannel);
-                // FIXME: The following line is hardcore wrong.
-                wc.RegisterWrite(n.BranchId, new NameMessage(ocp.SentTerm.ToString()), premises);
+                wc.RegisterWrite(n.BranchId, TermToMessage(ocp.SentTerm.Substitute(subs)), premises);
                 if (n.HasNext)
                 {
-                    ProcessNode(n.Branches[0], cellsInUse, allCells, premises);
+                    ProcessNode(n.Branches[0], cellsInUse, allCells, subs, premises);
                 }
                 break;
             case ParallelCompositionProcess pcp:
                 foreach (ProcessTree.Node b in n.Branches)
                 {
-                    ProcessNode(b, new(cellsInUse), allCells, new(premises));
+                    ProcessNode(b, new(cellsInUse), allCells, subs, new(premises));
                 }
                 break;
             case ReplicateProcess rp:
@@ -120,7 +212,7 @@ public class Translation
                 }
                 if (n.HasNext)
                 {
-                    ProcessNode(n.Branches[0], cellsInUse, allCells, premises);
+                    ProcessNode(n.Branches[0], cellsInUse, allCells, subs, premises);
                 }
                 break;
             default:
