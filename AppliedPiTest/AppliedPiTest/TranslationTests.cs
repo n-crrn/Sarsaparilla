@@ -30,18 +30,13 @@ process out(c, x) | in(c, y: bitstring).";
         // The hard-coding below is intentional. Referencing static or instance members of
         // ChannelCell could result in important changes not been noticed by a coder
         // amending the translation code.
-        HashSet<State> expectedInits = new()
-        {
-            new("c@2@Out", InitialMessage),
-            new("c@3@In", InitialMessage)
-        };
+        HashSet<State> expectedInits = new() { new("c@2@Out", InitialMessage) };
         HashSet<Rule> expectedRules = ParseRules(
             "-[ ]-> k(c[])",
             "-[ (c@2@Out(_Initial[]), a0) ]-> <a0: c@2@Out(_Write(x[]))>",
-            "-[ (c@3@In(_Initial[]), a0) ]-> <a0: c@3@In(_Waiting[])>",
-            "-[ (c@2@Out(_Initial[]), a0), (c@2@Out(_Write(_v0)), a1), (c@3@In(_Waiting[]), b0) : { a0 <@ a1 } ]-> <a1: c@2@Out(_Shut[])>, <b0: c@3@In(_Read[])>",
-            "k(c[])(a0) -[ (c@2@Out(_Write(_vLatest)), a0) ]-> k(_vLatest)",
-            "-[ (c@3@In(_Initial[]), a0), (c@3@In(_Waiting[]), a1), (c@3@In(_Read[]), a2) : { a0 <@ a1, a1 <@ a2 } ]-> <a2: c@3@In(_Shut[])>");
+            "-[ (c@2@Out(_Initial[]), a0), (c@2@Out(_Write(_v0)), a1) : { a0 <@ a1 } ]-> <a1: c@2@Out(_Shut[])>",
+            "k(c[])(a0) -[ (c@2@Out(_Write(_vLatest)), a0) ]-> k(_vLatest)"
+        );
 
         DoTest(testSource, expectedInits, expectedRules);
     }
@@ -69,8 +64,6 @@ process
         HashSet<State> expectedInits = new()
         { 
             new("c@0@Out", InitialMessage),
-            new("c@2@In", InitialMessage),
-            new("c@In", InitialMessage),
             new("c@Out", InitialMessage),
             new("f@3@Out", InitialMessage)
         };
@@ -80,23 +73,17 @@ process
             // Branch 0 (initial branch) rules. Note that write rules are still generated, though
             // they will not actually lead to a write state transformation.
             "-[ (c@0@Out(_Initial[]), a0) ]-> <a0: c@0@Out(_Write(d[]))>",
-            "-[ (c@0@Out(_Initial[]), a0), (c@0@Out(_Write(_v0)), a1), (c@2@In(_Waiting[]), b0) : { a0 <@ a1 } ]-> <a1: c@0@Out(_Waiting[])>, <b0: c@2@In(_Read[])>",
-            "-[ (c@0@Out(_Initial[]), a0), (c@0@Out(_Write(_v0)), a1), (c@In(_Waiting[]), b0) : { a0 <@ a1 } ]-> <a1: c@0@Out(_Waiting[])>, <b0: c@In(_Read[])>",
-            "-[ (c@0@Out(_Initial[]), a0), (c@0@Out(_Write(_v0)), a1), (c@0@Out(_Waiting[]), a2) : { a0 <@ a1, a1 <@ a2 } ]-> <a2: c@0@Out(_Write(e[]))>",
-            "-[ (c@0@Out(_Initial[]), a0), (c@0@Out(_Write(_v0)), a1), (c@0@Out(_Waiting[]), a2), (c@0@Out(_Write(_v1)), a3), (c@2@In(_Waiting[]), b0) : { a0 <@ a1, a1 <@ a2, a2 <@ a3 } ]-> <a3: c@0@Out(_Shut[])>, <b0: c@2@In(_Read[])>",
-            "-[ (c@0@Out(_Initial[]), a0), (c@0@Out(_Write(_v0)), a1), (c@0@Out(_Waiting[]), a2), (c@0@Out(_Write(_v1)), a3), (c@In(_Waiting[]), b0) : { a0 <@ a1, a1 <@ a2, a2 <@ a3 } ]-> <a3: c@0@Out(_Shut[])>, <b0: c@In(_Read[])>",
+            "-[ (c@0@Out(_Initial[]), a0), (c@0@Out(_Write(_v0)), a1) : { a0 <@ a1 } ]-> <a1: c@0@Out(_Write(e[]))>",
+            "-[ (c@0@Out(_Initial[]), a0), (c@0@Out(_Write(_v0)), a1), (c@0@Out(_Write(_v1)), a2) : { a0 <@ a1, a1 <@ a2 } ]-> <a2: c@0@Out(_Shut[])>",
             "k(c[])(a0) -[ (c@0@Out(_Write(_vLatest)), a0) ]-> k(_vLatest)",
-            // Branch 2 (in(c, v)) rules.
-            "-[ (c@2@In(_Initial[]), a0), (c@0@Out(_Shut[]), b0) ]-> <a0: c@2@In(_Waiting[])>",
-            "-[ (c@2@In(_Initial[]), a0), (c@2@In(_Waiting[]), a1), (c@2@In(_Read[]), a2) : { a0 <@ a1, a1 <@ a2 } ]-> <a2: c@2@In(_Shut[])>",
+            // Branch 1 is the parallel composition process - nothing.
+            // Branch 2 (in(c, v)) rules - nothing.
             // Branch 3 (new f: channel; out(f, d)) rules.
             "-[ (f@3@Out(_Initial[]), a0) ]-> <a0: f@3@Out(_Write(d[]))>",
             "k(f[])(a0) -[ (f@3@Out(_Write(_vLatest)), a0) ]-> k(_vLatest)",
+            "-[ (f@3@Out(_Initial[]), a0), (f@3@Out(_Write(_v0)), a1) : { a0 <@ a1 } ]-> <a1: f@3@Out(_Shut[])>",
             // No further f rules generated as there are no reads on the f channel.
             // Branch 5 (! in(c, x); out(c, f)) rules.
-            "k(x[])(c0) -[ (c@0@Out(_Shut[]), a0), (c@2@In(_Waiting[]), b0), (c@Out(_v), c0) ]-> <b0: c@2@In(_Read[])>, <c0: c@Out(_Write(f[]))>",
-            "-[ (c@0@Out(_Shut[]), a0), (c@In(_Initial[]), a1) ]-> <a1: c@In(_Waiting[])>",
-            "-[ (c@In(_Read(_v)), a0) ]-> <a0: c@In(_Waiting[])>",
             "k(x[])(a0) -[ (c@0@Out(_Shut[]), a0) ]-> k(f[])"
         );
 

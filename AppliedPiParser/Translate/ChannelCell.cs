@@ -20,8 +20,6 @@ public class ChannelCell
 
     public static readonly string WriteStateName = "_Write";
 
-    private static readonly int NeverOpened = -1;
-
     public ChannelCell(string name, bool publiclyKnown)
     {
         Name = name;
@@ -66,22 +64,9 @@ public class ChannelCell
 
     #region Channel cell naming scheme.
 
-    private string InfInName() => $"{Name}@In";
-
     private string InfOutName() => $"{Name}@Out";
 
-    private string InName(int bId) => $"{Name}@{bId}@In";
-
     private string OutName(int bId) => $"{Name}@{bId}@Out";
-
-    private State InitialInStateForBranch(int bId) => new(InName(bId), InitialValue);
-
-    private State WaitingInStateForBranch(int bId) => new(InName(bId), WaitingValue);
-
-    private State ReadInStateForBranch(int bId)
-    {
-        return new(InName(bId), ReadValue);
-    }
 
     private State WriteOutStateForBranch(int bId, string valName = "_v")
     {
@@ -93,11 +78,7 @@ public class ChannelCell
         return new(OutName(bId), new FunctionMessage(WriteStateName, new() { content }));
     }
 
-    private State ShutInStateForBranch(int bId) => new(InName(bId), ShutValue);
-
     private State InitialOutStateForBranch(int bId) => new(OutName(bId), InitialValue);
-
-    private State WaitingOutStateForBranch(int bId) => new(OutName(bId), WaitingValue);
 
     private State ShutOutStateForBranch(int bId) => new(OutName(bId), ShutValue);
 
@@ -134,19 +115,10 @@ public class ChannelCell
 
     private record BranchStatePair(int BranchId, State State);
 
-    private BranchStatePair? GetPriorChannelShutdown(
-        int bId,
-        List<int> readCandidates,
-        List<int> writeCandidates,
-        BranchDependenceTree depTree)
+    private BranchStatePair? GetPriorChannelShutdown(int bId, List<int> writeCandidates, BranchDependenceTree depTree)
     {
-        int priorRead = WhichBranchUsesSocketPrior(bId, readCandidates, depTree);
         int priorWrite = WhichBranchUsesSocketPrior(bId, writeCandidates, depTree);
-        if (priorRead > priorWrite)
-        {
-            return new(priorRead, ShutInStateForBranch(priorRead));
-        }
-        else if (priorWrite != -1)
+        if (priorWrite != -1)
         {
             return new(priorWrite, ShutOutStateForBranch(priorWrite));
         }
@@ -176,24 +148,6 @@ public class ChannelCell
             else
             {
                 startStates.Add(InitialOutStateForBranch(wBId));
-            }
-        }
-
-        // Create the read sockets.
-        bool infReadFound = false;
-        foreach (int rBId in ReadHistory.Keys)
-        {
-            if (allInfiniteBranchesQuery.Contains(rBId))
-            {
-                if (!infReadFound)
-                {
-                    startStates.Add(new State(InfInName(), InitialValue));
-                    infReadFound = true;
-                }
-            }
-            else
-            {
-                startStates.Add(InitialInStateForBranch(rBId));
             }
         }
     }
@@ -226,55 +180,27 @@ public class ChannelCell
         }
     }
 
-    private Dictionary<int, string> AllInSocketNames(List<int> finiteBranches, List<int> infiniteBranches)
-    {
-        Dictionary<int, string> inNames = new();
-        foreach (int b in finiteBranches)
-        {
-            inNames[b] = InName(b);
-        }
-        if (infiniteBranches.Count > 0)
-        {
-            inNames[-1] = InfInName();
-        }
-        return inNames;
-    }
-
     private List<Snapshot> RegisterLinkedWriteSnapshots(
         int bId,
         List<Write> allHistory,
         int length, // That is, number of overall writes in the rule.
-        bool includeFinalWait,
-        bool blankVars,
+        bool addPremises,
         RuleFactory factory)
     {
         List<Snapshot> writeSS = new() { factory.RegisterState(InitialOutStateForBranch(bId)) };
         for (int i = 0; i < length; i++)
         {
             Write w = allHistory[i];
-            State stateToWrite = WriteOutStateForBranch(bId, blankVars ? new VariableMessage($"_v{i}") : w.Written);
+            State stateToWrite = WriteOutStateForBranch(bId, new VariableMessage($"_v{i}"));
             Snapshot ss = factory.RegisterState(stateToWrite);
-            factory.RegisterPremises(ss, w.Premises.ToArray());
-            writeSS.Add(ss);
-            if (includeFinalWait || i != length - 1)
+            if (addPremises)
             {
-                writeSS.Add(factory.RegisterState(WaitingOutStateForBranch(bId)));
+                factory.RegisterPremises(ss, w.Premises.ToArray());
             }
+            writeSS.Add(ss);
         }
         LinkSnapshotList(writeSS);
         return writeSS;
-    }
-
-    private List<Snapshot> RegisterLinkedReadSnapshots(int bId, int readCount, RuleFactory factory)
-    {
-        List<Snapshot> readSS = new() { factory.RegisterState(InitialInStateForBranch(bId)) };
-        for (int i = 0; i < readCount; i++)
-        {
-            readSS.Add(factory.RegisterState(WaitingInStateForBranch(bId)));
-            readSS.Add(factory.RegisterState(ReadInStateForBranch(bId)));
-        }
-        LinkSnapshotList(readSS);
-        return readSS;
     }
 
     public IEnumerable<Rule> GenerateRules(BranchDependenceTree depTree, RuleFactory factory)
@@ -290,9 +216,6 @@ public class ChannelCell
         // Collect information required for rules.
         List<int> allInfinites = WhichBranchesInfinite(depTree);
         (List<int> finiteBranchWrites, List<int> infiniteBranchWrites) = SplitOnInfinity(WriteHistory.Keys, allInfinites);
-        (List<int> finiteBranchReads, List<int> infiniteBranchReads) = SplitOnInfinity(ReadHistory.Keys, allInfinites);
-
-        Dictionary<int, string> allInSockets = AllInSocketNames(finiteBranchReads, infiniteBranchReads);
 
         // --- Finite rules ---
 
@@ -304,30 +227,15 @@ public class ChannelCell
             for (int i = 0; i < writes.Count; i++)
             {
                 // Actual writing to the socket.
-                List<Snapshot> writeSS = RegisterLinkedWriteSnapshots(bId, writes, i, true, true, factory);
+                List<Snapshot> writeSS = RegisterLinkedWriteSnapshots(bId, writes, i, true, factory);
                 writeSS[^1].TransfersTo = WriteOutStateForBranch(bId, writes[i].Written);
                 yield return factory.CreateStateTransferringRule();
-
-                // The transfer from the output socket - reuse writeSS.
-                foreach ((int otherBId, string otherSocketName) in allInSockets)
-                {
-                    if (otherBId != bId)
-                    {
-                        writeSS = RegisterLinkedWriteSnapshots(bId, writes, i + 1, false, true, factory);
-                        Snapshot otherWaitSS = factory.RegisterState(new(otherSocketName, WaitingValue));
-                        otherWaitSS.TransfersTo = new(otherSocketName, ReadValue);
-                        if (i + 1 == writes.Count)
-                        {
-                            writeSS[^1].TransfersTo = ShutOutStateForBranch(bId);
-                        }
-                        else
-                        {
-                            writeSS[^1].TransfersTo = WaitingOutStateForBranch(bId);
-                        }
-                        yield return factory.CreateStateTransferringRule();
-                    }
-                }
             }
+
+            // Final transfer to shutdown.
+            List<Snapshot> allWriteSS = RegisterLinkedWriteSnapshots(bId, writes, writes.Count, false, factory);
+            allWriteSS[^1].TransfersTo = ShutOutStateForBranch(bId);
+            yield return factory.CreateStateTransferringRule();
 
             // Set up the attacker read rule.
             Snapshot latestWriteSS = factory.RegisterState(WriteOutStateForBranch(bId, "_vLatest"));
@@ -335,173 +243,26 @@ public class ChannelCell
             yield return factory.CreateStateConsistentRule(Event.Know(new VariableMessage("_vLatest")));
         }
 
-        // Output finite read statements, including their shutdown statements.
-        foreach (int bId in finiteBranchReads)
-        {
-            // Set up the initial read states.
-            if (bId == BranchDependenceTree.InitialBranch)
-            {
-                Snapshot ss = factory.RegisterState(InitialInStateForBranch(bId));
-                ss.TransfersTo = WaitingInStateForBranch(bId);
-                yield return factory.CreateStateTransferringRule();
-            }
-            else
-            {
-                BranchStatePair? priorPair = GetPriorChannelShutdown(bId, finiteBranchReads, finiteBranchWrites, depTree);
-                if (priorPair == null)
-                {
-                    // Assume opened from start.
-                    Snapshot ss = factory.RegisterState(InitialInStateForBranch(bId));
-                    ss.TransfersTo = WaitingInStateForBranch(bId);
-                    yield return factory.CreateStateTransferringRule();
-                }
-                else
-                {
-                    // Open after previous usage is finished.
-                    //State prevState = readSocket ? ShutInStateForBranch(priorUseBId) : ShutOutStateForBranch(priorUseBId);
-                    factory.RegisterState(priorPair!.State);
-                    Snapshot ss = factory.RegisterState(InitialInStateForBranch(bId));
-                    ss.TransfersTo = WaitingInStateForBranch(bId);
-                    yield return factory.CreateStateTransferringRule();
-                }
-            }
-
-            // Set up the accept-read rules.
-            int readPremises = ReadHistory[bId];
-            for (int i = 0; i < readPremises - 1; i++)
-            {
-                // FIXME: Need to consider read patterns.
-                List<Snapshot> readSS = RegisterLinkedReadSnapshots(bId, i, factory);
-                readSS.Add(factory.RegisterState(WaitingInStateForBranch(bId)));
-                readSS.Add(factory.RegisterState(ReadInStateForBranch(bId)));
-                readSS[^1].TransfersTo = WaitingInStateForBranch(bId);
-                yield return factory.CreateStateTransferringRule();
-            }
-
-            // Set up the shutdown rule.
-            List<Snapshot> shutdownSS = RegisterLinkedReadSnapshots(bId, readPremises, factory);
-            shutdownSS[^1].TransfersTo = ShutInStateForBranch(bId);
-            yield return factory.CreateStateTransferringRule();
-
-            // Set up the attacker insertion rule - is this actually needed?
-            /*Snapshot latestReadSS = factory.RegisterState(WaitingInStateForBranch(bId));
-            factory.RegisterPremises(latestReadSS, Event.Know(new NameMessage(Name)), Event.Know(new VariableMessage("_x")));
-            latestReadSS.TransfersTo = ReadInStateForBranch(bId, "_x");
-            yield return factory.CreateStateTransferringRule();*/
-        }
-
         // --- Infinite Rules ---
-
-        List<(int, State?)> infiniteWriteConditions = new();
-        List<(int, State?)> infiniteReadConditions = new();
-
-        // For infinite output sockets: if there are pre-conditions for the existence of an
-        // infinite output socket, then set up rules to do finite transfers to finite
-        // input sockets. Record the pre-condition for the final set of rules.
 
         foreach (int wBId in infiniteBranchWrites)
         {
-            BranchStatePair? priorPair = GetPriorChannelShutdown(wBId, finiteBranchReads, finiteBranchWrites, depTree);
+            BranchStatePair? priorPair = GetPriorChannelShutdown(wBId, finiteBranchWrites, depTree);
 
             foreach (Write w in WriteHistory[wBId])
             {
-                foreach ((int otherBId, string otherSocketName) in allInSockets)
-                {
-                    if (otherBId == NeverOpened)
-                    {
-                        // There is a special write rule for dealing with an infinite in socket.
-                        continue;
-                    }
-                    if (priorPair != null)
-                    {
-                        factory.RegisterState(priorPair.State);
-                        
-                    }
-                    Snapshot readSS = factory.RegisterState(new(otherSocketName, WaitingValue));
-                    // Premises are registered with the read, as the write may not exist.
-                    factory.RegisterPremises(readSS, w.Premises);
-                    readSS.TransfersTo = new(otherSocketName, ReadValue);
-                    Snapshot writeSS = factory.RegisterState(new(InfOutName(), new VariableMessage("_v")));
-                    writeSS.TransfersTo = new(InfOutName(), new FunctionMessage(WriteStateName, new() { w.Written }));
-                    yield return factory.CreateStateTransferringRule();
-                }
-            }
-
-            infiniteWriteConditions.Add((wBId, priorPair?.State));
-        }
-
-        // For infinite input sockets: just always reset the socket to Waiting if it is set
-        // to read.
-        if (infiniteBranchReads.Count > 0)
-        {
-            foreach (int rBId in infiniteBranchReads)
-            {
-                BranchStatePair? priorPair = GetPriorChannelShutdown(rBId, finiteBranchReads, finiteBranchWrites, depTree);
+                Snapshot ss;
                 if (priorPair == null)
                 {
-                    Snapshot initialInfSS = factory.RegisterState(new(InfInName(), InitialValue));
-                    initialInfSS.TransfersTo = new(InfInName(), WaitingValue);
-                    yield return factory.CreateStateTransferringRule();
+                    ss = factory.RegisterState(new(InfOutName(), InitialValue));
                 }
                 else
                 {
-                    factory.RegisterState(priorPair.State);
-                    Snapshot infSS = factory.RegisterState(new(InfInName(), InitialValue));
-                    infSS.TransfersTo = new(InfInName(), WaitingValue);
-                    yield return factory.CreateStateTransferringRule();
-                    //infState = ShutInStateForBranch(priorBranch);
+                    ss = factory.RegisterState(priorPair.State);
                 }
-                infiniteReadConditions.Add((rBId, priorPair?.State));
-            }
-
-            Snapshot readSS = factory.RegisterState(new(InfInName(), new FunctionMessage(ReadStateName, new() { new VariableMessage("_v") })));
-            readSS.TransfersTo = new(InfInName(), WaitingValue);
-            yield return factory.CreateStateTransferringRule();
-        }
-
-
-        // For infinite output to infinite input transfer: if pre-conditions for both sockets
-        // exist, then the transferred data is simply known if the socket is known.
-        foreach ((int wBId, State? infWriteCond) in infiniteWriteConditions)
-        {
-            // Need to track read start conditions.
-            foreach ((int rBId, State? infReadCond) in infiniteReadConditions)
-            {
-                List<Write> branchWrites = WriteHistory[wBId];
-                foreach (Write w in branchWrites)
-                {
-                    // After all the previous crazy logic, we can finally relax and use some
-                    // good old-fashioned ProVerif-style Rules!
-                    Event kEv = Event.Know(w.Written);
-                    if (infWriteCond == null && infReadCond == null)
-                    {
-                        factory.RegisterPremises(w.Premises.ToArray());
-                        yield return factory.CreateStateConsistentRule(kEv);
-                    }
-                    else if (infWriteCond == null && infReadCond != null)
-                    {
-                        Snapshot inSS = factory.RegisterState(infReadCond);
-                        factory.RegisterPremises(inSS, w.Premises);
-                        yield return factory.CreateStateConsistentRule(kEv);
-                    }
-                    else if (infReadCond == null && infWriteCond != null)
-                    {
-                        Snapshot outSS = factory.RegisterState(infWriteCond);
-                        factory.RegisterPremises(outSS, w.Premises);
-                        yield return factory.CreateStateConsistentRule(kEv);
-                    }
-                    else
-                    {
-                        // Note that the condition may be the same, so check before registering.
-                        Snapshot outSS = factory.RegisterState(infWriteCond!);
-                        if (!infWriteCond!.Equals(infReadCond))
-                        {
-                            factory.RegisterState(infReadCond!);
-                        }
-                        factory.RegisterPremises(outSS, w.Premises);
-                        yield return factory.CreateStateConsistentRule(kEv);
-                    }
-                }
+                factory.RegisterPremises(ss, w.Premises);
+                //ss.TransfersTo = new(InfOutName(), new FunctionMessage(WriteStateName, new() { w.Written }));
+                yield return factory.CreateStateConsistentRule(Event.Know(w.Written));
             }
         }
     }
