@@ -8,6 +8,7 @@ using StatefulHorn;
 using StatefulHorn.Messages;
 using AppliedPi.Model;
 using AppliedPi.Processes;
+using AppliedPi.Translate.MutateRules;
 
 namespace AppliedPi.Translate;
 
@@ -93,8 +94,6 @@ public class Translation
     public static Translation From(ResolvedNetwork rn, Network nw)
     {
         HashSet<Term> cellsInUse = new();
-        Dictionary<Term, ChannelCell> allCells = new();
-        Dictionary<Term, Term> subs = new();
 
         RuleFactory factory = new();
         HashSet<Rule> allRules = new();
@@ -116,23 +115,7 @@ public class Translation
         // free declarations and the constants.
         foreach ((Term term, (TermSource src, PiType type)) in rn.TermDetails)
         {
-            if (type == PiType.Channel)
-            {
-                ChannelCell cc;
-                if (src == TermSource.Free)
-                {
-                    bool isPublic = !(nw.FreeDeclarations[term.Name].IsPrivate);
-                    cc = new(term.Name, isPublic);
-                    cellsInUse.Add(term);
-                }
-                else
-                {
-                    cc = new(term.Name, false);
-                    // Not used until specified with the nu operator.
-                }
-                allCells[term] = cc;
-            }
-            else if (src == TermSource.Free)
+            if (src == TermSource.Free)
             {
                 if (!nw.FreeDeclarations[term.Name].IsPrivate)
                 {
@@ -145,79 +128,349 @@ public class Translation
             }
         }
 
-        ProcessTree procTree = new(rn);
-        BranchDependenceTree depTree = BranchDependenceTree.From(procTree);
-
-        ProcessNode(procTree.StartNode, cellsInUse, allCells, subs, new());
-
-        HashSet<State> initStates = new();
-        foreach (ChannelCell c in allCells.Values)
-        {
-            c.CollectInitStates(initStates, depTree);
-            allRules.UnionWith(c.GenerateRules(depTree, factory));
-        }
+        (HashSet<Socket> allSockets, List<IMutateRule> allMutateRules) = GenerateMutateRules(rn);
+        HashSet<State> initStates = new(from s in allSockets select s.InitialState());
+        allRules.UnionWith(from r in allMutateRules select r.GenerateRule(factory));
         return new(initStates, allRules);
     }
 
-    private static void ProcessNode(
-        ProcessTree.Node n,
-        HashSet<Term> cellsInUse,
-        Dictionary<Term, ChannelCell> allCells,
+    public static (HashSet<Socket>, List<IMutateRule>) GenerateMutateRules(ResolvedNetwork rn)
+    {
+        HashSet<Term> cellsInUse = new();
+        foreach ((Term term, (TermSource src, PiType type)) in rn.TermDetails)
+        {
+            if (type == PiType.Channel && src == TermSource.Free)
+            {
+                cellsInUse.Add(term);
+            }
+        }
+
+        ProcessTree procTree = new(rn);
+        BranchSummary rootSummary = PreProcessBranch(procTree.StartNode, new(), cellsInUse);
+        List<IMutateRule> allMutateRules = new(ProcessBranch(procTree.StartNode, rootSummary, new(), new(), new(), new()));
+        return (rootSummary.AllSockets(), allMutateRules);
+    }
+
+    private record BranchSummary(
+        Dictionary<Term, ReadSocket> Readers,
+        Dictionary<Term, List<ReadSocket>> ReadersCumulative, 
+        Dictionary<Term, WriteSocket> Writers,
+        List<BranchSummary> Children)
+    {
+        public HashSet<Socket> AllSockets()
+        {
+            HashSet<Socket> sockets = new();
+            foreach ((Term _, List<ReadSocket> readers) in ReadersCumulative)
+            {
+                sockets.UnionWith(readers);
+            }
+            CollectWriters(sockets);
+            return sockets;
+        }
+
+        private void CollectWriters(HashSet<Socket> sockets)
+        {
+            sockets.UnionWith(Writers.Values);
+            foreach (BranchSummary bs in Children)
+            {
+                bs.CollectWriters(sockets);
+            }
+        }
+    }
+
+    private static BranchSummary PreProcessBranch(
+        ProcessTree.Node n, 
+        HashSet<Term> infiniteChannels,
+        HashSet<Term> finiteChannels)
+    {
+        Dictionary<Term, ReadSocket> readers;
+        Dictionary<Term, WriteSocket> writers;
+        (readers, writers) = GetSocketsRequiredForBranch(n, infiniteChannels);
+
+        // Skip to end of branch - see if there is a replication.
+        int branchId = n.BranchId;
+        while (branchId == n.BranchId && !n.IsTerminating && n.Branches.Count > 0)
+        {
+            if (n.Process is NewProcess np && np.PiType == "channel")
+            {
+                finiteChannels.Add(new(np.Variable));
+            }
+            n = n.Branches[0];
+        }
+
+        List<BranchSummary> children = new();
+        if (n.Process is ReplicateProcess)
+        {
+            HashSet<Term> updatedInfChannels = new(infiniteChannels.Concat(finiteChannels));
+            children.Add(PreProcessBranch(n.Branches[0], updatedInfChannels, new()));
+        }
+        else if (n.Branches.Count > 0)
+        {
+            foreach (ProcessTree.Node b in n.Branches)
+            {
+                children.Add(PreProcessBranch(b, infiniteChannels, new(finiteChannels)));
+            }
+        }
+
+        Dictionary<Term, List<ReadSocket>> readCumulative = new();
+        foreach (BranchSummary bs in children)
+        {
+            foreach ((Term cloneRt, List<ReadSocket> cloneList) in bs.ReadersCumulative)
+            {
+                if (readCumulative.TryGetValue(cloneRt, out List<ReadSocket>? allList))
+                {
+                    allList.AddRange(cloneList);
+                }
+                else
+                {
+                    readCumulative[cloneRt] = new(cloneList);
+                }
+            }
+        }
+        foreach ((Term txRt, ReadSocket txRs) in readers)
+        {
+            if (readCumulative.TryGetValue(txRt, out List<ReadSocket>? socketList))
+            {
+                socketList.Add(txRs);
+            }
+            else
+            {
+                readCumulative[txRt] = new() { txRs };
+            }
+        }
+        return new(readers, readCumulative, writers, children);
+    }
+
+    private static IEnumerable<IMutateRule> ProcessBranch(
+        ProcessTree.Node n, 
+        BranchSummary summary, 
+        List<BranchSummary> parallelBranches,
+        List<Socket> previousSockets, 
         Dictionary<Term, Term> subs,
         HashSet<StatefulHorn.Event> premises)
     {
-        switch (n.Process)
+        // Open required reader sockets.
+        foreach (ReadSocket rs in summary.Readers.Values)
         {
-            case NewProcess np:
-                if (np.PiType == "channel")
-                {
-                    cellsInUse.Add(new Term(np.Variable));
-                }
-                if (n.HasNext)
-                {
-                    ProcessNode(n.Branches[0], cellsInUse, allCells, subs, premises);
-                }
-                break;
-            case InChannelProcess icp:
-                Term readChannel = new(icp.Channel);
-                ChannelCell ic = allCells[readChannel];
-                cellsInUse.Add(readChannel);
-                ic.RegisterRead(n.BranchId);
-                premises.UnionWith(from v in icp.VariablesDefined() select StatefulHorn.Event.Know(new NameMessage(v)));
-                if (n.HasNext)
-                {
-                    ProcessNode(n.Branches[0], cellsInUse, allCells, subs, premises);
-                }
-                break;
-            case OutChannelProcess ocp:
-                Term writeChannel = new(ocp.Channel);
-                ChannelCell wc = allCells[writeChannel];
-                cellsInUse.Add(writeChannel);
-                wc.RegisterWrite(n.BranchId, TermToMessage(ocp.SentTerm.Substitute(subs)), premises);
-                if (n.HasNext)
-                {
-                    ProcessNode(n.Branches[0], cellsInUse, allCells, subs, premises);
-                }
-                break;
-            case ParallelCompositionProcess pcp:
-                foreach (ProcessTree.Node b in n.Branches)
-                {
-                    ProcessNode(b, new(cellsInUse), allCells, subs, new(premises));
-                }
-                break;
-            case ReplicateProcess rp:
-                foreach (Term t in cellsInUse)
-                {
-                    allCells[t].RegisterInfiniteAsOf(n.BranchId);
-                }
-                if (n.HasNext)
-                {
-                    ProcessNode(n.Branches[0], cellsInUse, allCells, subs, premises);
-                }
-                break;
-            default:
-                throw new NotImplementedException($"Process of type {n.Process.GetType()} cannot yet be translated.");
+            yield return new OpenReadSocketRule(rs, previousSockets);
         }
+
+        // Know rules for used writer sockets.
+        foreach (WriteSocket ws in summary.Writers.Values)
+        {
+            yield return new KnowChannelContentRule(ws);
+        }
+
+        // Pre-filter infinite readers from the parallel branches. The infinite cross-link rule
+        // requires that the premises and result are provided.
+        Dictionary<Term, ReadSocket> infReaders;
+        Dictionary<Term, List<ReadSocket>> finReaders;
+        (infReaders, finReaders) = SplitInfiniteReaders(parallelBranches);
+
+        // Perform required branch operations.
+        Dictionary<Term, int> readCount = new();
+        Dictionary<Term, int> writeCount = new();
+        int branchId = n.BranchId;
+        while (branchId == n.BranchId)
+        {
+            switch (n.Process)
+            {
+                case InChannelProcess icp:
+                    Term inChannelTerm = new(icp.Channel);
+                    ReadSocket reader = summary.Readers[inChannelTerm];
+                    readCount.TryGetValue(inChannelTerm, out int rc);
+                    if (reader.IsInfinite)
+                    {
+                        yield return new ReadResetRule(reader);
+                        foreach (IMutateRule imr in InfiniteReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
+                        {
+                            yield return imr;
+                        }
+                    }
+                    else
+                    {
+                        if (rc > 0)
+                        {
+                            yield return new ReadResetRule(reader, rc);
+                        }
+                        foreach (IMutateRule mr in FiniteReadRule.GenerateRulesForReceivePattern(reader, rc, icp.ReceivePattern))
+                        {
+                            yield return mr;
+                        }
+                    }
+                    
+                    foreach ((string varEntry, _) in icp.ReceivePattern)
+                    {
+                        premises.Add(FiniteReadRule.VariableCellAsPremise(varEntry));
+                    }
+                    readCount[inChannelTerm] = rc + 1;
+                    break;
+                case OutChannelProcess ocp:
+                    Term outChannelTerm = new(ocp.Channel);
+                    WriteSocket writer = summary.Writers[outChannelTerm];
+                    writeCount.TryGetValue(outChannelTerm, out int wc);
+                    IMessage resultMessage = TermToMessage(ocp.SentTerm);
+                    // Infinite cross-links have to be done here as this is where the premises and
+                    // result are.
+                    if (writer.IsInfinite)
+                    {
+                        if (infReaders.TryGetValue(outChannelTerm, out ReadSocket? rxSocket))
+                        {
+                            yield return new InfiniteCrossLink(writer, rxSocket, premises, StatefulHorn.Event.Know(resultMessage));
+                        }
+                        if (finReaders.TryGetValue(outChannelTerm, out List<ReadSocket>? rxSocketList) && rxSocketList!.Count > 0)
+                        {
+                            yield return new InfiniteWriteRule(writer, premises, resultMessage);
+                        }
+                    }
+                    else
+                    {
+                        yield return new FiniteWriteRule(writer, wc, premises, resultMessage);
+                        writeCount[outChannelTerm] = wc + 1;
+                    }
+                    break;
+            }
+            if (n.Branches.Count == 0 || n.IsTerminating)
+            {
+                break;
+            }
+            n = n.Branches[0];
+        }
+
+        // Shut down the sockets.
+        List<Socket> thisBranchSockets = new();
+        foreach ((Term rt, ReadSocket rs) in summary.Readers)
+        {
+            if (!rs.IsInfinite)
+            {
+                thisBranchSockets.Add(rs);
+                yield return new ShutRule(rs, readCount[rt]);
+            }
+        }
+        foreach ((Term wt, WriteSocket ws) in summary.Writers)
+        {
+            if (!ws.IsInfinite)
+            {
+                thisBranchSockets.Add(ws);
+                yield return new ShutRule(ws, writeCount[wt]);
+            }
+        }
+
+        // Add in the required finite cross-links.
+        foreach ((Term wt, WriteSocket ws) in summary.Writers)
+        {
+            if (finReaders.TryGetValue(wt, out List<ReadSocket>? rxSockets))
+            {
+                foreach (ReadSocket rx in rxSockets)
+                {
+                    yield return new FiniteCrossLinkRule(ws, rx);
+                }
+            }
+        }
+
+        // Process the children.
+        for (int i = 0; i < n.Branches.Count; i++)
+        {
+            // Build parallel branches.
+            List<BranchSummary> subParallel = new(parallelBranches);
+            for (int j = 0; j < n.Branches.Count; j++)
+            {
+                if (i != j)
+                {
+                    subParallel.Add(summary.Children[j]);
+                }
+            }
+
+            // Execute query.
+            IEnumerable<IMutateRule> childRules = 
+                ProcessBranch(n.Branches[i], summary.Children[i], subParallel, thisBranchSockets, new(subs), new(premises));
+            foreach (IMutateRule r in childRules)
+            {
+                yield return r;
+            }
+        }
+    }
+
+    private static (Dictionary<Term, ReadSocket>, Dictionary<Term, List<ReadSocket>>) SplitInfiniteReaders(List<BranchSummary> summaries)
+    {
+        Dictionary<Term, ReadSocket> infReaders = new();
+        Dictionary<Term, List<ReadSocket>> finReaders = new();
+        foreach (BranchSummary s in summaries)
+        {
+            foreach ((Term t, List<ReadSocket> readers) in s.ReadersCumulative)
+            {
+                foreach (ReadSocket r in readers)
+                {
+                    if (r.IsInfinite)
+                    {
+                        infReaders[t] = r;
+                    }
+                    else
+                    {
+                        if (finReaders.TryGetValue(t, out List<ReadSocket>? otherReaders))
+                        {
+                            otherReaders!.Add(r);
+                        }
+                        else
+                        {
+                            finReaders[t] = new() { r };
+                        }
+                    }
+                }
+            }
+        }
+        return (infReaders, finReaders);
+    }
+
+    private static (Dictionary<Term, ReadSocket>, Dictionary<Term, WriteSocket>) GetSocketsRequiredForBranch(
+        ProcessTree.Node n,
+        HashSet<Term> infiniteChannels)
+    {
+        Dictionary<Term, ReadSocket> readers = new();
+        Dictionary<Term, WriteSocket> writers = new();
+
+        int branchId = n.BranchId;
+        while (branchId == n.BranchId)
+        {
+            if (n.Process is InChannelProcess icp)
+            {
+                Term channelTerm = new(icp.Channel);
+                if (!readers.ContainsKey(channelTerm))
+                {
+                    if (infiniteChannels.Contains(channelTerm))
+                    {
+                        readers[channelTerm] = new(icp.Channel);
+                    }
+                    else
+                    {
+                        readers[channelTerm] = new(icp.Channel, branchId);
+                    }
+                }
+            }
+            else if (n.Process is OutChannelProcess ocp)
+            {
+                Term channelTerm = new(ocp.Channel);
+                if (!writers.ContainsKey(channelTerm))
+                {
+                    if (infiniteChannels.Contains(channelTerm))
+                    {
+                        writers[channelTerm] = new(ocp.Channel);
+                    }
+                    else
+                    {
+                        writers[channelTerm] = new(ocp.Channel, branchId);
+                    }
+                }
+            }
+
+            if (n.IsTerminating || n.Branches.Count == 0)
+            {
+                break;
+            }
+            n = n.Branches[0];
+        }
+
+        return (readers, writers);
     }
 
 }
