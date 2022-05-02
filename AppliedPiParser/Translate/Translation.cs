@@ -241,6 +241,59 @@ public class Translation
         return new(readers, readCumulative, writers, children);
     }
 
+    private static (Dictionary<Term, ReadSocket>, Dictionary<Term, WriteSocket>) GetSocketsRequiredForBranch(
+    ProcessTree.Node n,
+    HashSet<Term> infiniteChannels)
+    {
+        Dictionary<Term, ReadSocket> readers = new();
+        Dictionary<Term, WriteSocket> writers = new();
+
+        int branchId = n.BranchId;
+        while (branchId == n.BranchId)
+        {
+            if (n.Process is InChannelProcess icp)
+            {
+                Term channelTerm = new(icp.Channel);
+                if (!readers.TryGetValue(channelTerm, out ReadSocket? newReadSocket))
+                {
+                    if (infiniteChannels.Contains(channelTerm))
+                    {
+                        newReadSocket = new(icp.Channel);
+                    }
+                    else
+                    {
+                        newReadSocket = new(icp.Channel, branchId);
+                    }
+                    readers[channelTerm] = newReadSocket;
+                }
+                newReadSocket.ReceivePatterns.Add(icp.ReceivePattern);
+            }
+            else if (n.Process is OutChannelProcess ocp)
+            {
+                Term channelTerm = new(ocp.Channel);
+                if (!writers.ContainsKey(channelTerm))
+                {
+                    if (infiniteChannels.Contains(channelTerm))
+                    {
+                        writers[channelTerm] = new(ocp.Channel);
+                    }
+                    else
+                    {
+                        writers[channelTerm] = new(ocp.Channel, branchId);
+                    }
+                }
+            }
+
+            if (n.IsTerminating || n.Branches.Count == 0)
+            {
+                break;
+            }
+            n = n.Branches[0];
+        }
+
+        return (readers, writers);
+    }
+
     private static IEnumerable<IMutateRule> ProcessBranch(
         ProcessTree.Node n, 
         BranchSummary summary, 
@@ -316,7 +369,13 @@ public class Translation
                     {
                         if (infReaders.TryGetValue(outChannelTerm, out ReadSocket? rxSocket))
                         {
-                            yield return new InfiniteCrossLink(writer, rxSocket, premises, StatefulHorn.Event.Know(resultMessage));
+                            //yield return new InfiniteCrossLink(writer, rxSocket, premises, StatefulHorn.Event.Know(resultMessage));
+                            // For every matching receive pattern, add an infinite cross link.
+                            IEnumerable<IMutateRule> iclRules = InfiniteCrossLink.GenerateRulesForReadReceivePatterns(writer, rxSocket, premises, resultMessage);
+                            foreach (IMutateRule rxPatternRule in iclRules)
+                            {
+                                yield return rxPatternRule;
+                            }
                         }
                         if (finReaders.TryGetValue(outChannelTerm, out List<ReadSocket>? rxSocketList) && rxSocketList!.Count > 0)
                         {
@@ -420,57 +479,6 @@ public class Translation
             }
         }
         return (infReaders, finReaders);
-    }
-
-    private static (Dictionary<Term, ReadSocket>, Dictionary<Term, WriteSocket>) GetSocketsRequiredForBranch(
-        ProcessTree.Node n,
-        HashSet<Term> infiniteChannels)
-    {
-        Dictionary<Term, ReadSocket> readers = new();
-        Dictionary<Term, WriteSocket> writers = new();
-
-        int branchId = n.BranchId;
-        while (branchId == n.BranchId)
-        {
-            if (n.Process is InChannelProcess icp)
-            {
-                Term channelTerm = new(icp.Channel);
-                if (!readers.ContainsKey(channelTerm))
-                {
-                    if (infiniteChannels.Contains(channelTerm))
-                    {
-                        readers[channelTerm] = new(icp.Channel);
-                    }
-                    else
-                    {
-                        readers[channelTerm] = new(icp.Channel, branchId);
-                    }
-                }
-            }
-            else if (n.Process is OutChannelProcess ocp)
-            {
-                Term channelTerm = new(ocp.Channel);
-                if (!writers.ContainsKey(channelTerm))
-                {
-                    if (infiniteChannels.Contains(channelTerm))
-                    {
-                        writers[channelTerm] = new(ocp.Channel);
-                    }
-                    else
-                    {
-                        writers[channelTerm] = new(ocp.Channel, branchId);
-                    }
-                }
-            }
-
-            if (n.IsTerminating || n.Branches.Count == 0)
-            {
-                break;
-            }
-            n = n.Branches[0];
-        }
-
-        return (readers, writers);
     }
 
 }

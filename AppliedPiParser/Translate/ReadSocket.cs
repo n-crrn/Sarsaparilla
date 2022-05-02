@@ -29,4 +29,7 @@ public class ReadSocket : Socket
         LinkSnapshotList(allSS);
         return allSS[^1];
     }
+
+    public List<List<(string, string)>> ReceivePatterns { get; init; } = new();
+
 }

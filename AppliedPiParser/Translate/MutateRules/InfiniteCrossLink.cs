@@ -1,19 +1,21 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 using StatefulHorn;
+using StatefulHorn.Messages;
 
 namespace AppliedPi.Translate.MutateRules;
 
 public class InfiniteCrossLink : IMutateRule
 {
 
-    public InfiniteCrossLink(WriteSocket fromSocket, ReadSocket toSocket, HashSet<Event> premises, Event result)
+    public InfiniteCrossLink(WriteSocket fromSocket, ReadSocket toSocket, HashSet<Event> premises, IMessage sent, string varName)
     {
         From = fromSocket;
         To = toSocket;
         Premises = premises;
-        Result = result;
+        Result = Event.Know(new FunctionMessage($"{varName}@cell", new() { sent }));
         Debug.Assert(From.IsInfinite && To.IsInfinite);
     }
 
@@ -31,6 +33,36 @@ public class InfiniteCrossLink : IMutateRule
         factory.RegisterPremises(fromWait, Premises);
         factory.RegisterState(To.WaitingState());
         return factory.CreateStateConsistentRule(Result);
+    }
+
+    public static IEnumerable<IMutateRule> GenerateRulesForReadReceivePatterns(
+        WriteSocket from,
+        ReadSocket to, 
+        HashSet<Event> premises,
+        IMessage written)
+    {
+        foreach (List<(string, string)> rxPattern in to.ReceivePatterns)
+        {
+            // Does the pattern match the given term?
+            if (written is TupleMessage tm)
+            {
+                if (tm.Members.Count == rxPattern.Count)
+                {
+                    foreach ((string varName, string _) in rxPattern)
+                    {
+                        yield return new InfiniteCrossLink(from, to, premises, written, varName);
+                    }
+                }
+            }
+            else
+            {
+                if (rxPattern.Count > 1)
+                {
+                    throw new NotImplementedException("Cannot translate singular message to multiple pattern.");
+                }
+                yield return new InfiniteCrossLink(from, to, premises, written, rxPattern[0].Item1);
+            }
+        }
     }
 
     #region Basic object overrides.

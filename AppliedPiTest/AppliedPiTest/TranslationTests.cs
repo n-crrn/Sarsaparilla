@@ -120,7 +120,7 @@ process !( out(c, s) |  in(c, v: bitstring) ).";
         {
             new KnowChannelContentRule(cOut),
             new OpenReadSocketRule(cIn),
-            new InfiniteCrossLink(cOut, cIn, new(), Event.Know(new NameMessage("s"))),
+            new InfiniteCrossLink(cOut, cIn, new(), new NameMessage("s"), "v"),
             // Following rules should not be triggered during Nession construction.
             new ReadResetRule(cIn),
             new InfiniteReadRule(cIn, "v")
