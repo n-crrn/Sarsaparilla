@@ -1,12 +1,13 @@
 ﻿@page "/pi"
 
 @using AppliedPi
+@using StatefulHorn
 @using SarsaWidgets
 
 <PageTitle>Applied π Interface</PageTitle>
 
 <PaneStack>
-    <Pane Title="Editor">
+    <Pane Title='Editor'>
         <ButtonBarItems>
             <button @onclick=Parse>Parse</button>
         </ButtonBarItems>
@@ -22,11 +23,36 @@
             </div>
         </Body>
     </Pane>
-    <Pane Title="Parsed π Model">
+
+    <Pane Title='Parsed π Model'>
+        <ButtonBarItems>
+            <button @onclick=Query>Query</button>
+        </ButtonBarItems>
         <Body>
             <div class='parse-pane-contents'>
-                <NetworkDisplay Network=@ParsedNetwork/>
+                <div class='parsed-network-block'>
+                    <h4>Unresolved Network</h4>
+                    <NetworkDisplay Network=@ParsedNetwork/>
+                </div>
+                <div class='resolved-network-block'>
+                    <h4>Resolved Network</h4>
+                    <ResolvedNetworkDisplay ResolvedNetwork=@FullyResolvedNetwork/>
+                </div>
+                <!-- FIXME: Insert the list of generated rules. -->
             </div>
+        </Body>
+    </Pane>
+
+    <Pane Title='Query Result'>
+        <Body>
+            @if (Engine != null)
+            {
+                <QueryEngineDisplay @ref=QEDisplay Engine=@Engine/>
+            }
+            else
+            {
+                <p class='no-engine-message'>Query the model to continue.</p>
+            }
         </Body>
     </Pane>
 </PaneStack>
@@ -38,17 +64,30 @@
 
     public Network? ParsedNetwork { get; set; }
 
+    public ResolvedNetwork? FullyResolvedNetwork { get; set; }
+
     private void Parse()
     {
         try
         {
             ErrorMessage = null;
             ParsedNetwork = null;
+            FullyResolvedNetwork = null;
             ParsedNetwork = Network.CreateFromCode(AppliedPiSource);
+            FullyResolvedNetwork = ResolvedNetwork.From(ParsedNetwork);
         }
         catch (NetworkCreationException ex)
         {
             ErrorMessage = ex.Message;
         }
+    }
+
+    private QueryEngine? Engine = null;
+
+    private QueryEngineDisplay? QEDisplay { get; set; }
+
+    private void Query()
+    {
+        // FIXME: Write me.
     }
 }

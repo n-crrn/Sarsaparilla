@@ -16,3 +16,15 @@
     flex-grow: 1;
     overflow: auto;
 }
+
+h4 {
+    margin-left: 20px;
+    margin-right: 20px;
+}
+
+.no-engine-message {
+    width: 100%;
+    padding: 10px;
+    text-align: center;
+    font-style: italic;
+}
