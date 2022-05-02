@@ -56,11 +56,10 @@ public class InfiniteCrossLink : IMutateRule
             }
             else
             {
-                if (rxPattern.Count > 1)
+                if (rxPattern.Count == 1)
                 {
-                    throw new NotImplementedException("Cannot translate singular message to multiple pattern.");
+                    yield return new InfiniteCrossLink(from, to, premises, written, rxPattern[0].Item1);
                 }
-                yield return new InfiniteCrossLink(from, to, premises, written, rxPattern[0].Item1);
             }
         }
     }
