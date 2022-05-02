@@ -142,6 +142,15 @@ process
             WriteSet(foundAsSet.Except(expectedMutations));
             throw;
         }
+
+        // Final part of the test is to execute the rule conversion. The output is not tested here,
+        // as it would add a large amount of fragility to the tests. The purpose is to ensure that
+        // nothing causes an unexpected exception.
+        RuleFactory factory = new();
+        foreach (IMutateRule r in expectedMutations)
+        {
+            r.GenerateRule(factory);
+        }
     }
 
     private static void WriteSet(IEnumerable<object> rules)
