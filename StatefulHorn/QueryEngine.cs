@@ -9,11 +9,11 @@ namespace StatefulHorn;
 
 public class QueryEngine
 {
-    public QueryEngine(HashSet<State> states, IMessage q, State? when, IEnumerable<Rule> userRules)
+    public QueryEngine(IReadOnlySet<State> states, IMessage q, State? when, IEnumerable<Rule> userRules)
     {
         Debug.Assert(states.Count > 0);
 
-        StateSet = states;
+        StateSet = new(states);
         Query = q;
         When = when;
 

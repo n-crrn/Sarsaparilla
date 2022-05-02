@@ -1,6 +1,7 @@
 ﻿@page "/pi"
 
 @using AppliedPi
+@using AppliedPi.Translate
 @using StatefulHorn
 @using SarsaWidgets
 
@@ -26,7 +27,7 @@
 
     <Pane Title='Parsed π Model'>
         <ButtonBarItems>
-            <button @onclick=Query>Query</button>
+            <button @onclick=Query disabled=@QueryDisabled>Query</button>
         </ButtonBarItems>
         <Body>
             <div class='parse-pane-contents'>
@@ -38,7 +39,30 @@
                     <h4>Resolved Network</h4>
                     <ResolvedNetworkDisplay ResolvedNetwork=@FullyResolvedNetwork/>
                 </div>
-                <!-- FIXME: Insert the list of generated rules. -->
+                @if (Translation != null)
+                {
+                    <div class='rules-block'>
+                        <h4>Rules Generated</h4>
+                        <h5>Queries</h5>
+                        <div class='query-block'>
+                            @foreach (IMessage q in Translation.Queries)
+                            {
+                                <div class='query-message'>@q</div>
+                            }
+                        </div>
+                        <h5>Initial States</h5>
+                        <div class='initial-state-block'>
+                            @foreach (State s in Translation.InitialStates)
+                            {
+                                <div class='initial-state'>@s</div>
+                            }
+                        </div>
+                        @foreach (Rule r in Translation.Rules)
+                        {
+                            <RuleDisplay Rule=@r/>
+                        }
+                    </div>
+                }
             </div>
         </Body>
     </Pane>
@@ -66,6 +90,8 @@
 
     public ResolvedNetwork? FullyResolvedNetwork { get; set; }
 
+    public Translation? Translation { get; set; }
+
     private void Parse()
     {
         try
@@ -75,6 +101,13 @@
             FullyResolvedNetwork = null;
             ParsedNetwork = Network.CreateFromCode(AppliedPiSource);
             FullyResolvedNetwork = ResolvedNetwork.From(ParsedNetwork);
+            Translation = Translation.From(FullyResolvedNetwork, ParsedNetwork);
+
+            List<QueryEngine> engines = new(Translation.QueryEngines());
+            if (engines.Count > 0)
+            {
+                Engine = engines[0];
+            }
         }
         catch (NetworkCreationException ex)
         {
@@ -84,10 +117,25 @@
 
     private QueryEngine? Engine = null;
 
-    private QueryEngineDisplay? QEDisplay { get; set; }
+    private QueryEngineDisplay? _QEDisplay;
+
+    private QueryEngineDisplay? QEDisplay {
+        get => _QEDisplay;
+        set
+        {
+            // Disconnection completed callback.
+            if (value != null)
+            {
+                _QEDisplay = value;
+            }
+            // Reconnect completed callback.
+        }
+    }
+
+    public bool QueryDisabled => Engine == null;
 
     private void Query()
     {
-        // FIXME: Write me.
+        QEDisplay!.ExecuteQuery();
     }
 }

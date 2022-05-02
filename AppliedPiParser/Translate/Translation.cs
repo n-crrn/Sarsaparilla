@@ -15,15 +15,26 @@ namespace AppliedPi.Translate;
 public class Translation
 {
 
-    private Translation(HashSet<State> initStates, HashSet<Rule> allRules)
+    private Translation(HashSet<State> initStates, HashSet<Rule> allRules, HashSet<IMessage> queries)
     {
         InitialStates = initStates;
         Rules = allRules;
+        Queries = queries;
     }
 
     public IReadOnlySet<State> InitialStates { get; init; }
 
     public IReadOnlySet<Rule> Rules { get; init; }
+
+    public IReadOnlySet<IMessage> Queries { get; init; }
+
+    public IEnumerable<QueryEngine> QueryEngines()
+    {
+        foreach (IMessage queryMsg in Queries)
+        {
+            yield return new QueryEngine(InitialStates, queryMsg, null, Rules);
+        }
+    }
 
     /// <summary>
     /// Provides a direct translation of a term to a non-variable message representation.
@@ -131,7 +142,10 @@ public class Translation
         (HashSet<Socket> allSockets, List<IMutateRule> allMutateRules) = GenerateMutateRules(rn);
         HashSet<State> initStates = new(from s in allSockets select s.InitialState());
         allRules.UnionWith(from r in allMutateRules select r.GenerateRule(factory));
-        return new(initStates, allRules);
+
+        HashSet<IMessage> queries = new(from q in nw.Queries select TermToMessage(q.LeakQuery));
+
+        return new(initStates, allRules, queries);
     }
 
     public static (HashSet<Socket>, List<IMutateRule>) GenerateMutateRules(ResolvedNetwork rn)

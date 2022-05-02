@@ -17,14 +17,39 @@
     overflow: auto;
 }
 
-h4 {
-    margin-left: 20px;
-    margin-right: 20px;
-}
-
 .no-engine-message {
     width: 100%;
     padding: 10px;
     text-align: center;
     font-style: italic;
+}
+
+h4 {
+    margin-left: 20px;
+    margin-right: 20px;
+}
+
+h5 {
+    margin-left: 30px;
+    margin-right: 20px;
+}
+
+.query-block {
+    display: flex;
+    flex-direction: row;
+    flex-flow: wrap;
+}
+
+.query-message {
+    padding: 10px;
+}
+
+.initial-state-block {
+    display: flex;
+    flex-direction: row;
+    flex-flow: wrap;
+}
+
+.initial-state {
+    padding: 10px;
 }
