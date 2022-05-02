@@ -104,6 +104,30 @@ process
         DoMutateTest(testSource, expectedSockets, expectedMutations);
     }
 
+    [TestMethod]
+    public void ProVerifStyleRulesTest()
+    {
+        string testSource =
+@"free c: channel.
+free s: bitstring [private].
+
+process !( out(c, s) |  in(c, v: bitstring) ).";
+
+        ReadSocket cIn = new("c");
+        WriteSocket cOut = new("c");
+        HashSet<Socket> expectedSockets = new() { cIn, cOut };
+        HashSet<IMutateRule> expectedMutations = new()
+        {
+            new KnowChannelContentRule(cOut),
+            new OpenReadSocketRule(cIn),
+            new InfiniteCrossLink(cOut, cIn, new(), Event.Know(new NameMessage("s"))),
+            // Following rules should not be triggered during Nession construction.
+            new ReadResetRule(cIn),
+            new InfiniteReadRule(cIn, "v")
+        };
+        DoMutateTest(testSource, expectedSockets, expectedMutations);
+    }
+
     #region Convenience methods.
 
     private static void DoMutateTest(string piSource, HashSet<Socket> expectedSockets, HashSet<IMutateRule> expectedMutations)
