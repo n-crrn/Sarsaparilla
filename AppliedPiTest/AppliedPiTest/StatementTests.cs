@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using AppliedPi;
+using AppliedPi.Model;
 using AppliedPi.Statements;
 
 namespace AppliedPiTest;
@@ -30,7 +31,8 @@ public class StatementTests
             "reduc forall x: bitstring, y: skey; decrypt(encrypt(x, pk(y)),y) = x.\n" +
             "not attacker(new skA).\n" +
             "table keys(host, pkey).\n" +
-            "query x: host, y: host; inj-event(endB(x)) ==> inj-event(startB(x)).\n" +
+            "query attacker(pkB).\n" +
+            "query attacker(pkC); attacker(pk(D)).\n" +
             "const c1: tag [data].";
         List<IStatement> expectedStatements = new()
         {
@@ -52,21 +54,8 @@ public class StatementTests
                 }), "x", new() { { "x", "bitstring" }, { "y", "skey" } }
             ),
             new TableStatement("keys", new() { "host", "pkey" }),
-            new QueryStatement(
-                new()
-                {
-                    { "x", "host" },
-                    { "y", "host" }
-                },
-                new("inj-event", new()
-                {
-                    new("endB", new() { new("x") })
-                }),
-                new("inj-event", new()
-                {
-                    new("startB", new() { new("x") })
-                })
-            ),
+            new QueryStatement(new List<Term>() { new("pkB") }),
+            new QueryStatement(new List<Term>() { new("pkC"), new("pk", new() { new("D") })}),
             new ConstantStatement("c1", "tag", "data")
 
         };

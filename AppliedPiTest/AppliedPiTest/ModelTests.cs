@@ -37,7 +37,7 @@ public class ModelTests
             "reduc forall x: bitstring, y: skey; decrypt(encrypt(x, y),y) = x.\n" +
             "table keys(host, pkey).\n" +
             "state SD: kitten = D.\n" +
-            "query x: host, y: host; inj-event(endB(x)) ==> inj-event(startB(x)).\n" +
+            "query attacker(c2).\n" +
             "const c1: tag [data].\n" +
             "const c2: kitten.\n";
 
@@ -79,11 +79,9 @@ public class ModelTests
         {
             new("SD", new("D"), "kitten")
         };
-        HashSet<Query> expectedQueries = new()
+        HashSet<AttackerQuery> expectedQueries = new()
         {
-            new(new("inj-event", new() { new("endB", new() { new("x") }) }),
-                new("inj-event", new() { new("startB", new() { new("x") }) }),
-                new() { { "x", "host" }, { "y", "host" } })
+            new(new("c2"))
         };
         HashSet<Constant> expectedConstants = new() {
             new("c1", "tag", "data"),

@@ -90,9 +90,9 @@ public class Network
     #endregion
     #region Query declarations.
 
-    internal HashSet<Query> _Queries = new();
+    internal HashSet<AttackerQuery> _Queries = new();
 
-    public IReadOnlySet<Query> Queries { get => _Queries; }
+    public IReadOnlySet<AttackerQuery> Queries { get => _Queries; }
 
     #endregion
     #region Constructor and destructor declarations.
