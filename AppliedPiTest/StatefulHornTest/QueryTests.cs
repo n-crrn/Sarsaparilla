@@ -107,4 +107,16 @@ public class QueryTests
         };
         await DoTest(ruleSet, "test(n[])", "SD(init[])", false, true);
     }
+
+    [TestMethod]
+    public async Task PureNameQueryCheck()
+    {
+        List<string> ruleSet = new()
+        {
+            "-[ ]-> k(c[])",
+            "k(c[]) -[ ]-> k(d[])",
+            "k(d[]) -[ ]-> k(s[])"
+        };
+        await DoTest(ruleSet, "s[]", "SD(init[])", false, true);
+    }
 }

@@ -37,8 +37,7 @@ internal class QueryResult
 
     public static QueryResult ResolvedKnowledge(IMessage query, HornClause kRule)
     {
-        List<IMessage> facts = new(kRule.Premises);
-        return new(query, null, facts, new List<HornClause>() { kRule }, new List<Nession>());
+        return new(query, null, new List<IMessage>(), new List<HornClause>() { kRule }, new List<Nession>());
     }
 
     public static QueryResult Failed(IMessage query, State? when) => new(query, when);

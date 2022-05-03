@@ -303,14 +303,14 @@ public class QueryEngine
         }
         else
         {
-            qr = CheckBasicQuery(queryToFind, basicFacts, rules, rank);
+            qr = CheckBasicQuery(queryToFind, basicFacts, rules, status, rank);
         }
         status.Proven[queryToFind] = qr;
         status.NowProving.Remove(queryToFind);
         return qr;
     }
 
-    private QueryResult CheckBasicQuery(IMessage queryToFind, HashSet<IMessage> facts, HashSet<HornClause> rules, int rank)
+    private QueryResult CheckBasicQuery(IMessage queryToFind, HashSet<IMessage> facts, HashSet<HornClause> rules, QueryStatus status, int rank)
     {
         List<HornClause> candidates = new(from r in rules where queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank) select r);
         candidates.Sort(SortRules);
@@ -325,9 +325,10 @@ public class QueryEngine
                 bool found = true;
                 foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
                 {
-                    if (facts.Contains(premise))
+                    QueryResult innerResult = CheckQuery(premise, facts, rules, status, rank);
+                    if (innerResult.Found)
                     {
-                        qrParts.Add(QueryResult.BasicFact(premise));
+                        qrParts.Add(innerResult);
                     }
                     else
                     {
