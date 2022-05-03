@@ -126,6 +126,11 @@ public class NessionManager
                 }
             }
             processed.AddRange(nextLevel);
+            if (nextLevelIter.Count == 0)
+            {
+                // There were no new states found. In this case, we cease the elaboration here.
+                break;
+            }
             (nextLevel, nextLevelIter) = (nextLevelIter, nextLevel);
             nextLevelIter.Clear();
         }
