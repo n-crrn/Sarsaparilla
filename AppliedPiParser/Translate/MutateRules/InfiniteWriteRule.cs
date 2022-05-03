@@ -9,7 +9,7 @@ public class InfiniteWriteRule : IMutateRule
     public InfiniteWriteRule(WriteSocket s, HashSet<Event> premises, IMessage value)
     {
         Socket = s;
-        Premises = premises;
+        Premises = new(premises); // Copy, so additional premises are not added.
         ValueToWrite = value;
     }
 

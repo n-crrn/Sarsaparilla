@@ -12,7 +12,7 @@ public class FiniteWriteRule : IMutateRule
         Socket = s;
         PriorWriteCount = priorWrites;
         ValueToWrite = value;
-        Premises = premises;
+        Premises = new(premises); // Copy, so that premises are not added afterwards.
     }
 
     public WriteSocket Socket { get; init; }
