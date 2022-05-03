@@ -19,7 +19,7 @@ public class ReadSocket : Socket
         for (int i = 0; i < readCount; i++)
         {
             factory.RegisterState(WaitingState());
-            IMessage readMsg = new VariableMessage($"_v{i}");
+            IMessage readMsg = new VariableMessage($"@v{i}");
             allSS.Add(factory.RegisterState(ReadState(readMsg)));
         }
         if (endWith != null)

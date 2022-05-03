@@ -19,6 +19,8 @@ public class KnowChannelContentRule : IMutateRule
 
     private static readonly IMessage InternalVariable = new VariableMessage("_v");
 
+    public string Label => $"Know:{Socket}";
+
     public Rule GenerateRule(RuleFactory factory)
     {
         Snapshot ss = factory.RegisterState(Socket.WriteState(InternalVariable));

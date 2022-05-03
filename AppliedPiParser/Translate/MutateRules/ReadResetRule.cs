@@ -24,6 +24,8 @@ public class ReadResetRule : IMutateRule
 
     public int ReadCount { get; init; } = -1;
 
+    public string Label => $"readReset:{Socket}";
+
     public Rule GenerateRule(RuleFactory factory)
     {
         Snapshot priorReads;

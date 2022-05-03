@@ -29,17 +29,17 @@ public class Socket
 
     #region Standard socket states.
 
-    public State AnyState() => new(ToString(), new VariableMessage("_Any"));
+    public State AnyState() => new(ToString(), new VariableMessage("@Any"));
 
-    public State InitialState() => new(ToString(), new NameMessage("_Initial"));
+    public State InitialState() => new(ToString(), new NameMessage("@Initial"));
 
-    public State ReadState(IMessage readValue) => new(ToString(), new FunctionMessage("_Read", new() { readValue }));
+    public State ReadState(IMessage readValue) => new(ToString(), new FunctionMessage("@Read", new() { readValue }));
 
-    public State WriteState(IMessage writtenValue) => new(ToString(), new FunctionMessage("_Write", new() { writtenValue }));
+    public State WriteState(IMessage writtenValue) => new(ToString(), new FunctionMessage("@Write", new() { writtenValue }));
 
-    public State WaitingState() => new(ToString(), new NameMessage("_Waiting"));
+    public State WaitingState() => new(ToString(), new NameMessage("@Waiting"));
 
-    public State ShutState() => new(ToString(), new NameMessage("_Shut"));
+    public State ShutState() => new(ToString(), new NameMessage("@Shut"));
 
     #endregion
     #region Convenience registration methods.
@@ -57,7 +57,7 @@ public class Socket
 
     public override string ToString()
     {
-        return ChannelName + ":" + (BranchId == Infinite ? "" : $"{BranchId}:") + Direction;
+        return ChannelName + "@" + (BranchId == Infinite ? "" : $"{BranchId}@") + Direction;
     }
 
     public override bool Equals(object? obj)

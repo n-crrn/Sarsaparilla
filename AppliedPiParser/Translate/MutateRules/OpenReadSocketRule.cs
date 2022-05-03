@@ -22,6 +22,8 @@ public class OpenReadSocketRule : IMutateRule
 
     private readonly HashSet<Socket> PriorSockets = new();
 
+    public string Label => $"Open:{Socket}";
+
     public Rule GenerateRule(RuleFactory factory)
     {
         foreach (Socket ps in PriorSockets)

@@ -18,7 +18,7 @@ public class WriteSocket : Socket
         List<Snapshot> allSS = new() { factory.RegisterState(InitialState()) };
         for (int i = 0; i < writeCount; i++)
         {
-            IMessage writeMsg = new VariableMessage($"_v{i}");
+            IMessage writeMsg = new VariableMessage($"@v{i}");
             allSS.Add(factory.RegisterState(WriteState(writeMsg)));
             if (i != writeCount - 1)
             {

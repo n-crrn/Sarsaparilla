@@ -15,6 +15,8 @@ public class ShutRule : IMutateRule
 
     public int InteractionCount { get; init; }
 
+    public string Label => $"Shut:{Socket}(InteractionCount)";
+
     public Rule GenerateRule(RuleFactory factory)
     {
         Snapshot prior;

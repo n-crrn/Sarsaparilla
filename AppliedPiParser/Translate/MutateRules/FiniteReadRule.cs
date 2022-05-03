@@ -29,6 +29,8 @@ public class FiniteReadRule : IMutateRule
 
     public string VariableName { get; init; }
 
+    public string Label => $"FinRead:{Socket}-{VariableName}";
+
     public static Event VariableCellAsPremise(string vName)
     {
         IMessage v = new VariableMessage(vName);

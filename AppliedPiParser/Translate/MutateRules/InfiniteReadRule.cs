@@ -29,6 +29,8 @@ public class InfiniteReadRule : IMutateRule
 
     public string VariableName { get; init; }
 
+    public string Label => $"InfRead:{Socket}-{VariableName}";
+
     public Rule GenerateRule(RuleFactory factory)
     {
         IMessage varMsg;

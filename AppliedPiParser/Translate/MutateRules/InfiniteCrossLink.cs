@@ -27,6 +27,8 @@ public class InfiniteCrossLink : IMutateRule
 
     public Event Result { get; init; }
 
+    public string Label => $"InfXLink:{From}-{To}({Result})";
+
     public Rule GenerateRule(RuleFactory factory)
     {
         Snapshot fromWait = factory.RegisterState(From.WaitingState());

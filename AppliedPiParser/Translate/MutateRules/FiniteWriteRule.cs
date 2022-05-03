@@ -23,6 +23,8 @@ public class FiniteWriteRule : IMutateRule
 
     public IMessage ValueToWrite { get; init; }
 
+    public string Label => $"FinWrite-{ValueToWrite}-{Socket}({PriorWriteCount})";
+
     public Rule GenerateRule(RuleFactory factory)
     {
         Snapshot latest;

@@ -62,7 +62,7 @@ public class Translation
         List<IMessage> funcParam = new();
         for (int i = 0; i < ctr.ParameterTypes.Count; i++)
         {
-            IMessage varMsg = new VariableMessage($"_v{i}");
+            IMessage varMsg = new VariableMessage($"@v{i}");
             premises.Add(StatefulHorn.Event.Know(varMsg));
             funcParam.Add(varMsg);
         }
@@ -141,7 +141,13 @@ public class Translation
 
         (HashSet<Socket> allSockets, List<IMutateRule> allMutateRules) = GenerateMutateRules(rn);
         HashSet<State> initStates = new(from s in allSockets select s.InitialState());
-        allRules.UnionWith(from r in allMutateRules select r.GenerateRule(factory));
+        //allRules.UnionWith(from r in allMutateRules select r.GenerateRule(factory));
+
+        foreach (IMutateRule r in allMutateRules)
+        {
+            factory.SetNextLabel(r.Label);
+            allRules.Add(r.GenerateRule(factory));
+        }
 
         HashSet<IMessage> queries = new(from q in nw.Queries select TermToMessage(q.LeakQuery));
 

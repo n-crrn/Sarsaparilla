@@ -19,6 +19,8 @@ public class InfiniteWriteRule : IMutateRule
 
     public IMessage ValueToWrite { get; init; }
 
+    public string Label => $"InfWrite:{Socket}-{ValueToWrite}";
+
     public Rule GenerateRule(RuleFactory factory)
     {
         Snapshot latest = factory.RegisterState(Socket.AnyState());

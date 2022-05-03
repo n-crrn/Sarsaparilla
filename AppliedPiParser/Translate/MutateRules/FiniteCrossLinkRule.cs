@@ -19,9 +19,11 @@ public class FiniteCrossLinkRule : IMutateRule
 
     public ReadSocket To { get; init; }
 
+    public string Label => $"FinXLink:{From}-{To}";
+
     public Rule GenerateRule(RuleFactory factory)
     {
-        IMessage value = new VariableMessage("_v");
+        IMessage value = new VariableMessage("@v");
         Snapshot written = factory.RegisterState(From.WriteState(value));
         Snapshot waiting = factory.RegisterState(To.WaitingState());
         written.TransfersTo = From.WaitingState();
