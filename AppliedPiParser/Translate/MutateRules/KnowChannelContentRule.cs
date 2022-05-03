@@ -17,7 +17,7 @@ public class KnowChannelContentRule : IMutateRule
 
     public WriteSocket Socket;
 
-    private static readonly IMessage InternalVariable = new VariableMessage("_v");
+    private static readonly IMessage InternalVariable = new VariableMessage("@v");
 
     public string Label => $"Know:{Socket}";
 
