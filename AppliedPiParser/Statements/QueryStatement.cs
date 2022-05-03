@@ -54,20 +54,18 @@ public class QueryStatement : IStatement
         List<Term> terms = new();
         while (nextToken != ".")
         {
-            Term attackerTerm;
-            (attackerTerm, nextToken) = Term.ReadNamedTermAndNextToken(p, stmtType);
-
-            if (attackerTerm.Name != "attacker" || attackerTerm.Parameters.Count != 1)
+            p.ReadExpectedToken("attacker", stmtType);
+            p.ReadExpectedToken("(", stmtType);
+            nextToken = p.PeekNextToken();
+            if (nextToken == "new")
             {
-                return ParseResult.Failure(p, "Query statements of form 'attacker(term)' only are supported.");
+                // Ignore 'new' - this is superficial information.
+                p.ReadNextToken();
             }
-            terms.Add(attackerTerm.Parameters[0]);
+            terms.Add(Term.ReadTerm(p, stmtType));
+            p.ReadExpectedToken(")", stmtType);
 
-            if (nextToken == null)
-            {
-                nextToken = p.ReadNextToken();
-            }
-
+            nextToken = p.ReadNextToken();
             if (nextToken != "." && nextToken != ";")
             {
                 return ParseResult.Failure(p, $"Expected ';' or '.', not {nextToken}.");

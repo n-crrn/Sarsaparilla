@@ -32,7 +32,7 @@ public class StatementTests
             "not attacker(new skA).\n" +
             "table keys(host, pkey).\n" +
             "query attacker(pkB).\n" +
-            "query attacker(pkC); attacker(pk(D)).\n" +
+            "query attacker(new pkC); attacker(pk(D)).\n" +
             "const c1: tag [data].";
         List<IStatement> expectedStatements = new()
         {
