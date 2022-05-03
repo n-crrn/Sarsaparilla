@@ -52,7 +52,7 @@ public class TestCompiler : IClauseCompiler
 
         State initState = MessageParser.ParseState("test(init[])");
         IMessage queryMessage = MessageParser.ParseMessage("bob[]");
-        OnComplete?.Invoke(this, new(new() { initState }, queryMessage, null, validRules), null);
+        OnComplete?.Invoke(this, new(new HashSet<State>() { initState }, queryMessage, null, validRules), null);
     }
 
     #region IClauseCompiler implementation.
