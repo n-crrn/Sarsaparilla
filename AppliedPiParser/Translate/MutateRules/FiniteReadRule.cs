@@ -48,7 +48,9 @@ public class FiniteReadRule : IMutateRule
         {
             varMsg = new TupleMessage(from rx in ReceivePattern select new VariableMessage(rx));
         }
-        Socket.RegisterReadSequence(factory, PreviousReadCount, Socket.ReadState(varMsg));
+        Snapshot prevSS = Socket.RegisterReadSequence(factory, PreviousReadCount, Socket.WaitingState());
+        Snapshot latestSS = factory.RegisterState(Socket.ReadState(varMsg));
+        latestSS.SetModifiedOnceLaterThan(prevSS);
         return factory.CreateStateConsistentRule(VariableCellAsPremise(VariableName));
     }
 

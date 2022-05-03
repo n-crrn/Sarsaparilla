@@ -38,19 +38,24 @@ public class Translation
     /// </summary>
     /// <param name="t"></param>
     /// <returns></returns>
-    private static IMessage TermToMessage(Term t)
+    private static IMessage TermToMessage(Term t, ResolvedNetwork rn)
     {
         if (t.Parameters.Count > 0)
         {
-            List<IMessage> msgParams = new(from p in t.Parameters select TermToMessage(p));
+            List<IMessage> msgParams = new(from p in t.Parameters select TermToMessage(p, rn));
             return t.IsTuple ? new TupleMessage(msgParams) : new FunctionMessage(t.Name, msgParams);
+        }
+        (TermSource source, PiType _) = rn.TermDetails[t];
+        if (source == TermSource.Input)
+        {
+            return new VariableMessage(t.Name);
         }
         return new NameMessage(t.Name);
     }
 
-    private static StatefulHorn.Event TermToKnow(Term t)
+    private static StatefulHorn.Event TermToKnow(Term t, ResolvedNetwork rn)
     {
-        return StatefulHorn.Event.Know(TermToMessage(t));
+        return StatefulHorn.Event.Know(TermToMessage(t, rn));
     }
 
     private static Rule TranslateConstructor(Constructor ctr, RuleFactory factory)
@@ -127,12 +132,12 @@ public class Translation
             {
                 if (!nw.FreeDeclarations[term.Name].IsPrivate)
                 {
-                    allRules.Add(factory.CreateStateConsistentRule(TermToKnow(term)));
+                    allRules.Add(factory.CreateStateConsistentRule(TermToKnow(term, rn)));
                 }
             }
             else if (src == TermSource.Constant)
             {
-                allRules.Add(factory.CreateStateConsistentRule(TermToKnow(term)));
+                allRules.Add(factory.CreateStateConsistentRule(TermToKnow(term, rn)));
             }
         }
 
@@ -146,7 +151,7 @@ public class Translation
             allRules.Add(r.GenerateRule(factory));
         }
 
-        HashSet<IMessage> queries = new(from q in nw.Queries select TermToMessage(q.LeakQuery));
+        HashSet<IMessage> queries = new(from q in nw.Queries select TermToMessage(q.LeakQuery, rn));
 
         return new(initStates, allRules, queries);
     }
@@ -164,7 +169,7 @@ public class Translation
 
         ProcessTree procTree = new(rn);
         BranchSummary rootSummary = PreProcessBranch(procTree.StartNode, new(), cellsInUse);
-        List<IMutateRule> allMutateRules = new(ProcessBranch(procTree.StartNode, rootSummary, new(), new(), new(), new()));
+        List<IMutateRule> allMutateRules = new(ProcessBranch(procTree.StartNode, rootSummary, new(), new(), new(), new(), rn));
         return (rootSummary.AllSockets(), allMutateRules);
     }
 
@@ -317,7 +322,8 @@ public class Translation
         List<BranchSummary> parallelBranches,
         List<Socket> previousSockets, 
         Dictionary<Term, Term> subs,
-        HashSet<StatefulHorn.Event> premises)
+        HashSet<StatefulHorn.Event> premises,
+        ResolvedNetwork rn)
     {
         // Open required reader sockets.
         foreach (ReadSocket rs in summary.Readers.Values)
@@ -379,7 +385,7 @@ public class Translation
                     Term outChannelTerm = new(ocp.Channel);
                     WriteSocket writer = summary.Writers[outChannelTerm];
                     writeCount.TryGetValue(outChannelTerm, out int wc);
-                    IMessage resultMessage = TermToMessage(ocp.SentTerm);
+                    IMessage resultMessage = TermToMessage(ocp.SentTerm, rn);
                     // Infinite cross-links have to be done here as this is where the premises and
                     // result are.
                     if (writer.IsInfinite)
@@ -459,7 +465,7 @@ public class Translation
 
             // Execute query.
             IEnumerable<IMutateRule> childRules = 
-                ProcessBranch(n.Branches[i], summary.Children[i], subParallel, thisBranchSockets, new(subs), new(premises));
+                ProcessBranch(n.Branches[i], summary.Children[i], subParallel, thisBranchSockets, new(subs), new(premises), rn);
             foreach (IMutateRule r in childRules)
             {
                 yield return r;

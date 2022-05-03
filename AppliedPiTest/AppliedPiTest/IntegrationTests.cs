@@ -30,6 +30,22 @@ process ( out(c, s) | in(c, v: bitstring) ).
         await DoTest(piSource, false, true);
     }
 
+    [TestMethod]
+    public async Task ValueTransferTest()
+    {
+        string piSource =
+@"free c: channel.
+free d: channel [private].
+free s: bitstring [private].
+
+query attacker(s).
+
+process
+  out(d, s) | ( in(d, v: bitstring); out(c, v) ).
+";
+        await DoTest(piSource, false, true);
+    }
+
     private async Task DoTest(string src, bool expectGlobalAttack, bool expectNessionAttack)
     {
         Network nw = Network.CreateFromCode(src);
