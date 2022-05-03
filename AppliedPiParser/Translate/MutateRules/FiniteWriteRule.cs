@@ -25,7 +25,15 @@ public class FiniteWriteRule : IMutateRule
 
     public Rule GenerateRule(RuleFactory factory)
     {
-        Snapshot latest = Socket.RegisterWriteSequence(factory, PriorWriteCount, Socket.WaitingState());
+        Snapshot latest;
+        if (PriorWriteCount > 0)
+        {
+            latest = Socket.RegisterWriteSequence(factory, PriorWriteCount, Socket.WaitingState());
+        }
+        else
+        {
+            latest = factory.RegisterState(Socket.InitialState());
+        }
         factory.RegisterPremises(latest, Premises);
         latest.TransfersTo = Socket.WriteState(ValueToWrite);
         return factory.CreateStateTransferringRule();
