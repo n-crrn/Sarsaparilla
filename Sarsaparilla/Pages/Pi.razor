@@ -108,6 +108,10 @@
             {
                 Engine = engines[0];
             }
+            else
+            {
+                ErrorMessage = "No query specified.";
+            }
         }
         catch (NetworkCreationException ex)
         {
