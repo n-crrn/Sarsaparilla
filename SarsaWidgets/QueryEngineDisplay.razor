@@ -64,12 +64,28 @@
                                 @if (CurrentHornClauses != null)
                                 {
                                     <div class='horn-clause-view'>
-                                        <p class='description'>Derived horn clauses as follows:</p>
-                                        <Virtualize Items=@CurrentHornClauses Context=hc>
-                                            <div class='horn-clause-item'>
-                                                <HornClauseDisplay HornClause=@hc/>
+                                        <p class='description'>
+                                            Derived horn clauses as follows:
+                                        </p>
+                                        @foreach ((int rank, List<HornClause> clauseList) in HornClausesByRank)
+                                        {
+                                            @if (rank == -1)
+                                            {
+                                                <p>Always Applicable</p>
+                                            }
+                                            else
+                                            {
+                                                <p>Rank @rank</p>
+                                            }
+                                            <div class='clause-collection'>
+                                                @foreach (HornClause hc in clauseList)
+                                                {
+                                                    <div class='horn-clause-item'>
+                                                        <HornClauseDisplay HornClause=@hc/>
+                                                    </div>
+                                                }
                                             </div>
-                                        </Virtualize>
+                                        }
                                     </div>    
                                 }
                             </div>
@@ -247,7 +263,44 @@
 
     public Attack? CurrentAttack { get; set; }
 
-    public HashSet<HornClause>? CurrentHornClauses { get; set; }
+    private HashSet<HornClause>? _CurrentHornClauses = null;
+
+    public HashSet<HornClause>? CurrentHornClauses
+    {
+        get => _CurrentHornClauses;
+        set
+        {
+            _HornClausesByRank = null;
+            _CurrentHornClauses = value;
+        }
+    }
+
+    private SortedList<int, List<HornClause>>? _HornClausesByRank = null;
+
+    public SortedList<int, List<HornClause>> HornClausesByRank
+    {
+        get
+        {
+            if (_HornClausesByRank != null)
+            {
+                return _HornClausesByRank;
+            }
+            _HornClausesByRank = new();
+            if (_CurrentHornClauses != null)
+            {
+                foreach (HornClause hc in _CurrentHornClauses)
+                {
+                    if (!_HornClausesByRank.TryGetValue(hc.Rank, out List<HornClause>? bucket))
+                    {
+                        bucket = new();
+                        _HornClausesByRank[hc.Rank] = bucket;
+                    }
+                    bucket.Add(hc);
+                }
+            }
+            return _HornClausesByRank;
+        }
+    }
 
     private void OnSelect((Nession, HashSet<HornClause>, Attack?) selTuple)
     {

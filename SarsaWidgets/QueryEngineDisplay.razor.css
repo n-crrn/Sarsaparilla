@@ -135,11 +135,13 @@
 }
 
 .horn-clause-item {
-    margin-top: 5px;
-    margin-bottom: 5px;
     padding: 5px;
 }
 
 .horn-clause-item:nth-of-type(2n+1) {
     background-color: #202020;
+}
+
+.clause-collection {
+    border: solid 1px var(--foreground-theme-color, grey);
 }
