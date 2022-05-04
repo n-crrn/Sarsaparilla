@@ -46,6 +46,22 @@ process
         await DoTest(piSource, false, true);
     }
 
+    [TestMethod]
+    public async Task FalseAttackAvoidanceTest()
+    {
+        string piSource =
+@"free c: channel.
+free d: channel [private].
+free s: bitstring [private].
+
+query attacker(s).
+
+process
+  out(d, s) | ( in(d, v: bitstring); out(c, d) ).
+";
+        await DoTest(piSource, false, false);
+    }
+
     private async Task DoTest(string src, bool expectGlobalAttack, bool expectNessionAttack)
     {
         Network nw = Network.CreateFromCode(src);
@@ -65,8 +81,8 @@ process
 
             await qe.Execute(null, onGlobalAttackFound, onAttackAssessedFound, null);
 
-            Assert.AreEqual(expectGlobalAttack, globalAttackFound, "Expected global attack not found.");
-            Assert.AreEqual(expectNessionAttack, nessionAttackFound, "Expected non-global attack not found.");
+            Assert.AreEqual(expectGlobalAttack, globalAttackFound, "Global attack finding.");
+            Assert.AreEqual(expectNessionAttack, nessionAttackFound, "Expected non-global attack.");
         }
         catch (Exception)
         {

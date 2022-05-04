@@ -1,25 +1,30 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 
 using StatefulHorn;
+using AppliedPi.Model;
 
 namespace AppliedPi.Translate.MutateRules;
 
 public class FiniteWriteRule : IMutateRule
 {
 
-    public FiniteWriteRule(WriteSocket s, int priorWrites, HashSet<Event> premises, IMessage value)
+    public FiniteWriteRule(WriteSocket s, IDictionary<Socket, int> finActionCounts, HashSet<StatefulHorn.Event> premises, IMessage value)
     {
         Socket = s;
-        PriorWriteCount = priorWrites;
+        FiniteActionCounts = new Dictionary<Socket, int>(finActionCounts);
         ValueToWrite = value;
         Premises = new(premises); // Copy, so that premises are not added afterwards.
     }
 
     public WriteSocket Socket { get; init; }
 
-    public int PriorWriteCount { get; init; }
+    public int PriorWriteCount => FiniteActionCounts[Socket];
 
-    HashSet<Event> Premises { get; init; }
+    public IDictionary<Socket, int> FiniteActionCounts { get; init; }
+
+    HashSet<StatefulHorn.Event> Premises { get; init; }
 
     public IMessage ValueToWrite { get; init; }
 
@@ -27,15 +32,16 @@ public class FiniteWriteRule : IMutateRule
 
     public Rule GenerateRule(RuleFactory factory)
     {
-        Snapshot latest;
-        if (PriorWriteCount > 0)
+        Snapshot? latest = null;
+        foreach ((Socket s, int ic) in FiniteActionCounts)
         {
-            latest = Socket.RegisterWriteSequence(factory, PriorWriteCount, Socket.WaitingState());
+            Snapshot ss = s.RegisterHistory(factory, ic);
+            if (s.Equals(Socket))
+            {
+                latest = ss;
+            }
         }
-        else
-        {
-            latest = factory.RegisterState(Socket.InitialState());
-        }
+        Debug.Assert(latest != null);
         factory.RegisterPremises(latest, Premises);
         latest.TransfersTo = Socket.WriteState(ValueToWrite);
         return factory.CreateStateTransferringRule();
@@ -49,7 +55,7 @@ public class FiniteWriteRule : IMutateRule
     {
         return obj is FiniteWriteRule r &&
             Socket.Equals(r.Socket) &&
-            PriorWriteCount == r.PriorWriteCount &&
+            FiniteActionCounts.SequenceEqual(r.FiniteActionCounts) &&
             Premises.SetEquals(r.Premises) &&
             ValueToWrite.Equals(r.ValueToWrite);
     }

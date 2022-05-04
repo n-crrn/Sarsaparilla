@@ -12,6 +12,15 @@ public class WriteSocket : Socket
         base(name, SocketDirection.Out, branch)
     { }
 
+    public override Snapshot RegisterHistory(RuleFactory factory, int interactions)
+    {
+        if (interactions == 0)
+        {
+            return RegisterWriteSequence(factory, interactions, null);
+        }
+        return RegisterWriteSequence(factory, interactions, WaitingState());
+    }
+
     public Snapshot RegisterWriteSequence(RuleFactory factory, int writeCount, State? endWith = null)
     {
         Debug.Assert(Direction == SocketDirection.Out);

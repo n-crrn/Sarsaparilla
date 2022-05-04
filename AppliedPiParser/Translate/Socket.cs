@@ -7,7 +7,7 @@ namespace AppliedPi.Translate;
 
 public enum SocketDirection { In, Out }
 
-public class Socket
+public abstract class Socket
 {
 
     protected Socket(string name, SocketDirection dir, int branch = Infinite)
@@ -26,6 +26,8 @@ public class Socket
     public bool IsInfinite => BranchId == Infinite;
 
     public SocketDirection Direction { get; init; }
+
+    public abstract Snapshot RegisterHistory(RuleFactory factory, int interactions);
 
     #region Standard socket states.
 

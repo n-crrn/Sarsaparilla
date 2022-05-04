@@ -343,9 +343,24 @@ public class Translation
         Dictionary<Term, List<ReadSocket>> finReaders;
         (infReaders, finReaders) = SplitInfiniteReaders(parallelBranches);
 
-        // Perform required branch operations.
-        Dictionary<Term, int> readCount = new();
-        Dictionary<Term, int> writeCount = new();
+        // Set up the socket read/write counts. Necessary for proper sequence of rule generation.
+        Dictionary<Socket, int> interactionCount = new();
+        foreach (ReadSocket rsS in summary.Readers.Values)
+        {
+            if (!rsS.IsInfinite)
+            {
+                interactionCount[rsS] = 0;
+            }
+        }
+        foreach (WriteSocket wrS in summary.Writers.Values)
+        {
+            if (!wrS.IsInfinite)
+            {
+                interactionCount[wrS] = 0;
+            }
+        }
+
+        // Go through processes one at a time.
         int branchId = n.BranchId;
         while (branchId == n.BranchId)
         {
@@ -354,7 +369,7 @@ public class Translation
                 case InChannelProcess icp:
                     Term inChannelTerm = new(icp.Channel);
                     ReadSocket reader = summary.Readers[inChannelTerm];
-                    readCount.TryGetValue(inChannelTerm, out int rc);
+                    //readCount.TryGetValue(inChannelTerm, out int rc);
                     if (reader.IsInfinite)
                     {
                         yield return new ReadResetRule(reader);
@@ -365,6 +380,7 @@ public class Translation
                     }
                     else
                     {
+                        int rc = interactionCount[reader];
                         if (rc > 0)
                         {
                             yield return new ReadResetRule(reader, rc);
@@ -373,18 +389,20 @@ public class Translation
                         {
                             yield return mr;
                         }
+                        interactionCount[reader] = rc + 1;
                     }
                     
                     foreach ((string varEntry, _) in icp.ReceivePattern)
                     {
                         premises.Add(FiniteReadRule.VariableCellAsPremise(varEntry));
                     }
-                    readCount[inChannelTerm] = rc + 1;
+                    //readCount[inChannelTerm] = rc + 1;
                     break;
                 case OutChannelProcess ocp:
                     Term outChannelTerm = new(ocp.Channel);
                     WriteSocket writer = summary.Writers[outChannelTerm];
-                    writeCount.TryGetValue(outChannelTerm, out int wc);
+                    //writeCount.TryGetValue(outChannelTerm, out int wc);
+                    //int wc = interactionCount[writer];
                     IMessage resultMessage = TermToMessage(ocp.SentTerm, rn);
                     // Infinite cross-links have to be done here as this is where the premises and
                     // result are.
@@ -407,8 +425,9 @@ public class Translation
                     }
                     else
                     {
-                        yield return new FiniteWriteRule(writer, wc, premises, resultMessage);
-                        writeCount[outChannelTerm] = wc + 1;
+                        int wc = interactionCount[writer];
+                        yield return new FiniteWriteRule(writer, interactionCount, premises, resultMessage);
+                        interactionCount[writer] = wc + 1;
                     }
                     break;
             }
@@ -421,20 +440,20 @@ public class Translation
 
         // Shut down the sockets.
         List<Socket> thisBranchSockets = new();
-        foreach ((Term rt, ReadSocket rs) in summary.Readers)
+        foreach (ReadSocket rs in summary.Readers.Values)
         {
             if (!rs.IsInfinite)
             {
                 thisBranchSockets.Add(rs);
-                yield return new ShutRule(rs, readCount[rt]);
+                yield return new ShutRule(rs, interactionCount[rs]);
             }
         }
-        foreach ((Term wt, WriteSocket ws) in summary.Writers)
+        foreach (WriteSocket ws in summary.Writers.Values)
         {
             if (!ws.IsInfinite)
             {
                 thisBranchSockets.Add(ws);
-                yield return new ShutRule(ws, writeCount[wt]);
+                yield return new ShutRule(ws, interactionCount[ws]);
             }
         }
 

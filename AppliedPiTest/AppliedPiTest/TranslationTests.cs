@@ -29,11 +29,12 @@ process out(c, x) | in(c, y: bitstring).";
         WriteSocket c2Out = new("c", 2);
         ReadSocket c3In = new("c", 3);
         HashSet<Socket> expectedSockets = new() { c2Out, c3In };
+        Dictionary<Socket, int> finiteWriteInteractions = new() { { c2Out, 0} };
         HashSet<IMutateRule> expectedMutations = new()
         {
             new KnowChannelContentRule(c2Out),
             new OpenReadSocketRule(c3In),
-            new FiniteWriteRule(c2Out, 0, new(), new NameMessage("x")),
+            new FiniteWriteRule(c2Out, finiteWriteInteractions, new(), new NameMessage("x")),
             new FiniteCrossLinkRule(c2Out, c3In),
             new FiniteReadRule(c3In, 0, "y"),
             new ShutRule(c2Out, 1),
@@ -75,12 +76,17 @@ process
             Event.Know(new FunctionMessage("x@cell", new() { new VariableMessage("x") }))
         };
 
+        // The socket histories, which are required for rule construction.
+        Dictionary<Socket, int> c0Write1History = new() { { c0Out, 0 } };
+        Dictionary<Socket, int> c0Write2History = new() { { c0Out, 1 } };
+        Dictionary<Socket, int> f3Out1History = new() { { f3Out, 0 } };
+
         HashSet<IMutateRule> expectedMutations = new()
         {
             // Branch 0 (out(c, d); out(c, e)) rules. Note the lack of cross link rules.
             new KnowChannelContentRule(c0Out),
-            new FiniteWriteRule(c0Out, 0, new(), new NameMessage("d")),
-            new FiniteWriteRule(c0Out, 1, new(), new NameMessage("e")),
+            new FiniteWriteRule(c0Out, c0Write1History, new(), new NameMessage("d")),
+            new FiniteWriteRule(c0Out, c0Write2History, new(), new NameMessage("e")),
             new ShutRule(c0Out, 2),
             // Branch 1 is the parallel composition process - nothing.
             // Branch 2 (in(c, v)) rules.
@@ -89,7 +95,7 @@ process
             new ShutRule(c2In, 1),
             // Branch 3 (new f: channel; out(f, d)) rules.
             new KnowChannelContentRule(f3Out),
-            new FiniteWriteRule(f3Out, 0, new(), new NameMessage("d")),
+            new FiniteWriteRule(f3Out, f3Out1History, new(), new NameMessage("d")),
             new ShutRule(f3Out, 1),
             // Branch 4 is the replicant process - nothing.
             // Branch 5 (in(c, x: bitstring); out(c, f)) rules.

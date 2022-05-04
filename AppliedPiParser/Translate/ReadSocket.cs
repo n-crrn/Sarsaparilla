@@ -12,13 +12,18 @@ public class ReadSocket : Socket
         base(name, SocketDirection.In, branch)
     { }
 
+    public override Snapshot RegisterHistory(RuleFactory factory, int interactions)
+    {
+        return RegisterReadSequence(factory, interactions, null);
+    }
+
     public Snapshot RegisterReadSequence(RuleFactory factory, int readCount, State? endWith = null)
     {
         Debug.Assert(Direction == SocketDirection.In);
         List<Snapshot> allSS = new() { factory.RegisterState(InitialState()) };
         for (int i = 0; i < readCount; i++)
         {
-            factory.RegisterState(WaitingState());
+            allSS.Add(factory.RegisterState(WaitingState()));
             IMessage readMsg = new VariableMessage($"@v{i}");
             allSS.Add(factory.RegisterState(ReadState(readMsg)));
         }
