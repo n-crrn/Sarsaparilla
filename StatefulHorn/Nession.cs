@@ -17,25 +17,6 @@ public class Nession
         History.Add(new(new(), new(initStates), new()));
     }
 
-    /// <summary>
-    /// Creates a new Nession seeded by a State Consistent Rule.
-    /// </summary>
-    /// <param name="ndRule">The Nonce Declaring Rule.</param>
-    /*public Nession(StateConsistentRule ndRule)
-    {
-        InitialRule = ndRule;
-        History.Add(new(new(), LatestStateWithRule(ndRule), new() { ndRule }));
-        UpdateNonceDeclarations();
-    }
-
-    public Nession(StateTransferringRule ndRule)
-    {
-        InitialRule = ndRule;
-        History.Add(new(new(), LatestStateWithRule(ndRule), new()));
-        History.Add(new(new(ndRule.Premises), StatesAfterTransfer(ndRule), new()));
-        UpdateNonceDeclarations();
-    }*/
-
     private Nession(Rule? initRule, IEnumerable<Frame> frames, int lastVNumber)
     {
         InitialRule = initRule;
@@ -43,23 +24,6 @@ public class Nession
         UpdateNonceDeclarations();
         VNumber = lastVNumber;
     }
-
-    /*
-    public static Nession FromRule(Rule r)
-    {
-        if (r is StateConsistentRule scr)
-        {
-            return new(scr);
-        }
-        else if (r is StateTransferringRule str)
-        {
-            return new(str);
-        }
-        else
-        {
-            throw new NotImplementedException($"Rule type '{r.GetType()}' is not StateConsistentRule or StateTransferringRule is not supported.");
-        }
-    }*/
 
     #region Properties.
 
@@ -275,11 +239,6 @@ public class Nession
     public bool CanApplyRuleAt(Rule r, int startOffset, out SigmaFactory? sf)
     {
         // Handle nonce boundaries.
-        /*if (InitialRule == null && r.NonceDeclarations.Any()) // Initial traces do not contain nonce declarations.
-        {
-            sf = null;
-            return false;
-        }*/
         if (r.NonceDeclarations.Any((Event ev) => NonceDeclarations.Contains(ev))) // Do not allow redeclaration of nonces.
         {
             sf = null;
