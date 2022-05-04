@@ -325,7 +325,7 @@ public class QueryEngine
                 bool found = true;
                 foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
                 {
-                    QueryResult innerResult = CheckQuery(premise, facts, rules, status, rank);
+                    QueryResult innerResult = CheckQuery(premise, facts, rules, status, RatchetRank(checkRule, rank));
                     if (innerResult.Found)
                     {
                         qrParts.Add(innerResult);
