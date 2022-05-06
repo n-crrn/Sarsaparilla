@@ -140,9 +140,6 @@ public class SigmaFactory
             {
                 return false;
             }
-            // A copy of the guard needs to be updated to protect var1 =/= var2 situations.
-            SigmaMap sm = new(list1[i], list2[i]);
-            g = g.PerformSubstitution(sm);
         }
         return true;
     }
@@ -165,6 +162,40 @@ public class SigmaFactory
         }
         return true;
     }
+
+    #endregion
+    #region Guard checks.
+
+    private static bool IsValidByGuard(Dictionary<VariableMessage, IMessage> dir, Guard g)
+    {
+        foreach ((VariableMessage vMsg, IMessage otherMsg) in dir)
+        {
+            if (!g.CanUnifyMessages(vMsg, otherMsg))
+            {
+                return false;
+            }
+            if (g.Ununified.TryGetValue(vMsg, out HashSet<IMessage>? fullBanSet))
+            {
+                IEnumerable<VariableMessage> crossRef = from m in fullBanSet where m is VariableMessage select (VariableMessage)m;
+                foreach (VariableMessage nextVMsg in crossRef)
+                {
+                    // Double check that the two variables are not set to the same replacement.
+                    if (dir.TryGetValue(nextVMsg, out IMessage? nextValue))
+                    {
+                        if (otherMsg.Equals(nextValue))
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    public bool ForwardIsValidByGuard(Guard g) => IsValidByGuard(Forward, g);
+
+    public bool BackwardIsValidByGuard(Guard g) => IsValidByGuard(Backward, g);
 
     #endregion
 

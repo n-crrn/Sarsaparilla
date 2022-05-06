@@ -1,5 +1,8 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+
+using StatefulHorn.Messages;
 
 namespace StatefulHorn;
 
@@ -12,90 +15,93 @@ public class Guard
     public Guard()
     {
         _Ununified = new();
-        _Ununifiable = new();
     }
 
-    private Guard(HashSet<(IMessage, IMessage)> ununifiedComb, HashSet<(IMessage, IMessage)> ununifiableComb)
+    private Guard(Dictionary<VariableMessage, HashSet<IMessage>> ununifiedComb)
     {
         _Ununified = ununifiedComb;
-        _Ununifiable = ununifiableComb;
     }
 
-    public static Guard CreateFromSets(HashSet<(IMessage, IMessage)> ununifiedInput, HashSet<(IMessage, IMessage)> ununifiableInput)
+    public static Guard CreateFromSets(HashSet<(VariableMessage, IMessage)> ununifiedInput)
     {
-        HashSet<(IMessage, IMessage)> ununifiedComb = new();
-        HashSet<(IMessage, IMessage)> ununifiableComb = new();
+        Dictionary<VariableMessage, HashSet<IMessage>> ununifiedComb = new();
 
-        foreach ((IMessage, IMessage) row in ununifiedInput)
+        foreach ((VariableMessage, IMessage) row in ununifiedInput)
         {
-            if (HasSwitched(ununifiedInput, row) || ununifiableInput.Contains(row) || HasSwitched(ununifiableInput, row))
+            if(ununifiedComb.TryGetValue(row.Item1, out HashSet<IMessage>? values))
             {
-                ununifiableComb.Add(row);
+                values.Add(row.Item2);
             }
             else
             {
-                ununifiedComb.Add(row);
+                ununifiedComb[row.Item1] = new() { row.Item2 };
             }
         }
 
-        foreach ((IMessage, IMessage) row in ununifiableInput)
+        return new(ununifiedComb);
+    }
+
+    private readonly Dictionary<VariableMessage, HashSet<IMessage>> _Ununified;
+
+    public IReadOnlyDictionary<VariableMessage, HashSet<IMessage>> Ununified => _Ununified;
+
+    public bool CanUnifyMessages(VariableMessage msg1, IMessage msg2)
+    {
+        if (_Ununified.TryGetValue(msg1, out HashSet<IMessage>? bannedList))
         {
-            if (!HasSwitched(ununifiableComb, row))
-            {
-                ununifiableComb.Add(row);
-            }
+            return !bannedList.Contains(msg2);
         }
-
-        return new Guard(ununifiedComb, ununifiableComb);
-    }
-
-    private static bool HasSwitched(HashSet<(IMessage, IMessage)> fullSet, (IMessage, IMessage) row)
-    {
-        (IMessage, IMessage) switched = (row.Item2, row.Item1);
-        return fullSet.Contains(switched);
-    }
-
-    private readonly HashSet<(IMessage, IMessage)> _Ununified;
-
-    public IReadOnlySet<(IMessage, IMessage)> Ununified => _Ununified;
-
-    private readonly HashSet<(IMessage, IMessage)> _Ununifiable;
-
-    public IReadOnlySet<(IMessage, IMessage)> Ununifiable => _Ununifiable;
-
-    public bool CanUnifyMessages(IMessage msg1, IMessage msg2)
-    {
-        return !(_Ununified.Contains((msg1, msg2)) ||
-                 _Ununifiable.Contains((msg1, msg2)) ||
-                 _Ununifiable.Contains((msg2, msg1)));
+        return true;
     }
 
     public Guard UnionWith(Guard other)
     {
-        HashSet<(IMessage, IMessage)> ununifiedComb = new(_Ununified);
-        ununifiedComb.UnionWith(other._Ununified);
-        HashSet<(IMessage, IMessage)> ununifiableComb = new(_Ununifiable);
-        ununifiableComb.UnionWith(other._Ununifiable);
-        return new(ununifiedComb, ununifiableComb);
+        Dictionary<VariableMessage, HashSet<IMessage>> comb = new();
+        ImportUnunifiedList(comb, _Ununified);
+        ImportUnunifiedList(comb, other._Ununified);
+        return new(comb);
+    }
+
+    private static void ImportUnunifiedList(
+        Dictionary<VariableMessage, HashSet<IMessage>> newDict,
+        Dictionary<VariableMessage, HashSet<IMessage>> oldDict)
+    {
+        foreach ((VariableMessage vMsg, HashSet<IMessage>? oldSet) in oldDict)
+        {
+            if (newDict.TryGetValue(vMsg, out HashSet<IMessage>? newSet))
+            {
+                newSet!.UnionWith(oldSet);
+            }
+            else
+            {
+                newDict[vMsg] = new(oldSet);
+            }
+        }
     }
 
     public Guard PerformSubstitution(SigmaMap sigma)
     {
-        if (_Ununified.Count == 0 && _Ununifiable.Count == 0)
-        {
-            return this;
-        }
-        return new(Substitute(_Ununified, sigma), Substitute(_Ununifiable, sigma));
+        return _Ununified.Count == 0 ? this : new(Substitute(_Ununified, sigma));
     }
 
-    private static HashSet<(IMessage, IMessage)> Substitute(HashSet<(IMessage, IMessage)> inputSet, SigmaMap sigma)
+    private static Dictionary<VariableMessage, HashSet<IMessage>> Substitute(
+        Dictionary<VariableMessage, HashSet<IMessage>> input, 
+        SigmaMap sigma)
     {
-        // FIXME: If a substitute is provided for a variable, and the substitution does not
-        // contradict the guard, then the variable can be removed from the guard completely.
-        return new(from item in inputSet select (item.Item1.PerformSubstitution(sigma), item.Item2.PerformSubstitution(sigma)));
+        Dictionary<VariableMessage, HashSet<IMessage>> updated = new();
+
+        foreach ((VariableMessage vMsg, HashSet<IMessage> set) in input)
+        {
+            if (!sigma.TryGetValue(vMsg, out IMessage? _)) // Skip the value if it is now defined.
+            {
+                updated[vMsg] = new HashSet<IMessage>(from s in set select s.PerformSubstitution(sigma));
+            }
+        }
+
+        return updated;
     }
 
-    public bool IsEmpty => _Ununified.Count == 0 && _Ununifiable.Count == 0;
+    public bool IsEmpty => _Ununified.Count == 0;
 
     #region Basic object overrides.
 
@@ -103,49 +109,66 @@ public class Guard
     {
         // Not that non-ununifiables are the only items output as part of the string.
         List<string> nonunif = new();
-        foreach((IMessage msg1, IMessage msg2) in _Ununified)
+        foreach ((VariableMessage vMsg, HashSet<IMessage> set) in _Ununified)
         {
-            nonunif.Add($"{msg1} ~/⤳ {msg2}");
-        }
-        foreach ((IMessage msg1, IMessage msg2) in _Ununifiable)
-        {
-            nonunif.Add($"{msg1} ≠ {msg2}");
+            foreach (IMessage msg in set)
+            {
+                nonunif.Add($"{vMsg} ~/⤳ {msg}");
+            }
         }
         return string.Join(", ", nonunif);
     }
 
     public override bool Equals(object? obj)
     {
-        return obj is Guard otherGuard &&
-            ((IsEmpty && otherGuard.IsEmpty) ||
-            ( _Ununified.SetEquals(otherGuard._Ununified) && _Ununifiable.SetEquals(otherGuard._Ununifiable)));
+        if (obj is Guard og)
+        {
+            if (_Ununified.Count != og._Ununified.Count)
+            {
+                return false;
+            }
+            foreach ((VariableMessage thisVMsg, HashSet<IMessage> thisSet) in _Ununified)
+            {
+                if (!og._Ununified.TryGetValue(thisVMsg, out HashSet<IMessage>? otherSet))
+                {
+                    return false;
+                }
+                if (!thisSet!.SetEquals(otherSet))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
     }
+
+    private int _HashCode = 0;
 
     public override int GetHashCode()
     {
         if (_Ununified.Count == 0)
         {
-            if (_Ununifiable.Count == 0)
+            return 0;
+        }
+        if (_HashCode == 0)
+        {
+            _HashCode = 7727 * 7741;
+            foreach ((VariableMessage vMsg, HashSet<IMessage> set) in _Ununified)
             {
-                return 0;
-            }
-            else
-            {
-                return GenerateHashCode(_Ununifiable);
+                unchecked
+                {
+                    _HashCode = _HashCode * 7741 + vMsg.GetHashCode();
+                    foreach (IMessage m in set)
+                    {
+                        _HashCode = _HashCode * 7741 + m.GetHashCode();
+                    }
+                }
             }
         }
-        return GenerateHashCode(_Ununified);
+        return _HashCode;
     }
 
-    private static int GenerateHashCode(HashSet<(IMessage, IMessage)> hs)
-    {
-        int code = 0;
-        foreach ((IMessage, IMessage) row in hs)
-        {
-            code ^= row.GetHashCode();
-        }
-        return code;
-    }
 
     #endregion
 }

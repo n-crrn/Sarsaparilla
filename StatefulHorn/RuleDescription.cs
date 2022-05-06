@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using StatefulHorn.Messages;
+
 namespace StatefulHorn;
 
 /// <summary>
@@ -29,6 +31,7 @@ public class RuleDescription
 
     #region Guards
 
+    // FIXME: These ops can be rationalised down to just "UnifiedTo".
     public enum GuardOp
     {
         CannotBeUnifiedTo,
@@ -41,13 +44,12 @@ public class RuleDescription
 
     private void GetGuardFromRule(Rule r)
     {
-        foreach ((IMessage from, IMessage to) in r.GuardStatements.Ununified)
+        foreach ((VariableMessage from, HashSet<IMessage> toSet) in r.GuardStatements.Ununified)
         {
-            GuardStatements.Add((from, GuardOp.CannotBeUnifiedTo, to));
-        }
-        foreach ((IMessage from, IMessage to) in r.GuardStatements.Ununifiable)
-        {
-            GuardStatements.Add((from, GuardOp.CannotBeUnifiableWith, to));
+            foreach (IMessage to in toSet)
+            {
+                GuardStatements.Add((from, GuardOp.CannotBeUnifiedTo, to));
+            }
         }
     }
 

@@ -147,7 +147,7 @@ public class ParseTests
         // --- General check ---
         string generalLabelInput = $"{expectedLabel} = know(x), know(y) -[ ]-> know(enc(x, y))";
         Rule generalParsed = parser.Parse(generalLabelInput);
-        Rule generalExpected = CreateDefaultRuleWithGuard(expectedLabel, new(), new());
+        Rule generalExpected = CreateDefaultRuleWithGuard(expectedLabel, new());
 
         // Note that the labels are not tested as part of rule equality, but we need to ensure
         // that the substance of the rules is correctly parsed.
@@ -163,10 +163,10 @@ public class ParseTests
         Assert.AreEqual(expectedLabel, emptyGHMParsed.Label, "Labels do not match when guard and premise empty.");
 
         // --- With guard but empty premise check ---
-        string emptyHMInput = $"{expectedLabel} = [name[] ~/> x] -[ ]-> know(z[])";
+        string emptyHMInput = $"{expectedLabel} = [x ~/> name[]] -[ ]-> know(z[])";
         Rule emptyHMParsed = parser.Parse(emptyHMInput);
         Factory.SetNextLabel("expected HM");
-        Factory.GuardStatements = Guard.CreateFromSets(new() { (new NameMessage("name"), new VariableMessage("x")) }, new());
+        Factory.GuardStatements = Guard.CreateFromSets(new() { (new VariableMessage("x"), new NameMessage("name")) });
         Rule emptyHMExpected = Factory.CreateStateConsistentRule(Event.Know(new NameMessage("z")));
         AssertRulesEqual(emptyHMExpected, emptyHMParsed, emptyHMInput);
         Assert.AreEqual(expectedLabel, emptyHMParsed.Label, "Labels do not match when premise empty.");
@@ -180,32 +180,16 @@ public class ParseTests
     {
         RuleParser parser = new();
 
-        string[][] parsedRules = new string[][]
-        {
-            ContractExpandRuleString("[name[] ~/> x] know(x), know(y) -[ ]-> know(enc(x, y))"),
-            ContractExpandRuleString("[name[] =/= x] know(x), know(y) -[ ]-> know(enc(x, y))"),
-            ContractExpandRuleString("[name[] ~/> x, name[] =/= y] know(x), know(y) -[ ]-> know(enc(x, y))")
-        };
+        string[] parsedRules = ContractExpandRuleString("[x ~/> name[]] know(x), know(y) -[ ]-> know(enc(x, y))");
 
         IMessage nameMsg = new NameMessage("name");
-        IMessage xMsg = new VariableMessage("x");
-        IMessage yMsg = new VariableMessage("y");
+        VariableMessage xMsg = new("x");
 
-        List<Rule> expectedRules = new()
+        Rule expected = CreateDefaultRuleWithGuard("r1", new() { (xMsg, nameMsg) });
+        foreach (string src in parsedRules)
         {
-            CreateDefaultRuleWithGuard("r1", new() { (nameMsg, xMsg) }, new()),
-            CreateDefaultRuleWithGuard("r2", new(), new() { (nameMsg, xMsg) }),
-            CreateDefaultRuleWithGuard("r3", new() { (nameMsg, xMsg) }, new() { (nameMsg, yMsg) })
-        };
-
-        for (int i = 0; i < expectedRules.Count; i++)
-        {
-            Rule expected = expectedRules[i];
-            foreach (string src in parsedRules[i])
-            {
-                Rule generated = parser.Parse(src);
-                AssertRulesEqual(expected, generated, src);
-            }
+            Rule generated = parser.Parse(src);
+            AssertRulesEqual(expected, generated, src);
         }
     }
 
@@ -225,9 +209,9 @@ public class ParseTests
     /// rule parsing need to be tested (e.g. guard parse testing, label testing).
     /// </summary>
     /// <param name="label">Label to set for the ruel.</param>
-    private Rule CreateDefaultRuleWithGuard(string label, List<(IMessage, IMessage)> ununified, List<(IMessage, IMessage)> ununifiable)
+    private Rule CreateDefaultRuleWithGuard(string label, List<(VariableMessage, IMessage)> ununified)
     {
-        Factory.GuardStatements = Guard.CreateFromSets(new(ununified), new(ununifiable));
+        Factory.GuardStatements = Guard.CreateFromSets(new(ununified));
         Factory.SetNextLabel(label);
         IMessage xMsg = new VariableMessage("x");
         IMessage yMsg = new VariableMessage("y");
@@ -349,7 +333,7 @@ public class ParseTests
         RuleParser parser = new();
 
         string premiseCheckSrc = "know(x), know(y), know(x) -[ ]-> know(enc(x, y))";
-        Rule expectedPremiseRule = CreateDefaultRuleWithGuard("premise", new(), new());
+        Rule expectedPremiseRule = CreateDefaultRuleWithGuard("premise", new());
         AssertRulesEqual(expectedPremiseRule, parser.Parse(premiseCheckSrc), premiseCheckSrc);
 
         // The following messages and states are used multiple times below.

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace StatefulHorn.Messages;
 
@@ -19,6 +20,7 @@ public abstract class BasicMessage : IMessage
 
     public bool ContainsFunctionNamed(string name) => false;
 
+    // FIXME: May as well use HashSet<VariableMessage> for the parameter type.
     public virtual void CollectVariables(HashSet<IMessage> varSet) { /* Nothing to do. */ }
 
     public void CollectMessages(HashSet<IMessage> msgSet, Predicate<IMessage> selector)
@@ -38,17 +40,20 @@ public abstract class BasicMessage : IMessage
 
     public bool DetermineUnifiedToSubstitution(IMessage other, Guard gs, SigmaFactory sf)
     {
-        return gs.CanUnifyMessages(this, other) && DetermineUnifiedToSubstitution(other, sf);
+        return DetermineUnifiedToSubstitution(other, sf) && sf.ForwardIsValidByGuard(gs);
     }
 
-    public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, new(), new());
+    public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, new(), new(), new());
 
     public abstract bool DetermineUnifiableSubstitution(IMessage other, SigmaFactory sf);
 
-    public bool DetermineUnifiableSubstitution(IMessage other, Guard gs, SigmaFactory sf)
+    public bool DetermineUnifiableSubstitution(IMessage other, Guard fwdGuard, Guard bwdGuard, SigmaFactory sf)
     {
-        return gs.CanUnifyMessages(this, other) && DetermineUnifiableSubstitution(other, sf);
+        return DetermineUnifiableSubstitution(other, sf) && sf.ForwardIsValidByGuard(fwdGuard) && sf.BackwardIsValidByGuard(bwdGuard);
     }
+
+    // FIXME: This is a splint method - to be removed as part of the guard logic correction.
+    public bool DetermineUnifiableSubstitution(IMessage other, Guard g, SigmaFactory sf) => DetermineUnifiableSubstitution(other, g, g, sf);
 
     public abstract IMessage PerformSubstitution(SigmaMap sigma);
 

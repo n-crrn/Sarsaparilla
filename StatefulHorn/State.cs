@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+
+using StatefulHorn.Messages;
 
 namespace StatefulHorn;
 
@@ -50,16 +53,19 @@ public class State : ISigmaUnifiable, IComparable<State>
     {
         return other is State s &&
             Name.Equals(s.Name) &&
-            g.CanUnifyMessages(Value, s.Value) &&
-            Value.DetermineUnifiedToSubstitution(s.Value, g, subs);
+            Value.DetermineUnifiedToSubstitution(s.Value, g, subs) &&
+            subs.ForwardIsValidByGuard(g);
     }
 
     public bool CanBeUnifiableWith(ISigmaUnifiable other, Guard g, SigmaFactory subs)
     {
+        // FIXME: Need to be upgraded to use two guards.
         return other is State s &&
             Name.Equals(s.Name) &&
-            g.CanUnifyMessages(Value, s.Value) &&
-            Value.DetermineUnifiableSubstitution(s.Value, g, subs);
+            //g.CanUnifyMessages(Value, s.Value) &&
+            Value.DetermineUnifiableSubstitution(s.Value, g, subs) &&
+            subs.ForwardIsValidByGuard(g) &&
+            subs.BackwardIsValidByGuard(g);
     }
 
     public override string ToString() => $"{Name}({Value})";

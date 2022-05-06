@@ -11,7 +11,7 @@ public class GuardTests
     [TestMethod]
     public void BasicUnifiedToGuardTest()
     {
-        Guard basicGuard = Guard.CreateFromSets(new() { (new VariableMessage("x"), new NameMessage("a")) }, new());
+        Guard basicGuard = Guard.CreateFromSets(new() { (new VariableMessage("x"), new NameMessage("a")) });
         IMessage toMessage = new FunctionMessage("f1", new() { new VariableMessage("x"), new VariableMessage("y") });
 
         IMessage fromMessage1 = new FunctionMessage("f1", new() { new NameMessage("a"), new NameMessage("b") });
@@ -23,9 +23,9 @@ public class GuardTests
     }
 
     [TestMethod]
-    public void BasicUnifiableGuardTest()
+    public void VariableEqualGuardTest()
     {
-        Guard basicGuard = Guard.CreateFromSets(new(), new() { (new VariableMessage("x"), new VariableMessage("y")) });
+        Guard basicGuard = Guard.CreateFromSets(new() { (new VariableMessage("x"), new VariableMessage("y")) });
         IMessage toMessage = new FunctionMessage("f2", new() { new VariableMessage("x"), new VariableMessage("y") });
 
         IMessage fromMessage1 = new FunctionMessage("f2", new() { new NameMessage("a"), new NameMessage("b") });
@@ -40,6 +40,6 @@ public class GuardTests
     {
         SigmaFactory sf = new();
         bool succeed = to.DetermineUnifiedToSubstitution(from, g, sf);
-        Assert.AreEqual(succeed, expectedSucceed, failMsg);
+        Assert.AreEqual(expectedSucceed, succeed, failMsg);
     }
 }

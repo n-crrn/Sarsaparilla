@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
+using StatefulHorn.Messages;
+
 namespace StatefulHorn;
 
 /// <summary>
@@ -55,7 +57,6 @@ public class RuleParser
     #region Single rule parsing - actual work.
 
     public static readonly string GuardUnunifiedOp = "~/>";   // Indicates a cannot-be-unified guard relationship.
-    public static readonly string GuardUnunifiableOp = "=/="; // Indicates a cannot-be-unifiable guard relationship.
     public static readonly string LeftState = "-[";           // Separates the premises and snapshot declarations.
     public static readonly string RightState = "]->";         // Separates the snapshot declarations and the results.
     public static readonly string LaterThanOp = "=<";         // Indicates a "later than" snapshot relationship.
@@ -77,11 +78,10 @@ public class RuleParser
     /// </summary>
     /// <param name="Lhs">Text description of the left-hand-side message expression.</param>
     /// <param name="Rhs">Text description of the right-hand-side message expression.</param>
-    /// <param name="Ununified">The raw text description of the operator.</param>
     /// <seealso cref="GuardUnunifiedOp"/>
     /// <seealso cref="GuardUnunifiableOp"/>
     /// <seealso cref="ReadGuard(string, string)"/>
-    private record GuardPiece(string Lhs, string Rhs, bool Ununified);
+    private record GuardPiece(string Lhs, string Rhs);
 
     /// <summary>
     /// Intermediate format of an extracted item in a rule premise section. This type is only used
@@ -307,18 +307,13 @@ public class RuleParser
         foreach (string eqn in eqns)
         {
             string[] eqnParts = eqn.Split(GuardUnunifiedOp);
-            bool ununified = eqnParts.Length == 2;
-            if (!ununified)
-            {
-                eqnParts = eqn.Split(GuardUnunifiableOp);
-            }
             if (eqnParts.Length != 2)
             {
                 throw new RuleParseException(whole, "Malformed guard statement.");
             }
             else if (eqnParts.Length == 2)
             {
-                pieces.Add(new GuardPiece(eqnParts[0].Trim(), eqnParts[1].Trim(), ununified));
+                pieces.Add(new GuardPiece(eqnParts[0].Trim(), eqnParts[1].Trim()));
             }
         }
         return pieces;
@@ -668,8 +663,7 @@ public class RuleParser
 
     private static Guard CreateGuard(string whole, List<GuardPiece> pieces)
     {
-        HashSet<(IMessage, IMessage)> ununified = new();
-        HashSet<(IMessage, IMessage)> ununifiable = new();
+        HashSet<(VariableMessage, IMessage)> ununified = new();
 
         foreach (GuardPiece p in pieces)
         {
@@ -683,17 +677,14 @@ public class RuleParser
             {
                 throw new RuleParseException(whole, $"Cannot parse message '{p.Rhs}': {errMsg2}");
             }
-            if (p.Ununified)
+            if (msg1 is not VariableMessage vMsg)
             {
-                ununified.Add((msg1!, msg2!));
+                throw new RuleParseException(whole, $"Left-hand-side guard message '{msg1}' is not a variable.");
             }
-            else
-            {
-                ununifiable.Add((msg1!, msg2!));
-            }
+            ununified.Add((vMsg!, msg2!));
         }
 
-        return Guard.CreateFromSets(ununified, ununifiable);
+        return Guard.CreateFromSets(ununified);
     }
 
     private Rule CombinePieces(
