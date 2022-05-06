@@ -31,8 +31,8 @@ public class GuardTests
         IMessage fromMessage1 = new FunctionMessage("f2", new() { new NameMessage("a"), new NameMessage("b") });
         IMessage fromMessage2 = new FunctionMessage("f2", new() { new NameMessage("a"), new NameMessage("a") });
 
-        DoUnifiedToTest(basicGuard, fromMessage1, toMessage, true, "Guard failed to pass valid substitution.");
         DoUnifiedToTest(basicGuard, fromMessage2, toMessage, false, "Guard failed to protect message.");
+        DoUnifiedToTest(basicGuard, fromMessage1, toMessage, true, "Guard failed to pass valid substitution.");
         DoUnifiedToTest(Guard.Empty, fromMessage2, toMessage, true, "Empty guard failed to pass substitution.");
     }
 

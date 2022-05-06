@@ -184,7 +184,7 @@ public class ParseTests
         {
             ContractExpandRuleString("[name[] ~/> x] know(x), know(y) -[ ]-> know(enc(x, y))"),
             ContractExpandRuleString("[name[] =/= x] know(x), know(y) -[ ]-> know(enc(x, y))"),
-            ContractExpandRuleString("[name[] ~/> x, name =/= y] know(x), know(y) -[ ]-> know(enc(x, y))")
+            ContractExpandRuleString("[name[] ~/> x, name[] =/= y] know(x), know(y) -[ ]-> know(enc(x, y))")
         };
 
         IMessage nameMsg = new NameMessage("name");

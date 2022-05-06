@@ -40,7 +40,7 @@ public class Guard
 
         foreach ((IMessage, IMessage) row in ununifiableInput)
         {
-            if (HasSwitched(ununifiableComb, row))
+            if (!HasSwitched(ununifiableComb, row))
             {
                 ununifiableComb.Add(row);
             }
@@ -83,13 +83,15 @@ public class Guard
     {
         if (_Ununified.Count == 0 && _Ununifiable.Count == 0)
         {
-            return new();
+            return this;
         }
         return new(Substitute(_Ununified, sigma), Substitute(_Ununifiable, sigma));
     }
 
     private static HashSet<(IMessage, IMessage)> Substitute(HashSet<(IMessage, IMessage)> inputSet, SigmaMap sigma)
     {
+        // FIXME: If a substitute is provided for a variable, and the substitution does not
+        // contradict the guard, then the variable can be removed from the guard completely.
         return new(from item in inputSet select (item.Item1.PerformSubstitution(sigma), item.Item2.PerformSubstitution(sigma)));
     }
 

@@ -140,6 +140,9 @@ public class SigmaFactory
             {
                 return false;
             }
+            // A copy of the guard needs to be updated to protect var1 =/= var2 situations.
+            SigmaMap sm = new(list1[i], list2[i]);
+            g = g.PerformSubstitution(sm);
         }
         return true;
     }
@@ -156,6 +159,9 @@ public class SigmaFactory
             {
                 return false;
             }
+            // A copy of the guard needs to be updated to protect var1 =/= var2 situations.
+            SigmaMap sm = new(list1[i], list2[i]);
+            g = g.PerformSubstitution(sm);
         }
         return true;
     }
