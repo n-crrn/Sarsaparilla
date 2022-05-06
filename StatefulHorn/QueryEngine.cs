@@ -318,9 +318,9 @@ public class QueryEngine
         {
             SigmaFactory sf = new();
             List<QueryResult> qrParts = new();
-            if (queryToFind.DetermineUnifiableSubstitution(checkRule.Result, checkRule.Guard, sf))
+            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, sf))
             {
-                HornClause updated = checkRule.Substitute(sf.CreateBackwardMap()).Anify();
+                HornClause updated = checkRule.Substitute(sf.CreateForwardMap()).Anify();
                 bool found = true;
                 foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
                 {
@@ -389,10 +389,9 @@ public class QueryEngine
         {
             SigmaFactory sf = new();
             List<QueryResult> qrParts = new();
-            if (queryToFind.DetermineUnifiableSubstitution(checkRule.Result, checkRule.Guard, sf))
+            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, sf))
             {
-                SigmaMap bwdMap = sf.CreateBackwardMap();
-                HornClause updated = checkRule.Substitute(bwdMap).Anify();
+                HornClause updated = checkRule.Substitute(sf.CreateForwardMap()).Anify();
                 bool found = true;
                 foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
                 {
