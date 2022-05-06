@@ -32,16 +32,10 @@ public class QueryTests
         void onCompletion() => completedDone = true;
 
         await qe.Execute(null, onGlobalAttackFound, onAttackAssessedFound, onCompletion);
-        if (shouldFindGlobal)
-        {
-            Assert.IsTrue(globalAttackFound, "Global attack not found when it was expected.");
-            Assert.IsTrue(completedDone, "Completion not called.");
-        }
-        else
-        {
-            Assert.AreEqual(shouldFindNession, attackAssessedFound);
-            Assert.IsTrue(completedDone, "Completion not called.");
-        }
+
+        Assert.AreEqual(shouldFindGlobal, globalAttackFound);
+        Assert.AreEqual(shouldFindNession, attackAssessedFound);
+        Assert.IsTrue(completedDone, "Completion not called");
     }
 
     [TestMethod]
@@ -118,5 +112,20 @@ public class QueryTests
             "k(d[]) -[ ]-> k(s[])"
         };
         await DoTest(ruleSet, "s[]", "SD(init[])", false, true);
+    }
+
+    [TestMethod]
+    public async Task GuardedQueryCheck()
+    {
+        List<string> ruleSet = new()
+        {
+            "[x ~/> a[]] k(x), k(y) -[ ]-> k(enc(x, y))",
+            //"k(x), k(y) -[ ]-> k(enc(x, y))",
+            "-[ ]-> k(a[])",
+            "-[ ]-> k(b[])"
+        };
+        string initState = "SD(init[])";
+        await DoTest(ruleSet, "enc(a[], b[])", initState, false, false);
+        await DoTest(ruleSet, "enc(b[], a[])", initState, false, true);
     }
 }

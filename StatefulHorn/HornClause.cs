@@ -9,8 +9,9 @@ namespace StatefulHorn;
 
 public class HornClause
 {
-    public HornClause(IMessage result, IEnumerable<IMessage> premises)
+    public HornClause(IMessage result, IEnumerable<IMessage> premises, Guard? guard = null)
     {
+        Guard = guard ?? Guard.Empty;
         Premises = new HashSet<IMessage>(premises);
         Result = result;
 
@@ -89,14 +90,15 @@ public class HornClause
             return null;
         }
 
+        Guard combinedGuard = Guard.UnionWith(other.Guard);
+
         List<HornClause> found = new();
         foreach (IMessage msg in other.Premises)
         {
             if (msg is not VariableMessage && msg.GetType() == Result.GetType())
             {
                 SigmaFactory sf = new();
-                // FIXME: Set up guard properly.
-                if (Result.DetermineUnifiableSubstitution(msg, Guard.Empty, sf))
+                if (Result.DetermineUnifiableSubstitution(msg, combinedGuard, sf))
                 {
                     HornClause thisUpdated = Substitute(sf.CreateForwardMap());
                     SigmaMap bwdMap = sf.CreateBackwardMap();
@@ -119,6 +121,8 @@ public class HornClause
     }
 
     #region Properties.
+
+    public Guard Guard { get; init; }
 
     public IReadOnlySet<IMessage> Premises { get; init; }
 
@@ -244,9 +248,12 @@ public class HornClause
 
     public static HornClause? FromStateConsistentRule(StateConsistentRule scr)
     {
-        if (scr.Snapshots.IsEmpty && scr.GuardStatements.IsEmpty)
+        if (scr.Snapshots.IsEmpty)
         {
-            return new(scr.Result.Messages.Single(), from p in scr.Premises where p.IsKnow select p.Messages.Single());
+            return new(
+                scr.Result.Messages.Single(), 
+                from p in scr.Premises where p.IsKnow select p.Messages.Single(), 
+                scr.GuardStatements);
         }
         return null;
     }

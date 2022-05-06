@@ -318,8 +318,7 @@ public class QueryEngine
         {
             SigmaFactory sf = new();
             List<QueryResult> qrParts = new();
-            // FIXME: Update to follow rule-specific guard.
-            if (queryToFind.DetermineUnifiableSubstitution(checkRule.Result, Guard.Empty, sf))
+            if (queryToFind.DetermineUnifiableSubstitution(checkRule.Result, checkRule.Guard, sf))
             {
                 HornClause updated = checkRule.Substitute(sf.CreateBackwardMap()).Anify();
                 bool found = true;
@@ -390,8 +389,7 @@ public class QueryEngine
         {
             SigmaFactory sf = new();
             List<QueryResult> qrParts = new();
-            // FIXME: Update to follow rule-specific guard.
-            if (queryToFind.DetermineUnifiableSubstitution(checkRule.Result, Guard.Empty, sf))
+            if (queryToFind.DetermineUnifiableSubstitution(checkRule.Result, checkRule.Guard, sf))
             {
                 SigmaMap bwdMap = sf.CreateBackwardMap();
                 HornClause updated = checkRule.Substitute(bwdMap).Anify();
