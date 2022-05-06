@@ -41,7 +41,7 @@
         "reduc forall x: bitstring, y: skey; decrypt(encrypt(x, y),y) = x.\n" +
         "state SD: bitstring = init.\n" +
         "table keys(host, pkey).\n" +
-        "query x: host, y: host; inj-event(endB(x)) ==> inj-event(startB(x)).\n" +
+        "query attacker(D).\n" +
         "const c1: tag [data].\n" +
         "\n" +
         "let procA(hostA: host) = out(c, D).\n" +
