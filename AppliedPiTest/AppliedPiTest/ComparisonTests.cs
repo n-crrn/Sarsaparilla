@@ -72,4 +72,29 @@ public class ComparisonTests
         IComparison cmp4 = new EqualityComparison(true, "bsA", "boolC");
         Assert.IsNull(cmp4.ResolveType(tr));
     }
+
+    [TestMethod]
+    public void PositiviseTest()
+    {
+        IComparison expectedCmp = new BooleanComparison(
+            BooleanComparison.Type.And,
+            new EqualityComparison(true, "b", "c"),
+            new EqualityComparison(false, "d", "e"));
+        IComparison postived = expectedCmp.Positivise();
+        Assert.AreEqual(expectedCmp, postived, "Comparison with no 'not' clauses modified.");
+
+        IComparison negativeCmp = new NotComparison(expectedCmp);
+        IComparison negExpectedCmp = new BooleanComparison(
+            BooleanComparison.Type.Or,
+            new EqualityComparison(false, "b", "c"),
+            new EqualityComparison(true, "d", "e"));
+        Assert.AreEqual(negExpectedCmp, negativeCmp.Positivise(), "Top-level negative incorrectly handled.");
+
+        IComparison simpleBooleanCmp = new NotComparison(new NotComparison(new IsComparison("A")));
+        IComparison sbExpectedCmp = new IsComparison("A");
+        Assert.AreEqual(sbExpectedCmp, simpleBooleanCmp.Positivise(), "Negative clauses not removed.");
+
+    }
+
+    
 }

@@ -13,6 +13,15 @@ public interface IComparison
 
     public PiType? ResolveType(TermResolver resolver);
 
+    /// <summary>
+    /// This method propagates through a tree of comparisons to remove all "not" operations.
+    /// </summary>
+    /// <param name="invert">
+    /// Whether the logic needs to be inverted from this point forward.
+    /// </param>
+    /// <returns></returns>
+    public IComparison Positivise(bool invert = false);
+
     // Though every object has a ToString method, explicitly specifying it here simplifies
     // the null linting in ComparisonParser.Node.
     public string ToString();

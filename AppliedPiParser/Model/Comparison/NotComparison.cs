@@ -30,6 +30,15 @@ public class NotComparison : IComparison
         return InnerComparison.ResolveType(tr) == PiType.Bool ? PiType.Bool : null;
     }
 
+    public IComparison Positivise(bool invert = false)
+    {
+        if (invert)
+        {
+            return InnerComparison;
+        }
+        return InnerComparison.Positivise(!invert);
+    }
+
     #endregion
     #region Basic object overrides.
 

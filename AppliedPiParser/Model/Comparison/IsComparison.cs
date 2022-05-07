@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace AppliedPi.Model.Comparison;
 
@@ -28,6 +29,16 @@ public class IsComparison : IComparison
     public PiType? ResolveType(TermResolver resolver)
     {
         return resolver.Resolve(new(Name), out TermRecord? tr) ? tr!.Type : null;
+    }
+
+    public IComparison Positivise(bool invert = false)
+    {
+        if (invert)
+        {
+            // The assumption is that term "Name[]" is a boolean.
+            return new NotComparison(this);
+        }
+        return this;
     }
 
     #endregion

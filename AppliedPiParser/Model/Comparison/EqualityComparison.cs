@@ -49,6 +49,15 @@ public class EqualityComparison : IComparison
         return lhsType == rhsType ? PiType.Bool : null;
     }
 
+    public IComparison Positivise(bool invert = false)
+    {
+        if (invert)
+        {
+            return new EqualityComparison(!IsEquals, LeftComparison, RightComparison);
+        }
+        return this;
+    }
+
     #endregion
     #region Basic object overrides.
 

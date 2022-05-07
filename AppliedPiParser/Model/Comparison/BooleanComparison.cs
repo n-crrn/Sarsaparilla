@@ -75,6 +75,16 @@ public class BooleanComparison : IComparison
         return (lhsType == null || !lhsType.IsBool || rhsType == null || !rhsType.IsBool) ? null : PiType.Bool;
     }
 
+    public IComparison Positivise(bool invert = false)
+    {
+        if (invert)
+        {
+            Type updatedOp = Operator == Type.And ? Type.Or : Type.And;
+            return new BooleanComparison(updatedOp, LeftInput.Positivise(true), RightInput.Positivise(true));
+        }
+        return this;
+    }
+
     #endregion
     #region Basic object overrides.
 
