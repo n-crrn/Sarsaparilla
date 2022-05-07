@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace AppliedPi.Model;
+namespace AppliedPi.Model.Comparison;
 
 /// <summary>
 /// Provides a straight comparison with the value of a boolean. This comparison tends to only be
@@ -40,4 +40,5 @@ public class IsComparison : IComparison
     public override string ToString() => Name;
 
     #endregion
+
 }

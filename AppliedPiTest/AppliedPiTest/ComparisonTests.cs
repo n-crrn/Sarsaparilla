@@ -3,6 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using AppliedPi;
 using AppliedPi.Model;
+using AppliedPi.Model.Comparison;
 
 namespace SarsaparillaTests.AppliedPiTest;
 

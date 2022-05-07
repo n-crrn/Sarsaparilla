@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using AppliedPi;
 using AppliedPi.Model;
+using AppliedPi.Model.Comparison;
 using AppliedPi.Processes;
 
 namespace AppliedPiTest;

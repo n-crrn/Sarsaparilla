@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace AppliedPi.Model;
+namespace AppliedPi.Model.Comparison;
 
 /// <summary>
 /// Fundamentally, AppliedPi works through comparing names. Names are either equal to one

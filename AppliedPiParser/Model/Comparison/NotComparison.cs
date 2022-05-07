@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace AppliedPi.Model;
+namespace AppliedPi.Model.Comparison;
 
 public class NotComparison : IComparison
 {

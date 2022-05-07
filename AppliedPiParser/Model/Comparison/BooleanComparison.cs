@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace AppliedPi.Model;
+namespace AppliedPi.Model.Comparison;
 
 /// <summary>
 /// Once a name comparison is conducted, it is usually ANDed or ORed with other name
