@@ -62,6 +62,22 @@ process
         await DoTest(piSource, false, false);
     }
 
+    [TestMethod]
+    public async Task ReplicatedToFiniteDetectionTest()
+    {
+        string piSource =
+@"free c: channel.
+free d: channel [private].
+free s: bitstring [private].
+
+query attacker(s).
+
+process
+  (! out(d, s)) | ( in(d, v: bitstring); out(c, d) ).
+";
+        await DoTest(piSource, false, true);
+    }
+
     private async Task DoTest(string src, bool expectGlobalAttack, bool expectNessionAttack)
     {
         Network nw = Network.CreateFromCode(src);
