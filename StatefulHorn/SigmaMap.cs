@@ -80,6 +80,10 @@ public class SigmaMap
 
     public override string ToString()
     {
+        if (Map.Count == 0)
+        {
+            return "{EMPTY}";
+        }
         IEnumerable<string> parts = from m in Map select $"{m.Variable} ↦ {m.Value}";
         return "{" + string.Join(", ", parts) + "}";
     }

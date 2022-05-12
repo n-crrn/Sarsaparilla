@@ -71,6 +71,8 @@ public class BucketSet<TKey, TValue> : IEnumerable<(TKey, IReadOnlySet<TValue>)>
         }
     }
 
+    public bool ContainsKey(TKey k) => _Buckets.ContainsKey(k);
+
     public IReadOnlySet<TValue> Get(TKey key) => _Buckets[key];
 
     public IReadOnlySet<TValue> this[TKey key] => _Buckets[key];

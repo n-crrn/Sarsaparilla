@@ -12,6 +12,11 @@ public class Guard
         _Ununified = new();
     }
 
+    public Guard(IAssignableMessage aMsg, IMessage vMsg)
+    {
+        _Ununified = new() { { aMsg, new() { vMsg } } };
+    }
+
     private Guard(Dictionary<IAssignableMessage, HashSet<IMessage>> ununifiedComb)
     {
         _Ununified = ununifiedComb;
@@ -107,7 +112,11 @@ public class Guard
 
     public override string ToString()
     {
-        // Not that non-ununifiables are the only items output as part of the string.
+        if (_Ununified.Count == 0)
+        {
+            return "<EMPTY>";
+        }
+
         List<string> nonunif = new();
         foreach ((IAssignableMessage vMsg, HashSet<IMessage> set) in _Ununified)
         {

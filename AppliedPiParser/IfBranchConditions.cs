@@ -58,7 +58,7 @@ public class IfBranchConditions
 
             // Check that the given replacement conditions do not contradict a ban value.
             // The check is not a unified-to check as there may be variable cross-references.
-            if (Bans[aMsg].Contains(vMsg))
+            if (Bans.ContainsKey(aMsg) && Bans[aMsg].Contains(vMsg))
             {
                 throw new InvalidComparisonException(aMsg, $"Value not allowed as replacement as value banned.");
             }
@@ -67,7 +67,7 @@ public class IfBranchConditions
         // Check that the existing replacements aren't contradicted by a given ban value.
         foreach ((IAssignableMessage thisAMsg, IMessage thisVMsg) in Replacements)
         {
-            if (ibc.Bans[thisAMsg].Contains(thisVMsg))
+            if (ibc.Bans.ContainsKey(thisAMsg) && ibc.Bans[thisAMsg].Contains(thisVMsg))
             {
                 throw new InvalidComparisonException(thisAMsg, $"Value not allowed as value banned by other conditions.");
             }

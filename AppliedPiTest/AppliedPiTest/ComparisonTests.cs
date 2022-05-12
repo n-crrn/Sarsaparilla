@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -14,6 +15,8 @@ namespace SarsaparillaTests.AppliedPiTest;
 [TestClass]
 public class ComparisonTests
 {
+    #region General comparison operations tests.
+
     [TestMethod]
     public void ConstructionTest()
     {
@@ -97,53 +100,147 @@ public class ComparisonTests
         IComparison simpleBooleanCmp = new NotComparison(new NotComparison(new IsComparison("A")));
         IComparison sbExpectedCmp = new IsComparison("A");
         Assert.AreEqual(sbExpectedCmp, simpleBooleanCmp.Positivise(), "Negative clauses not removed.");
-
     }
+
+    #endregion
+    #region Branch restriction determination tests.
 
     [TestMethod]
     public void BasicBranchRestrictionsTest()
     {
-        ResolvedNetwork rn = new();
         Dictionary<Term, TermOriginRecord> termDetails = new()
         {
             { new("x"), new(TermSource.Input, PiType.Bool) },
             { new("y"), new(TermSource.Input, PiType.Bool) }
         };
-        rn.DirectSet(termDetails, new());
+        VariableMessage x = new("x");
+        VariableMessage y = new("y");
+        SigmaMap expectedSigma = new(y, x);
+        Guard expectedGuard = new(
+            new Dictionary<IAssignableMessage, HashSet<IMessage>>()
+            {
+                { x, new() { y } },
+                { y, new() { x } }
+            });
+        List<(SigmaMap, Guard)> expectedIfs = new() { (expectedSigma, Guard.Empty) };
+        List<(SigmaMap, Guard)> expectedElses = new() { (SigmaMap.Empty, expectedGuard) };
         IComparison basicEqualCmp = new EqualityComparison(true, "x", "y");
         IComparison basicNotEqualCmp = new EqualityComparison(false, "x", "y");
 
-        VariableMessage x = new("x");
-        VariableMessage y = new("y");
-        SigmaMap expectedSigma1 = new(x, y); // The result should be one or the
-        SigmaMap expectedSigma2 = new(y, x); // other of these two options.
-        Guard expectedGuard1 = new(
-            new Dictionary<IAssignableMessage, HashSet<IMessage>>() 
-            { 
-                { x, new() { y } },
-                { y, new() {x} }
-            } );
-
-        // First sub-test - does the equality result make sense?
-        BranchRestrictionSet eqBrSet = BranchRestrictionSet.From(basicEqualCmp, rn, new());
-        (SigmaMap smEqIf, Guard gdEqIf) = eqBrSet.OutputIfBranchConditions().Single();
-        (SigmaMap smEqElse, Guard gdEqElse) = eqBrSet.OutputElseBranchConditions().Single();
-
-        Assert.AreEqual(Guard.Empty, gdEqIf, "If condition guard expected to be empty.");
-        Assert.IsTrue(expectedSigma1.Equals(smEqIf) || expectedSigma2.Equals(smEqIf), "Different sigma replacement map found.");
-        Assert.IsTrue(smEqElse.IsEmpty, "Else condition sigma map expected to be empty.");
-        Assert.AreEqual(expectedGuard1, gdEqElse, $"Else guards do not match (found {gdEqElse}).");
-
-        // Second sub-test - does the inequality result make sense?
-        BranchRestrictionSet neqBrSet = BranchRestrictionSet.From(basicNotEqualCmp, rn, new());
-        (SigmaMap smNeqIf, Guard gdNeqIf) = neqBrSet.OutputIfBranchConditions().Single();
-        (SigmaMap smNeqElse, Guard gdNeqElse) = neqBrSet.OutputElseBranchConditions().Single();
-
-        Assert.IsTrue(smNeqIf.IsEmpty, "If condition expected to be empty.");
-        Assert.AreEqual(expectedGuard1, gdNeqIf, "Guard for if condition not as expected.");
-        Assert.IsTrue(expectedSigma1.Equals(smNeqElse) || expectedSigma2.Equals(smNeqElse), "Else condition sigma map does not match expected.");
-        Assert.AreEqual(Guard.Empty, gdNeqElse, "Else condition guard not empty.");
+        TestRestrictions(termDetails, new(), basicEqualCmp, expectedIfs, expectedElses);
+        TestRestrictions(termDetails, new(), basicNotEqualCmp, expectedElses, expectedIfs);
     }
 
-    
+    [TestMethod]
+    public void BooleanBranchRestrictionsTest()
+    {
+        Dictionary<Term, TermOriginRecord> termDetails = new()
+        {
+            { new("C"), new(TermSource.Free, PiType.Channel) },
+            { new("d"), new(TermSource.Input, PiType.Channel) },
+            { new("E"), new(TermSource.Free, PiType.BitString) },
+            { new("f"), new(TermSource.Input, PiType.BitString) }
+        };
+        NameMessage c = new("C");
+        VariableMessage d = new("d");
+        NameMessage e = new("E");
+        VariableMessage f = new("f");
+
+        // Test the expression C == d && E == f.
+        IComparison expr1 = new BooleanComparison(
+            BooleanComparison.Type.And,
+            new EqualityComparison(true, "C", "d"),
+            new EqualityComparison(true, "E", "f"));
+        SigmaMap expectedExpr1Sm = new(new() { (d, c), (f, e) });
+        List<(SigmaMap, Guard)> expectedExpr1Ifs = new() { (expectedExpr1Sm, Guard.Empty) };
+        List<(SigmaMap, Guard)> expectedExpr1Elses = new()
+        { 
+            (SigmaMap.Empty, new(d, c)),
+            (SigmaMap.Empty, new(f, e))
+        };
+        TestRestrictions(termDetails, new(), expr1, expectedExpr1Ifs, expectedExpr1Elses);
+
+        // Test the expression !(C != d) || (E != f)), which should translate back to the same thing.
+        IComparison expr2 = new NotComparison(
+            new BooleanComparison(
+                BooleanComparison.Type.Or,
+                new EqualityComparison(false, "C", "d"),
+                new EqualityComparison(false, "E", "f")
+            ) );
+        TestRestrictions(termDetails, new(), expr2, expectedExpr1Ifs, expectedExpr1Elses);
+    }
+
+    private static void TestRestrictions(
+        Dictionary<Term, TermOriginRecord> termDetails,
+        HashSet<Destructor> destructor,
+        IComparison comp,
+        List<(SigmaMap, Guard)> expectedIfs,
+        List<(SigmaMap, Guard)> expectedElse)
+    {
+        Network nw = Network.DirectCreate(destructor);
+        ResolvedNetwork rn = new();
+        rn.DirectSet(termDetails, new());
+
+        BranchRestrictionSet brs = BranchRestrictionSet.From(comp, rn, nw);
+        List<(SigmaMap, Guard)> ifConds = brs.OutputIfBranchConditions();
+        List<(SigmaMap, Guard)> elseConds = brs.OutputElseBranchConditions();
+
+        Assert.IsTrue(ConditionsMatch(expectedIfs, ifConds));
+        Assert.IsTrue(ConditionsMatch(expectedElse, elseConds));
+    }
+
+    private static bool ConditionsMatch(List<(SigmaMap, Guard)> expected, List<(SigmaMap, Guard)> found)
+    {
+        bool[] foundFound = new bool[found.Count];
+
+        List<(SigmaMap, Guard)> missingExpected = new();
+        foreach ((SigmaMap expSm, Guard expG) in expected)
+        {
+            bool foundExpected = false;
+            for (int i = 0; i < found.Count && !foundExpected; i++)
+            {
+                if (!foundFound[i])
+                {
+                    (SigmaMap foundSm, Guard foundG) = found[i];
+                    foundExpected = expSm.Equals(foundSm) && expG.Equals(foundG);
+                    foundFound[i] |= foundExpected;
+                }
+            }
+            if (!foundExpected)
+            {
+                missingExpected.Add((expSm, expG));
+            }
+        }
+
+        bool succeeded = true;
+
+        // Output any differences found so that the bug can be chased.
+        if (missingExpected.Count > 0)
+        {
+            succeeded = false;
+            Console.WriteLine("Following expected restrictions were not found:");
+            foreach ((SigmaMap sm, Guard g) in missingExpected)
+            {
+                Console.WriteLine($"  Replace {sm}, ban {g}");
+            }
+        }
+        bool foundNotFound = (from f in foundFound where !f select f).Any();
+        if (foundNotFound) 
+        {
+            succeeded = false;
+            Console.WriteLine("Following results were found but not expected:");
+            for (int i = 0; i < foundFound.Length; i++)
+            {
+                if (!foundFound[i])
+                {
+                    (SigmaMap ffSm, Guard ffG) = found[i];
+                    Console.WriteLine($"  Replace {ffSm}, ban {ffG}");
+                }
+            }
+        }
+
+        return succeeded;
+    }
+
+    #endregion
 }

@@ -37,6 +37,18 @@ public class Network
         return nw;
     }
 
+    /// <summary>
+    /// Creates a new Network for the express purpose of conducting unit tests.
+    /// </summary>
+    /// <param name="destructors">A set of destructors required for testing.</param>
+    /// <returns>New network with given details.</returns>
+    public static Network DirectCreate(IEnumerable<Destructor> destructors)
+    {
+        Network nw = new();
+        nw._Destructors.UnionWith(destructors);
+        return nw;
+    }
+
     #region PiType declarations.
 
     public static readonly string ChannelType = "channel";
