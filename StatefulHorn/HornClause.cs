@@ -26,6 +26,7 @@ public class HornClause
         Debug.Assert(Variables != null);
     }
 
+    // FIXME: Review whether method should be kept.
     public HornClause Anify()
     {
         List<(IMessage, IMessage)> replacements = new(from v in Variables select (v, (IMessage)NameMessage.Any));
@@ -45,10 +46,12 @@ public class HornClause
             return Clone();
         }
         IMessage updatedResult = Result.PerformSubstitution(map);
-        HornClause hc = new(updatedResult, from p in Premises select p.PerformSubstitution(map));
-        hc.Parent = this;
-        hc.Rank = Rank;
-        hc.Source = new SubstitutionRuleSource(this, map);
+        HornClause hc = new(updatedResult, from p in Premises select p.PerformSubstitution(map))
+        {
+            Parent = this,
+            Rank = Rank,
+            Source = new SubstitutionRuleSource(this, map)
+        };
         return hc;
     }
 
@@ -58,10 +61,12 @@ public class HornClause
         {
             foreach (IMessage member in tMsg.Members)
             {
-                HornClause innerHC = new(member, Premises);
-                innerHC.Parent = Parent ?? this;
-                innerHC.Rank = Rank;
-                innerHC.Source = new OperationRuleSource(this, OperationRuleSource.Op.Detuple);
+                HornClause innerHC = new(member, Premises)
+                {
+                    Parent = Parent ?? this,
+                    Rank = Rank,
+                    Source = new OperationRuleSource(this, OperationRuleSource.Op.Detuple)
+                };
                 foreach (HornClause deepHC in innerHC.DetupleResult())
                 {
                     yield return deepHC;
@@ -76,10 +81,12 @@ public class HornClause
 
     private HornClause Clone()
     {
-        HornClause hc = new(Result, Premises);
-        hc.Parent = Parent;
-        hc.Rank = Rank;
-        hc.Source = Source;
+        HornClause hc = new(Result, Premises)
+        {
+            Parent = Parent,
+            Rank = Rank,
+            Source = Source
+        };
         return hc;
     }
 

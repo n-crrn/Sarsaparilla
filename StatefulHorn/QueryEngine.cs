@@ -271,13 +271,6 @@ public class QueryEngine
         QueryStatus status,
         int rank = int.MaxValue)
     {
-        // In order to prevent stack overflows from attempting to chase queries
-        // that are already in the process of being proven, we firstly check to
-        // see if it is covered in status.
-        if (status.Proven.TryGetValue(queryToFind, out QueryResult? provenQR))
-        {
-            return provenQR;
-        }
         if (status.NowProving.Contains(queryToFind))
         {
             return QueryResult.Failed(queryToFind, When);
@@ -305,7 +298,6 @@ public class QueryEngine
         {
             qr = CheckBasicQuery(queryToFind, basicFacts, rules, status, rank);
         }
-        status.Proven[queryToFind] = qr;
         status.NowProving.Remove(queryToFind);
         return qr;
     }
@@ -320,7 +312,7 @@ public class QueryEngine
             List<QueryResult> qrParts = new();
             if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, sf))
             {
-                HornClause updated = checkRule.Substitute(sf.CreateForwardMap()).Anify();
+                HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
                 bool found = true;
                 foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
                 {
@@ -353,10 +345,8 @@ public class QueryEngine
         {
             SigmaFactory sf = new();
             List<QueryResult> qrParts = new();
-            // FIXME: Update to follow rule-specific guard.
-            HornClause updated = checkRule.Anify();
             bool found = true;
-            foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
+            foreach (IMessage premise in (from up in checkRule.Premises where !NameMessage.Any.Equals(up) select up))
             {
                 if (facts.Contains(premise))
                 {
@@ -370,7 +360,7 @@ public class QueryEngine
             }
             if (found)
             {
-                qrParts.Add(QueryResult.ResolvedKnowledge(queryToFind, updated));
+                qrParts.Add(QueryResult.ResolvedKnowledge(queryToFind, checkRule));
                 return QueryResult.Compose(queryToFind, When, qrParts);
             }
         }
@@ -391,7 +381,7 @@ public class QueryEngine
             List<QueryResult> qrParts = new();
             if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, sf))
             {
-                HornClause updated = checkRule.Substitute(sf.CreateForwardMap()).Anify();
+                HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
                 bool found = true;
                 foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
                 {
