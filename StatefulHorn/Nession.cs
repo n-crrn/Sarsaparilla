@@ -450,11 +450,13 @@ public class Nession
             // ... and create clauses for the makes ...
             foreach (Event mk in f.StateChangeMakes)
             {
-                HornClause makeClause = new(mk.Messages.Single(), from p in f.StateChangePremises where p.IsKnow select p.Messages.Single());
-                makeClause.Rank = rank;
-                // Note that the Transfer rule for the nession *must* not be null for there to be
-                // a make event in the nession's premises.
-                makeClause.Source = new NessionRuleSource(this, rank, new(accumulator), f.TransferRule!);
+                HornClause makeClause = new(mk.Messages.Single(), from p in f.StateChangePremises where p.IsKnow select p.Messages.Single())
+                {
+                    Rank = rank,
+                    // Note that the Transfer rule for the nession *must* not be null for there to be
+                    // a make event in the nession's premises.
+                    Source = new NessionRuleSource(this, rank, new(accumulator), f.TransferRule!)
+                };
                 clauses.Add(makeClause);
             }
             // ... and add the state transfer rule to the accumulated rules.
@@ -469,9 +471,11 @@ public class Nession
                 // ... add know events ...
                 HashSet<IMessage> thisRulePremises = new(premises);
                 thisRulePremises.UnionWith(from rp in r.Premises where rp.IsKnow select rp.Messages.Single());
-                HornClause hc = new(r.Result.Messages.Single(), thisRulePremises);
-                hc.Rank = rank;
-                hc.Source = new NessionRuleSource(this, rank, new(accumulator), r);
+                HornClause hc = new(r.Result.Messages.Single(), thisRulePremises)
+                {
+                    Rank = rank,
+                    Source = new NessionRuleSource(this, rank, new(accumulator), r)
+                };
                 clauses.Add(hc);
 
                 // ... and add make events.
@@ -479,9 +483,11 @@ public class Nession
                 {
                     if (ep.EventType == Event.Type.Make)
                     {
-                        HornClause makeClause = new(ep.Messages.Single(), premises);
-                        makeClause.Rank = rank;
-                        makeClause.Source = new NessionRuleSource(this, rank, new(accumulator), r);
+                        HornClause makeClause = new(ep.Messages.Single(), premises)
+                        {
+                            Rank = rank,
+                            Source = new NessionRuleSource(this, rank, new(accumulator), r)
+                        };
                         clauses.Add(makeClause);
                     }
                 }

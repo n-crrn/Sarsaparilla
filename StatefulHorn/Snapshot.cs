@@ -96,8 +96,10 @@ public class Snapshot
 
     public Snapshot CloneTrace()
     {
-        Snapshot ss = new(Condition, Label);
-        ss.TransfersTo = TransfersTo;
+        Snapshot ss = new(Condition, Label)
+        {
+            TransfersTo = TransfersTo
+        };
         if (Prior != null)
         {
             ss.Prior = new(Prior.S.CloneTrace(), Prior.O);

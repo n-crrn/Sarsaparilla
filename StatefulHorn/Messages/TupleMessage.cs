@@ -27,8 +27,10 @@ public class TupleMessage : IMessage
     // FIXME: Reassess the requirement for this method.
     public TupleMessage Append(IMessage msgToAdd)
     {
-        List<IMessage> memberList = new(_Members);
-        memberList.Add(msgToAdd);
+        List<IMessage> memberList = new(_Members)
+        {
+            msgToAdd
+        };
         return new(memberList);
     }
 
