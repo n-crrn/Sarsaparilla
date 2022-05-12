@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
+using StatefulHorn;
+using StatefulHorn.Messages;
 using AppliedPi.Model;
 using AppliedPi.Processes;
 
@@ -23,6 +25,8 @@ public enum TermSource
     MacroParameter
 }
 
+public record TermOriginRecord(TermSource Source, PiType Type);
+
 /// <summary>
 /// Describes a complete process. That is, a single (composite) process that completely describes
 /// a network. All terms have an associated type, and all variables have something (name, nonce or
@@ -31,7 +35,18 @@ public enum TermSource
 public class ResolvedNetwork
 {
 
-    public Dictionary<Term, (TermSource Source, PiType PiType)> TermDetails { get; } = new();
+    private static readonly Dictionary<Term, TermOriginRecord> BuiltInValues = new()
+    {
+        { new("true"), new(TermSource.Constant, PiType.Bool) },
+        { new("false"), new(TermSource.Constant, PiType.Bool) }
+    };
+
+    public ResolvedNetwork()
+    {
+        TermDetails = new(BuiltInValues);
+    }
+
+    public Dictionary<Term, TermOriginRecord> TermDetails { get; }
 
     private readonly List<IProcess> _ProcessSequence = new();
 
@@ -44,6 +59,37 @@ public class ResolvedNetwork
             throw new MemberAccessException("Cannot retrieve process sequence as group if there are no processes");
         }
         return new(_ProcessSequence);
+    }
+
+    public IMessage TermToMessage(Term t)
+    {
+        if (t.Parameters.Count > 0)
+        {
+            List<IMessage> msgParams = new(from p in t.Parameters select TermToMessage(p));
+            return t.IsTuple ? new TupleMessage(msgParams) : new FunctionMessage(t.Name, msgParams);
+        }
+
+        if (!TermDetails.TryGetValue(t, out TermOriginRecord? details))
+        {
+            throw new UnrecognisedTermException(t);
+        }
+        (TermSource source, PiType _) = details;
+        if (source == TermSource.Input)
+        {
+            return new VariableMessage(t.Name);
+        }
+        return new NameMessage(t.Name);
+    }
+
+    public StatefulHorn.Event TermToKnow(Term t) => StatefulHorn.Event.Know(TermToMessage(t));
+
+    public bool CheckTermType(Term t, PiType pt)
+    {
+        if (TermDetails.TryGetValue(t, out TermOriginRecord? details))
+        {
+            return details.Type.Equals(pt);
+        }
+        throw new UnrecognisedTermException(t);
     }
 
     #region Creating from a network.
@@ -86,7 +132,7 @@ public class ResolvedNetwork
         
         foreach ((Term t, TermRecord r) in tr.Registered)
         {
-            rp.TermDetails[t] = (r.Source, r.Type);
+            rp.TermDetails[t] = new(r.Source, r.Type);
         }
         return rp;
     }
@@ -118,11 +164,11 @@ public class ResolvedNetwork
     /// The resolved sequence of processes. Note that that the "Next" 
     /// </param>
     public void DirectSet(
-        Dictionary<Term, (TermSource, PiType)> termDetails,
+        Dictionary<Term, TermOriginRecord> termDetails,
         List<IProcess> sequence)
     {
-        Debug.Assert(TermDetails.Count == 0 && _ProcessSequence.Count == 0);
-        foreach ((Term t, (TermSource, PiType) details) in termDetails)
+        Debug.Assert(TermDetails.Count == BuiltInValues.Count && _ProcessSequence.Count == 0);
+        foreach ((Term t, TermOriginRecord details) in termDetails)
         {
             TermDetails[t] = details;
         }
@@ -156,9 +202,9 @@ public class ResolvedNetwork
         {
             return false;
         }
-        foreach ((Term t, (TermSource, PiType) details) in TermDetails)
+        foreach ((Term t, TermOriginRecord details) in TermDetails)
         {
-            if (!rp.TermDetails.TryGetValue(t, out (TermSource, PiType) otherDetails) ||
+            if (!rp.TermDetails.TryGetValue(t, out TermOriginRecord? otherDetails) ||
                 details != otherDetails)
             {
                 return false;

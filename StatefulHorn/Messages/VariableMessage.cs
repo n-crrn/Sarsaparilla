@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace StatefulHorn.Messages;
 
-public class VariableMessage : BasicMessage
+public class VariableMessage : BasicMessage, IAssignableMessage
 {
     public VariableMessage(string n) : base(n) { }
 

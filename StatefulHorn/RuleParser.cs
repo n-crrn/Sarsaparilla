@@ -663,7 +663,7 @@ public class RuleParser
 
     private static Guard CreateGuard(string whole, List<GuardPiece> pieces)
     {
-        HashSet<(VariableMessage, IMessage)> ununified = new();
+        HashSet<(IAssignableMessage, IMessage)> ununified = new();
 
         foreach (GuardPiece p in pieces)
         {

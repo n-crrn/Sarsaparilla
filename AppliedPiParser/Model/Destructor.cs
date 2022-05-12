@@ -17,6 +17,8 @@ public class Destructor
 
     public string RightHandSide { get; init; }
 
+    public Term RightHandTerm => new(RightHandSide);
+
     public SortedList<string, string> ParameterTypes { get; init; }
 
     public override string ToString() => $"reduc to {RightHandSide}";

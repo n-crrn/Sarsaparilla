@@ -34,6 +34,8 @@ public class FunctionMessage : IMessage
 
     public int FindMaximumDepth() => (from p in _Parameters select p.FindMaximumDepth()).Max();
 
+    #region IMessage implementation.
+
     public bool ContainsVariables { get; init; }
 
     public void CollectVariables(HashSet<IMessage> varSet)
@@ -106,6 +108,7 @@ public class FunctionMessage : IMessage
         return new FunctionMessage(Name, new(from p in _Parameters select p.PerformSubstitution(sigma)));
     }
 
+    #endregion
     #region Basic object overrides.
 
     public override string ToString()

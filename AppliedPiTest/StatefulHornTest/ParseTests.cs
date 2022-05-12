@@ -209,7 +209,7 @@ public class ParseTests
     /// rule parsing need to be tested (e.g. guard parse testing, label testing).
     /// </summary>
     /// <param name="label">Label to set for the ruel.</param>
-    private Rule CreateDefaultRuleWithGuard(string label, List<(VariableMessage, IMessage)> ununified)
+    private Rule CreateDefaultRuleWithGuard(string label, List<(IAssignableMessage, IMessage)> ununified)
     {
         Factory.GuardStatements = Guard.CreateFromSets(new(ununified));
         Factory.SetNextLabel(label);

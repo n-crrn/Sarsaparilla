@@ -24,6 +24,14 @@ public class TupleMessage : IMessage
 
     public TupleMessage(IEnumerable<IMessage> members) : this(new List<IMessage>(members)) { }
 
+    // FIXME: Reassess the requirement for this method.
+    public TupleMessage Append(IMessage msgToAdd)
+    {
+        List<IMessage> memberList = new(_Members);
+        memberList.Add(msgToAdd);
+        return new(memberList);
+    }
+
     private readonly List<IMessage> _Members;
     public IReadOnlyList<IMessage> Members => _Members;
 

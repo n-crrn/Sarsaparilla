@@ -17,6 +17,8 @@ public class IsComparison : IComparison
 
     public string Name { get; init; }
 
+    public Term AsTerm => new(Name);
+
     #region IComparison implementation.
 
     public SortedSet<string> Variables => new() { Name };

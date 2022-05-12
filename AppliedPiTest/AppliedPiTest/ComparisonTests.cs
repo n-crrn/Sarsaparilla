@@ -1,9 +1,13 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using AppliedPi;
 using AppliedPi.Model;
 using AppliedPi.Model.Comparison;
+using AppliedPi.Translate;
+using StatefulHorn;
+using StatefulHorn.Messages;
 
 namespace SarsaparillaTests.AppliedPiTest;
 
@@ -94,6 +98,51 @@ public class ComparisonTests
         IComparison sbExpectedCmp = new IsComparison("A");
         Assert.AreEqual(sbExpectedCmp, simpleBooleanCmp.Positivise(), "Negative clauses not removed.");
 
+    }
+
+    [TestMethod]
+    public void BasicBranchRestrictionsTest()
+    {
+        ResolvedNetwork rn = new();
+        Dictionary<Term, TermOriginRecord> termDetails = new()
+        {
+            { new("x"), new(TermSource.Input, PiType.Bool) },
+            { new("y"), new(TermSource.Input, PiType.Bool) }
+        };
+        rn.DirectSet(termDetails, new());
+        IComparison basicEqualCmp = new EqualityComparison(true, "x", "y");
+        IComparison basicNotEqualCmp = new EqualityComparison(false, "x", "y");
+
+        VariableMessage x = new("x");
+        VariableMessage y = new("y");
+        SigmaMap expectedSigma1 = new(x, y); // The result should be one or the
+        SigmaMap expectedSigma2 = new(y, x); // other of these two options.
+        Guard expectedGuard1 = new(
+            new Dictionary<IAssignableMessage, HashSet<IMessage>>() 
+            { 
+                { x, new() { y } },
+                { y, new() {x} }
+            } );
+
+        // First sub-test - does the equality result make sense?
+        BranchRestrictionSet eqBrSet = BranchRestrictionSet.From(basicEqualCmp, rn, new());
+        (SigmaMap smEqIf, Guard gdEqIf) = eqBrSet.OutputIfBranchConditions().Single();
+        (SigmaMap smEqElse, Guard gdEqElse) = eqBrSet.OutputElseBranchConditions().Single();
+
+        Assert.AreEqual(Guard.Empty, gdEqIf, "If condition guard expected to be empty.");
+        Assert.IsTrue(expectedSigma1.Equals(smEqIf) || expectedSigma2.Equals(smEqIf), "Different sigma replacement map found.");
+        Assert.IsTrue(smEqElse.IsEmpty, "Else condition sigma map expected to be empty.");
+        Assert.AreEqual(expectedGuard1, gdEqElse, $"Else guards do not match (found {gdEqElse}).");
+
+        // Second sub-test - does the inequality result make sense?
+        BranchRestrictionSet neqBrSet = BranchRestrictionSet.From(basicNotEqualCmp, rn, new());
+        (SigmaMap smNeqIf, Guard gdNeqIf) = neqBrSet.OutputIfBranchConditions().Single();
+        (SigmaMap smNeqElse, Guard gdNeqElse) = neqBrSet.OutputElseBranchConditions().Single();
+
+        Assert.IsTrue(smNeqIf.IsEmpty, "If condition expected to be empty.");
+        Assert.AreEqual(expectedGuard1, gdNeqIf, "Guard for if condition not as expected.");
+        Assert.IsTrue(expectedSigma1.Equals(smNeqElse) || expectedSigma2.Equals(smNeqElse), "Else condition sigma map does not match expected.");
+        Assert.AreEqual(Guard.Empty, gdNeqElse, "Else condition guard not empty.");
     }
 
     

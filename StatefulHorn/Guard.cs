@@ -1,13 +1,8 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-
-using StatefulHorn.Messages;
 
 namespace StatefulHorn;
 
-// FIXME: A revision of this class is required to ensure that unuifiability and 
-// inequivalence are being handled correctly.
 public class Guard
 {
     public static readonly Guard Empty = new();
@@ -17,16 +12,21 @@ public class Guard
         _Ununified = new();
     }
 
-    private Guard(Dictionary<VariableMessage, HashSet<IMessage>> ununifiedComb)
+    private Guard(Dictionary<IAssignableMessage, HashSet<IMessage>> ununifiedComb)
     {
         _Ununified = ununifiedComb;
     }
 
-    public static Guard CreateFromSets(HashSet<(VariableMessage, IMessage)> ununifiedInput)
+    public Guard(IReadOnlyDictionary<IAssignableMessage, HashSet<IMessage>> ununifedCombOrig)
     {
-        Dictionary<VariableMessage, HashSet<IMessage>> ununifiedComb = new();
+        _Ununified = new(ununifedCombOrig);
+    }
 
-        foreach ((VariableMessage, IMessage) row in ununifiedInput)
+    public static Guard CreateFromSets(HashSet<(IAssignableMessage, IMessage)> ununifiedInput)
+    {
+        Dictionary<IAssignableMessage, HashSet<IMessage>> ununifiedComb = new();
+
+        foreach ((IAssignableMessage, IMessage) row in ununifiedInput)
         {
             if(ununifiedComb.TryGetValue(row.Item1, out HashSet<IMessage>? values))
             {
@@ -41,11 +41,11 @@ public class Guard
         return new(ununifiedComb);
     }
 
-    private readonly Dictionary<VariableMessage, HashSet<IMessage>> _Ununified;
+    private readonly Dictionary<IAssignableMessage, HashSet<IMessage>> _Ununified;
 
-    public IReadOnlyDictionary<VariableMessage, HashSet<IMessage>> Ununified => _Ununified;
+    public IReadOnlyDictionary<IAssignableMessage, HashSet<IMessage>> Ununified => _Ununified;
 
-    public bool CanUnifyMessages(VariableMessage msg1, IMessage msg2)
+    public bool CanUnifyMessages(IAssignableMessage msg1, IMessage msg2)
     {
         if (_Ununified.TryGetValue(msg1, out HashSet<IMessage>? bannedList))
         {
@@ -56,17 +56,17 @@ public class Guard
 
     public Guard UnionWith(Guard other)
     {
-        Dictionary<VariableMessage, HashSet<IMessage>> comb = new();
+        Dictionary<IAssignableMessage, HashSet<IMessage>> comb = new();
         ImportUnunifiedList(comb, _Ununified);
         ImportUnunifiedList(comb, other._Ununified);
         return new(comb);
     }
 
     private static void ImportUnunifiedList(
-        Dictionary<VariableMessage, HashSet<IMessage>> newDict,
-        Dictionary<VariableMessage, HashSet<IMessage>> oldDict)
+        Dictionary<IAssignableMessage, HashSet<IMessage>> newDict,
+        Dictionary<IAssignableMessage, HashSet<IMessage>> oldDict)
     {
-        foreach ((VariableMessage vMsg, HashSet<IMessage>? oldSet) in oldDict)
+        foreach ((IAssignableMessage vMsg, HashSet<IMessage>? oldSet) in oldDict)
         {
             if (newDict.TryGetValue(vMsg, out HashSet<IMessage>? newSet))
             {
@@ -84,13 +84,13 @@ public class Guard
         return _Ununified.Count == 0 ? this : new(Substitute(_Ununified, sigma));
     }
 
-    private static Dictionary<VariableMessage, HashSet<IMessage>> Substitute(
-        Dictionary<VariableMessage, HashSet<IMessage>> input, 
+    private static Dictionary<IAssignableMessage, HashSet<IMessage>> Substitute(
+        Dictionary<IAssignableMessage, HashSet<IMessage>> input, 
         SigmaMap sigma)
     {
-        Dictionary<VariableMessage, HashSet<IMessage>> updated = new();
+        Dictionary<IAssignableMessage, HashSet<IMessage>> updated = new();
 
-        foreach ((VariableMessage vMsg, HashSet<IMessage> set) in input)
+        foreach ((IAssignableMessage vMsg, HashSet<IMessage> set) in input)
         {
             if (!sigma.TryGetValue(vMsg, out IMessage? _)) // Skip the value if it is now defined.
             {
@@ -109,7 +109,7 @@ public class Guard
     {
         // Not that non-ununifiables are the only items output as part of the string.
         List<string> nonunif = new();
-        foreach ((VariableMessage vMsg, HashSet<IMessage> set) in _Ununified)
+        foreach ((IAssignableMessage vMsg, HashSet<IMessage> set) in _Ununified)
         {
             foreach (IMessage msg in set)
             {
@@ -127,7 +127,7 @@ public class Guard
             {
                 return false;
             }
-            foreach ((VariableMessage thisVMsg, HashSet<IMessage> thisSet) in _Ununified)
+            foreach ((IAssignableMessage thisVMsg, HashSet<IMessage> thisSet) in _Ununified)
             {
                 if (!og._Ununified.TryGetValue(thisVMsg, out HashSet<IMessage>? otherSet))
                 {
@@ -154,7 +154,7 @@ public class Guard
         if (_HashCode == 0)
         {
             _HashCode = 7727 * 7741;
-            foreach ((VariableMessage vMsg, HashSet<IMessage> set) in _Ununified)
+            foreach ((IAssignableMessage vMsg, HashSet<IMessage> set) in _Ununified)
             {
                 unchecked
                 {

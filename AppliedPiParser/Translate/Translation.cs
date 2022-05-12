@@ -33,31 +33,6 @@ public class Translation
         }
     }
 
-    /// <summary>
-    /// Provides a direct translation of a term to a non-variable message representation.
-    /// </summary>
-    /// <param name="t"></param>
-    /// <returns></returns>
-    private static IMessage TermToMessage(Term t, ResolvedNetwork rn)
-    {
-        if (t.Parameters.Count > 0)
-        {
-            List<IMessage> msgParams = new(from p in t.Parameters select TermToMessage(p, rn));
-            return t.IsTuple ? new TupleMessage(msgParams) : new FunctionMessage(t.Name, msgParams);
-        }
-        (TermSource source, PiType _) = rn.TermDetails[t];
-        if (source == TermSource.Input)
-        {
-            return new VariableMessage(t.Name);
-        }
-        return new NameMessage(t.Name);
-    }
-
-    private static StatefulHorn.Event TermToKnow(Term t, ResolvedNetwork rn)
-    {
-        return StatefulHorn.Event.Know(TermToMessage(t, rn));
-    }
-
     private static Rule TranslateConstructor(Constructor ctr, RuleFactory factory)
     {
         HashSet<StatefulHorn.Event> premises = new();
@@ -132,12 +107,12 @@ public class Translation
             {
                 if (!nw.FreeDeclarations[term.Name].IsPrivate)
                 {
-                    allRules.Add(factory.CreateStateConsistentRule(TermToKnow(term, rn)));
+                    allRules.Add(factory.CreateStateConsistentRule(rn.TermToKnow(term)));
                 }
             }
             else if (src == TermSource.Constant)
             {
-                allRules.Add(factory.CreateStateConsistentRule(TermToKnow(term, rn)));
+                allRules.Add(factory.CreateStateConsistentRule(rn.TermToKnow(term)));
             }
         }
 
@@ -151,7 +126,7 @@ public class Translation
             allRules.Add(r.GenerateRule(factory));
         }
 
-        HashSet<IMessage> queries = new(from q in nw.Queries select TermToMessage(q.LeakQuery, rn));
+        HashSet<IMessage> queries = new(from q in nw.Queries select rn.TermToMessage(q.LeakQuery));
 
         return new(initStates, allRules, queries);
     }
@@ -264,8 +239,8 @@ public class Translation
     }
 
     private static (Dictionary<Term, ReadSocket>, Dictionary<Term, WriteSocket>) GetSocketsRequiredForBranch(
-    ProcessTree.Node n,
-    HashSet<Term> infiniteChannels)
+        ProcessTree.Node n,
+        HashSet<Term> infiniteChannels)
     {
         Dictionary<Term, ReadSocket> readers = new();
         Dictionary<Term, WriteSocket> writers = new();
@@ -403,7 +378,7 @@ public class Translation
                     WriteSocket writer = summary.Writers[outChannelTerm];
                     //writeCount.TryGetValue(outChannelTerm, out int wc);
                     //int wc = interactionCount[writer];
-                    IMessage resultMessage = TermToMessage(ocp.SentTerm, rn);
+                    IMessage resultMessage = rn.TermToMessage(ocp.SentTerm);
                     // Infinite cross-links have to be done here as this is where the premises and
                     // result are.
                     if (writer.IsInfinite)

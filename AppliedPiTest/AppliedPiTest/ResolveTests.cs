@@ -37,11 +37,11 @@ process
         ResolvedNetwork resNw = ResolvedNetwork.From(nw);
 
         // Create expected ResolvedNetwork.
-        Dictionary<Term, (TermSource Source, PiType PiType)> details = new()
+        Dictionary<Term, TermOriginRecord> details = new()
         {
-            { new("c"), (TermSource.Free, new("channel")) },
-            { new("Kas"), (TermSource.Nonce, new("key")) },
-            { new("tv"), (TermSource.Input, new("key")) }
+            { new("c"), new(TermSource.Free, new("channel")) },
+            { new("Kas"), new(TermSource.Nonce, new("key")) },
+            { new("tv"), new(TermSource.Input, new("key")) }
         };
         List<IProcess> sequence = new()
         {
@@ -84,15 +84,15 @@ process
         ResolvedNetwork resNw = ResolvedNetwork.From(nw);
 
         // Create expected ResolvedNetwork.
-        Dictionary<Term, (TermSource Source, PiType PiType)> details = new()
+        Dictionary<Term, TermOriginRecord> details = new()
         {
-            { new("c"),        (TermSource.Free, new(Network.ChannelType)) },
-            { new("Good"),     (TermSource.Constant, new(Network.BitstringType)) },
-            { new("kValue"),   (TermSource.Nonce, new("key")) },
+            { new("c"),        new(TermSource.Free, new(Network.ChannelType)) },
+            { new("Good"),     new(TermSource.Constant, new(Network.BitstringType)) },
+            { new("kValue"),   new(TermSource.Nonce, new("key")) },
             { new("encrypt", new() { new("Good"), new("kValue") }),
-                               (TermSource.Constructor, new(Network.BitstringType)) },
-            { new("rx@value"), (TermSource.Input, new(Network.BitstringType)) },
-            { new("rx@x"),     (TermSource.Let, new(Network.BitstringType)) }
+                               new(TermSource.Constructor, new(Network.BitstringType)) },
+            { new("rx@value"), new(TermSource.Input, new(Network.BitstringType)) },
+            { new("rx@x"),     new(TermSource.Let, new(Network.BitstringType)) }
         };
         List<IProcess> sequence = new()
         {
