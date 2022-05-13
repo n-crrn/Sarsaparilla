@@ -29,13 +29,29 @@ public class FiniteReadRule : IMutateRule
 
     public string VariableName { get; init; }
 
-    public string Label => $"FinRead:{Socket}-{VariableName}";
+    #region Static convenience methods.
+
+    public static IEnumerable<IMutateRule> GenerateRulesForReceivePattern(ReadSocket readSocket, int prevReads, List<(string, string)> rxPattern)
+    {
+        List<string> simplifiedRxPattern = new(from rx in rxPattern select rx.Item1);
+        foreach (string varName in simplifiedRxPattern)
+        {
+            yield return new FiniteReadRule(readSocket, prevReads, varName, simplifiedRxPattern);
+        }
+    }
 
     public static Event VariableCellAsPremise(string vName)
     {
         IMessage v = new VariableMessage(vName);
         return Event.Know(new FunctionMessage($"{vName}@cell", new() { v }));
     }
+
+    #endregion
+    #region IMutateRules implementation.
+
+    public string Label => $"FinRead:{Socket}-{VariableName}";
+
+    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 
     public Rule GenerateRule(RuleFactory factory)
     {
@@ -51,18 +67,12 @@ public class FiniteReadRule : IMutateRule
         Snapshot prevSS = Socket.RegisterReadSequence(factory, PreviousReadCount, Socket.WaitingState());
         Snapshot latestSS = factory.RegisterState(Socket.ReadState(varMsg));
         latestSS.SetModifiedOnceLaterThan(prevSS);
-        return factory.CreateStateConsistentRule(VariableCellAsPremise(VariableName));
+        factory.GuardStatements = Conditions?.CreateGuard();
+        Rule r = factory.CreateStateConsistentRule(VariableCellAsPremise(VariableName));
+        return IfBranchConditions.ApplyReplacements(Conditions, r);
     }
 
-    public static IEnumerable<IMutateRule> GenerateRulesForReceivePattern(ReadSocket readSocket, int prevReads, List<(string, string)> rxPattern)
-    {
-        List<string> simplifiedRxPattern = new(from rx in rxPattern select rx.Item1);
-        foreach (string varName in simplifiedRxPattern)
-        {
-            yield return new FiniteReadRule(readSocket, prevReads, varName, simplifiedRxPattern);
-        }
-    }
-
+    #endregion
     #region Basic object overrides.
 
     public override string ToString() => $"Finite read rule from {Socket} to variable {VariableName}.";
@@ -73,7 +83,8 @@ public class FiniteReadRule : IMutateRule
             Socket.Equals(r.Socket) &&
             PreviousReadCount == r.PreviousReadCount &&
             ReceivePattern.SequenceEqual(r.ReceivePattern) &&
-            VariableName.Equals(r.VariableName);
+            VariableName.Equals(r.VariableName) &&
+            Equals(Conditions, r.Conditions);
     }
 
     public override int GetHashCode() => Socket.GetHashCode();

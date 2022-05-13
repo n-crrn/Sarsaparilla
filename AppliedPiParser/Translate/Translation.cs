@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 using StatefulHorn;
@@ -93,7 +94,7 @@ public class Translation
             }
         }
 
-        (HashSet<Socket> allSockets, List<IMutateRule> allMutateRules) = GenerateMutateRules(rn);
+        (HashSet<Socket> allSockets, List<IMutateRule> allMutateRules) = GenerateMutateRules(rn, nw);
         HashSet<State> initStates = new(from s in allSockets select s.InitialState());
 
         foreach (IMutateRule r in allMutateRules)
@@ -107,7 +108,7 @@ public class Translation
         return new(initStates, allRules, queries);
     }
 
-    public static (HashSet<Socket>, List<IMutateRule>) GenerateMutateRules(ResolvedNetwork rn)
+    public static (HashSet<Socket>, List<IMutateRule>) GenerateMutateRules(ResolvedNetwork rn, Network nw)
     {
         HashSet<Term> cellsInUse = new();
         foreach ((Term term, (TermSource src, PiType type)) in rn.TermDetails)
@@ -120,7 +121,7 @@ public class Translation
 
         ProcessTree procTree = new(rn);
         BranchSummary rootSummary = PreProcessBranch(procTree.StartNode, new(), cellsInUse);
-        List<IMutateRule> allMutateRules = new(ProcessBranch(procTree.StartNode, rootSummary, new(), new(), new(), new(), rn));
+        List<IMutateRule> allMutateRules = new(ProcessBranch(procTree.StartNode, rootSummary, new(), new(), new(), new(), rn, nw));
         return (rootSummary.AllSockets(), allMutateRules);
     }
 
@@ -272,20 +273,27 @@ public class Translation
         BranchSummary summary, 
         List<BranchSummary> parallelBranches,
         List<Socket> previousSockets, 
-        Dictionary<Term, Term> subs,
+        IfBranchConditions conditions,
         HashSet<StatefulHorn.Event> premises,
-        ResolvedNetwork rn)
+        ResolvedNetwork rn,
+        Network nw)
     {
         // Open required reader sockets.
         foreach (ReadSocket rs in summary.Readers.Values)
         {
-            yield return new OpenReadSocketRule(rs, previousSockets);
+            yield return new OpenReadSocketRule(rs, previousSockets)
+            {
+                Conditions = conditions
+            };
         }
 
         // Know rules for used writer sockets.
         foreach (WriteSocket ws in summary.Writers.Values)
         {
-            yield return new KnowChannelContentRule(ws);
+            yield return new KnowChannelContentRule(ws)
+            {
+                Conditions = conditions
+            };
         }
 
         // Pre-filter infinite readers from the parallel branches. The infinite cross-link rule
@@ -322,9 +330,13 @@ public class Translation
                     ReadSocket reader = summary.Readers[inChannelTerm];
                     if (reader.IsInfinite)
                     {
-                        yield return new ReadResetRule(reader);
+                        yield return new ReadResetRule(reader)
+                        {
+                            Conditions = conditions
+                        };
                         foreach (IMutateRule imr in InfiniteReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
                         {
+                            imr.Conditions = conditions;
                             yield return imr;
                         }
                     }
@@ -333,10 +345,14 @@ public class Translation
                         int rc = interactionCount[reader];
                         if (rc > 0)
                         {
-                            yield return new ReadResetRule(reader, rc);
+                            yield return new ReadResetRule(reader, rc)
+                            { 
+                                Conditions = conditions
+                            };
                         }
                         foreach (IMutateRule mr in FiniteReadRule.GenerateRulesForReceivePattern(reader, rc, icp.ReceivePattern))
                         {
+                            mr.Conditions = conditions;
                             yield return mr;
                         }
                         interactionCount[reader] = rc + 1;
@@ -362,18 +378,25 @@ public class Translation
                             IEnumerable<IMutateRule> iclRules = InfiniteCrossLink.GenerateRulesForReadReceivePatterns(writer, rxSocket, premises, resultMessage);
                             foreach (IMutateRule rxPatternRule in iclRules)
                             {
+                                rxPatternRule.Conditions = conditions;
                                 yield return rxPatternRule;
                             }
                         }
                         if (finReaders.TryGetValue(outChannelTerm, out List<ReadSocket>? rxSocketList) && rxSocketList!.Count > 0)
                         {
-                            yield return new InfiniteWriteRule(writer, premises, resultMessage);
+                            yield return new InfiniteWriteRule(writer, premises, resultMessage)
+                            {
+                                Conditions = conditions
+                            };
                         }
                     }
                     else
                     {
                         int wc = interactionCount[writer];
-                        yield return new FiniteWriteRule(writer, interactionCount, premises, resultMessage);
+                        yield return new FiniteWriteRule(writer, interactionCount, premises, resultMessage)
+                        {
+                            Conditions = conditions
+                        };
                         interactionCount[writer] = wc + 1;
                     }
                     break;
@@ -392,7 +415,10 @@ public class Translation
             if (!rs.IsInfinite)
             {
                 thisBranchSockets.Add(rs);
-                yield return new ShutRule(rs, interactionCount[rs]);
+                yield return new ShutRule(rs, interactionCount[rs])
+                {
+                    Conditions = conditions
+                };
             }
         }
         foreach (WriteSocket ws in summary.Writers.Values)
@@ -400,7 +426,10 @@ public class Translation
             if (!ws.IsInfinite)
             {
                 thisBranchSockets.Add(ws);
-                yield return new ShutRule(ws, interactionCount[ws]);
+                yield return new ShutRule(ws, interactionCount[ws])
+                {
+                    Conditions = conditions
+                };
             }
         }
 
@@ -411,15 +440,19 @@ public class Translation
             {
                 foreach (ReadSocket rx in rxSockets)
                 {
-                    yield return new FiniteCrossLinkRule(ws, rx);
+                    yield return new FiniteCrossLinkRule(ws, rx)
+                    {
+                        Conditions = conditions
+                    };
                 }
             }
         }
 
-        // Process the children.
+        // Regardless of the ending process type, each ending process will still require an
+        // individually generated list of what parallel branches are available.
+        List<List<BranchSummary>> childParallelLists = new();
         for (int i = 0; i < n.Branches.Count; i++)
         {
-            // Build parallel branches.
             List<BranchSummary> subParallel = new(parallelBranches);
             for (int j = 0; j < n.Branches.Count; j++)
             {
@@ -428,13 +461,71 @@ public class Translation
                     subParallel.Add(summary.Children[j]);
                 }
             }
+            childParallelLists.Add(subParallel);
+        }
 
-            // Execute query.
-            IEnumerable<IMutateRule> childRules = 
-                ProcessBranch(n.Branches[i], summary.Children[i], subParallel, thisBranchSockets, new(subs), new(premises), rn);
-            foreach (IMutateRule r in childRules)
+        if (n.Process is IfProcess ifp)
+        {
+            BranchRestrictionSet brs = BranchRestrictionSet.From(ifp.Comparison, rn, nw);
+
+            // Handle if conditions by generating a complete set of rules for each condition
+            // of the branch.
+            const int IfBranchOffset = 0;
+            foreach (IfBranchConditions ifCond in brs.IfConditions)
             {
-                yield return r;
+                IfBranchConditions updatedIfConditions = conditions.And(ifCond);
+                IEnumerable<IMutateRule> ifChildRules = ProcessBranch(
+                    n.Branches[IfBranchOffset],
+                    summary.Children[IfBranchOffset],
+                    childParallelLists[IfBranchOffset],
+                    thisBranchSockets,
+                    updatedIfConditions,
+                    new(premises),
+                    rn,
+                    nw);
+                foreach (IMutateRule r in ifChildRules) { yield return r; }
+            }
+
+            // Handle else conditions, if they exist. Again, complete set of rules for 
+            // every condition.
+            const int ElseBranchOffset = 1;
+            if (n.Branches.Count > 1)
+            {
+                foreach (IfBranchConditions elseCond in brs.ElseConditions)
+                {
+                    IfBranchConditions updatedElseConditions = conditions.And(elseCond);
+                    IEnumerable<IMutateRule> elseChildRules = ProcessBranch(
+                        n.Branches[ElseBranchOffset],
+                        summary.Children[ElseBranchOffset],
+                        childParallelLists[ElseBranchOffset],
+                        thisBranchSockets,
+                        updatedElseConditions,
+                        new(premises),
+                        rn,
+                        nw);
+                    foreach (IMutateRule r in elseChildRules) { yield return r; }
+                }
+            }
+        }
+        else if (n.Process is ReplicateProcess || n.Process is ParallelCompositionProcess)
+        {
+            // Translate the child process, and pass the found children up the "callstack".
+            for (int i = 0; i < n.Branches.Count; i++)
+            {
+                IEnumerable<IMutateRule> childRules = ProcessBranch(
+                    n.Branches[i], 
+                    summary.Children[i],
+                    childParallelLists[i], 
+                    thisBranchSockets, 
+                    conditions, 
+                    new(premises), 
+                    rn, 
+                    nw);
+                foreach (IMutateRule r in childRules)
+                {
+                    // Condition will already have been set.
+                    yield return r;
+                }
             }
         }
     }

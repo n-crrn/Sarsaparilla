@@ -10,15 +10,19 @@ using StatefulHorn.Messages;
 
 namespace AppliedPi;
 
+// Ignore that there is no Object.GetHashCode(), as it would be too computationally intensive.
+#pragma warning disable CS0659 
+
 /// <summary>
 /// A class for reasoning about the conditions for a set of If-Then-Else branches.
 /// </summary>
 public class IfBranchConditions
 {
+    public static readonly IfBranchConditions Empty = new();
 
     public IfBranchConditions() : this(new(), new()) { }
 
-    private IfBranchConditions(
+    public IfBranchConditions(
         Dictionary<IAssignableMessage, IMessage> repl,
         BucketSet<IAssignableMessage, IMessage> ban)
     {
@@ -36,13 +40,20 @@ public class IfBranchConditions
 
     private readonly BucketSet<IAssignableMessage, IMessage> Bans;
 
+    public bool IsEmpty => Replacements.Count == 0 && Bans.Count == 0;
+
     public static IfBranchConditions IfThen(GroupSet<IMessage> msgSets) => new(GroupToReplacements(msgSets), new());
 
     public static IfBranchConditions Else(GroupSet<IMessage> msgSets) => new(new(), GroupToBans(msgSets));
 
-    public bool IsEmpty => Replacements.Count == 0 && Bans.Count == 0;
+    public IfBranchConditions And(IfBranchConditions other)
+    {
+        IfBranchConditions newBC = new(this);
+        newBC.AndWith(other);
+        return newBC;
+    }
 
-    public void AndWith(IfBranchConditions ibc)
+    private void AndWith(IfBranchConditions ibc)
     {
         foreach ((IAssignableMessage aMsg, IMessage vMsg) in ibc.Replacements)
         {
@@ -181,6 +192,50 @@ public class IfBranchConditions
         return new(sigRepl);
     }
 
+    public static Rule ApplyReplacements(IfBranchConditions? cond, Rule r)
+    {
+        if (cond != null)
+        {
+            return r.PerformSubstitution(cond.CreateSigmaMap());
+        }
+        return r;
+    }
+
     public Guard CreateGuard() => new(Bans.Buckets);
+
+    #region Basic object overrides.
+
+    public override bool Equals(object? other)
+    {
+        if (other is IfBranchConditions cond)
+        {
+            if (!Bans.Equals(cond.Bans))
+            {
+                return false;
+            }
+            if (Replacements.Count != cond.Replacements.Count)
+            {
+                return false;
+            }
+            foreach ((IAssignableMessage aMsg, IMessage msg) in Replacements)
+            {
+                if (!(cond.Replacements.TryGetValue(aMsg, out IMessage? otherMsg) && msg.Equals(otherMsg)))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public override string ToString()
+    {
+        SigmaMap sm = CreateSigmaMap();
+        Guard g = CreateGuard();
+        return $"Replacements {sm}, bans {g}";
+    }
+
+    #endregion
 
 }

@@ -26,19 +26,9 @@ public class InfiniteCrossLink : IMutateRule
 
     public Event Result { get; init; }
 
-    public string Label => $"InfXLink:{From}-{To}({Result})";
-
-    public Rule GenerateRule(RuleFactory factory)
-    {
-        Snapshot fromWait = factory.RegisterState(From.WaitingState());
-        factory.RegisterPremises(fromWait, Premises);
-        factory.RegisterState(To.WaitingState());
-        return factory.CreateStateConsistentRule(Result);
-    }
-
     public static IEnumerable<IMutateRule> GenerateRulesForReadReceivePatterns(
         WriteSocket from,
-        ReadSocket to, 
+        ReadSocket to,
         HashSet<Event> premises,
         IMessage written)
     {
@@ -65,6 +55,22 @@ public class InfiniteCrossLink : IMutateRule
         }
     }
 
+    #region IMutateRule implementation.
+
+    public string Label => $"InfXLink:{From}-{To}({Result})";
+
+    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
+
+    public Rule GenerateRule(RuleFactory factory)
+    {
+        Snapshot fromWait = factory.RegisterState(From.WaitingState());
+        factory.RegisterPremises(fromWait, Premises);
+        factory.RegisterState(To.WaitingState());
+        factory.GuardStatements = Conditions?.CreateGuard();
+        return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateConsistentRule(Result));
+    }
+
+    #endregion
     #region Basic object overrides.
 
     public override string ToString() => $"Infinite cross-link between {From} and {To}.";
@@ -75,7 +81,8 @@ public class InfiniteCrossLink : IMutateRule
             From.Equals(icl.From) &&
             To.Equals(icl.To) &&
             Premises.SetEquals(icl.Premises) &&
-            Result.Equals(icl.Result);
+            Result.Equals(icl.Result) &&
+            Equals(Conditions, icl.Conditions);
     }
 
     public override int GetHashCode() => From.GetHashCode() + To.GetHashCode();

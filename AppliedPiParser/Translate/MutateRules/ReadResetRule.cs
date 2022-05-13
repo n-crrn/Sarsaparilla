@@ -24,7 +24,11 @@ public class ReadResetRule : IMutateRule
 
     public int ReadCount { get; init; } = -1;
 
+    #region IMutate implementation.
+
     public string Label => $"readReset:{Socket}";
+
+    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 
     public Rule GenerateRule(RuleFactory factory)
     {
@@ -41,11 +45,18 @@ public class ReadResetRule : IMutateRule
         return factory.CreateStateTransferringRule();
     }
 
+    #endregion
     #region Basic object overrides.
 
     public override string ToString() => $"Read reset rule for {Socket}.";
 
-    public override bool Equals(object? obj) => obj is ReadResetRule r && Socket.Equals(r.Socket) && ReadCount == r.ReadCount;
+    public override bool Equals(object? obj)
+    {
+        return obj is ReadResetRule r &&
+            Socket.Equals(r.Socket) &&
+            ReadCount == r.ReadCount &&
+            Equals(Conditions, r.Conditions);
+    }
 
     public override int GetHashCode() => Socket.GetHashCode() + ReadCount;
 

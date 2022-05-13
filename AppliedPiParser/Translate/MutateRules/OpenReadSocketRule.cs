@@ -22,7 +22,11 @@ public class OpenReadSocketRule : IMutateRule
 
     private readonly HashSet<Socket> PriorSockets = new();
 
+    #region IMutateRule implementations.
+
     public string Label => $"Open:{Socket}";
+
+    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 
     public Rule GenerateRule(RuleFactory factory)
     {
@@ -32,16 +36,21 @@ public class OpenReadSocketRule : IMutateRule
         }
         Snapshot ss = factory.RegisterState(Socket.InitialState());
         ss.TransfersTo = Socket.WaitingState();
-        return factory.CreateStateTransferringRule();
+        factory.GuardStatements = Conditions?.CreateGuard();
+        return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateTransferringRule());
     }
 
+    #endregion
     #region Basic object overrides.
 
     public override string ToString() => $"Open reading on {Socket}.";
 
     public override bool Equals(object? obj)
     {
-        return obj is OpenReadSocketRule r && Socket.Equals(r.Socket) && PriorSockets.SetEquals(r.PriorSockets);
+        return obj is OpenReadSocketRule r &&
+            Socket.Equals(r.Socket) &&
+            PriorSockets.SetEquals(r.PriorSockets) &&
+            Equals(Conditions, r.Conditions);
     }
 
     public override int GetHashCode() => Socket.GetHashCode();

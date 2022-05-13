@@ -19,20 +19,32 @@ public class KnowChannelContentRule : IMutateRule
 
     private static readonly IMessage InternalVariable = new VariableMessage("@v");
 
+    #region IMutateRule implementation.
+
     public string Label => $"Know:{Socket}";
+
+    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 
     public Rule GenerateRule(RuleFactory factory)
     {
         Snapshot ss = factory.RegisterState(Socket.WriteState(InternalVariable));
         factory.RegisterPremises(ss, Event.Know(new NameMessage(Socket.ChannelName)));
-        return factory.CreateStateConsistentRule(Event.Know(InternalVariable));
+        factory.GuardStatements = Conditions?.CreateGuard();
+        Rule r = factory.CreateStateConsistentRule(Event.Know(InternalVariable));
+        return IfBranchConditions.ApplyReplacements(Conditions, r);
     }
 
+    #endregion
     #region Basic object overrides.
 
     public override string ToString() => $"Know rule for {Socket}.";
 
-    public override bool Equals(object? obj) => obj is KnowChannelContentRule r && Socket.Equals(r.Socket);
+    public override bool Equals(object? obj)
+    {
+        return obj is KnowChannelContentRule r && 
+            Socket.Equals(r.Socket) && 
+            Equals(Conditions, r.Conditions);
+    }
 
     public override int GetHashCode() => Socket.GetHashCode();
 

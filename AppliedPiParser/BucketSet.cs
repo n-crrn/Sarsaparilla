@@ -14,6 +14,11 @@ public class BucketSet<TKey, TValue> : IEnumerable<(TKey, IReadOnlySet<TValue>)>
 
     public BucketSet() { }
 
+    public BucketSet(TKey k, TValue v)
+    {
+        Add(k, v);
+    }
+
     public BucketSet(IEnumerable<(TKey, TValue)> initialItems)
     {
         foreach ((TKey k, TValue v) in initialItems)

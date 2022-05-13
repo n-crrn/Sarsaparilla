@@ -29,7 +29,21 @@ public class InfiniteReadRule : IMutateRule
 
     public string VariableName { get; init; }
 
+
+    public static IEnumerable<IMutateRule> GenerateRulesForReceivePattern(ReadSocket rs, List<(string, string)> rxPattern)
+    {
+        List<string> simplifiedRxPattern = new(from rx in rxPattern select rx.Item1);
+        foreach (string varName in simplifiedRxPattern)
+        {
+            yield return new InfiniteReadRule(rs, varName, simplifiedRxPattern);
+        }
+    }
+
+    #region IMutateRule implementation.
+
     public string Label => $"InfRead:{Socket}-{VariableName}";
+
+    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 
     public Rule GenerateRule(RuleFactory factory)
     {
@@ -43,28 +57,23 @@ public class InfiniteReadRule : IMutateRule
             varMsg = new TupleMessage(from rx in ReceivePattern select new VariableMessage(rx));
         }
         Snapshot ss = factory.RegisterState(Socket.ReadState(varMsg));
-        return factory.CreateStateConsistentRule(FiniteReadRule.VariableCellAsPremise(VariableName));
+        factory.GuardStatements = Conditions?.CreateGuard();
+        Rule r = factory.CreateStateConsistentRule(FiniteReadRule.VariableCellAsPremise(VariableName));
+        return IfBranchConditions.ApplyReplacements(Conditions, r);
     }
 
-    public static IEnumerable<IMutateRule> GenerateRulesForReceivePattern(ReadSocket rs, List<(string, string)> rxPattern)
-    {
-        List<string> simplifiedRxPattern = new(from rx in rxPattern select rx.Item1);
-        foreach (string varName in simplifiedRxPattern)
-        {
-            yield return new InfiniteReadRule(rs, varName, simplifiedRxPattern);
-        }
-    }
-
+    #endregion
     #region Basic object overrides.
 
     public override string ToString() => $"Infinite read rule from {Socket} to variable {VariableName}.";
 
     public override bool Equals(object? obj)
     {
-        return obj is InfiniteReadRule r && 
-            Socket.Equals(r.Socket) && 
-            VariableName == r.VariableName && 
-            ReceivePattern.SequenceEqual(r.ReceivePattern);
+        return obj is InfiniteReadRule r &&
+            Socket.Equals(r.Socket) &&
+            VariableName == r.VariableName &&
+            ReceivePattern.SequenceEqual(r.ReceivePattern) &&
+            Equals(Conditions, r.Conditions);
     }
 
     public override int GetHashCode() => Socket.GetHashCode();

@@ -17,8 +17,8 @@ public class BranchRestrictionSet
 {
     private BranchRestrictionSet(List<IfBranchConditions> ifCond, List<IfBranchConditions> elseCond)
     {
-        IfConditions = ifCond;
-        ElseConditions = elseCond;
+        _IfConditions = ifCond;
+        _ElseConditions = elseCond;
     }
 
     private BranchRestrictionSet((IfBranchConditions, IfBranchConditions) singleCmpConditions)
@@ -39,9 +39,9 @@ public class BranchRestrictionSet
         };
     }
 
-    public List<(SigmaMap, Guard)> OutputIfBranchConditions() => ConvertBranchConditions(IfConditions);
+    public List<(SigmaMap, Guard)> OutputIfBranchConditions() => ConvertBranchConditions(_IfConditions);
 
-    public List<(SigmaMap, Guard)> OutputElseBranchConditions() => ConvertBranchConditions(ElseConditions);
+    public List<(SigmaMap, Guard)> OutputElseBranchConditions() => ConvertBranchConditions(_ElseConditions);
 
     private static List<(SigmaMap, Guard)> ConvertBranchConditions(List<IfBranchConditions> ibc)
     {
@@ -55,38 +55,39 @@ public class BranchRestrictionSet
 
     #region Condition updating and manipulation.
 
-    private readonly List<IfBranchConditions> IfConditions;
-    private readonly List<IfBranchConditions> ElseConditions;
+    private readonly List<IfBranchConditions> _IfConditions;
 
-    public BranchRestrictionSet Not() => new(ElseConditions, IfConditions);
+    public IReadOnlyList<IfBranchConditions> IfConditions => _IfConditions;
+
+    private readonly List<IfBranchConditions> _ElseConditions;
+
+    public IReadOnlyList<IfBranchConditions> ElseConditions => ElseConditions;
+
+    public BranchRestrictionSet Not() => new(_ElseConditions, _IfConditions);
 
     public BranchRestrictionSet And(BranchRestrictionSet brs)
     {
         List<IfBranchConditions> ifCond = new();
-        foreach (IfBranchConditions c1 in IfConditions)
+        foreach (IfBranchConditions c1 in _IfConditions)
         {
-            foreach (IfBranchConditions c2 in brs.IfConditions)
+            foreach (IfBranchConditions c2 in brs._IfConditions)
             {
-                IfBranchConditions newCond = new(c1);
-                newCond.AndWith(c2);
-                ifCond.Add(newCond);
+                ifCond.Add(c1.And(c2));
             }
         }
-        List<IfBranchConditions> elseCond = new(ElseConditions.Concat(brs.ElseConditions));
+        List<IfBranchConditions> elseCond = new(_ElseConditions.Concat(brs._ElseConditions));
         return new(ifCond, elseCond);
     }
 
     public BranchRestrictionSet Or(BranchRestrictionSet brs)
     {
-        List<IfBranchConditions> ifCond = new(IfConditions.Concat(brs.IfConditions));
+        List<IfBranchConditions> ifCond = new(_IfConditions.Concat(brs._IfConditions));
         List<IfBranchConditions> elseCond = new();
-        foreach (IfBranchConditions e1 in ElseConditions)
+        foreach (IfBranchConditions e1 in _ElseConditions)
         {
-            foreach (IfBranchConditions e2 in brs.ElseConditions)
+            foreach (IfBranchConditions e2 in brs._ElseConditions)
             {
-                IfBranchConditions newElseCond = new(e1);
-                newElseCond.AndWith(e2);
-                elseCond.Add(newElseCond);
+                elseCond.Add(e1.And(e2));
             }
         }
         return new(ifCond, elseCond);
@@ -98,8 +99,6 @@ public class BranchRestrictionSet
     private static readonly IMessage TrueMessage = new NameMessage("true");
 
     // private static readonly IMessage FalseMessage = new NameMessage("false");
-
-    public record EqualityCondition(IMessage Result, IDictionary<IMessage, IMessage> Correspondences);
 
     private static GroupSet<IMessage> GetEqualityCorrespondences(
         IMessage lhsMsg, 

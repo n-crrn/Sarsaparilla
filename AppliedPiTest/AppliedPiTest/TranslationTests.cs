@@ -134,12 +134,60 @@ process !( out(c, s) |  in(c, v: bitstring) ).";
         DoMutateTest(testSource, expectedSockets, expectedMutations);
     }
 
+    [TestMethod]
+    public void BasicIfElseTest()
+    {
+        string testSource =
+@"free c: channel.
+free s: bitstring [private].
+const w: bitstring.
+const x: bitstring.
+
+process 
+  in(c, v: bitstring);
+  if v = w && v <> x then out(c, v).";
+
+        ReadSocket cIn = new("c", 0);
+        WriteSocket cOut = new("c", 2);
+        HashSet<Socket> expectedSockets = new() { cIn, cOut };
+        VariableMessage vMsg = new("v");
+        IfBranchConditions ifCond = new(
+            new Dictionary<IAssignableMessage, IMessage>() { { vMsg, new NameMessage("w") } },
+            new BucketSet<IAssignableMessage, IMessage>(vMsg, new NameMessage("x")));
+        HashSet<Event> outputPremises = new()
+        {
+            Event.Know(new FunctionMessage("v@cell", new() { vMsg }))
+        };
+
+        HashSet<IMutateRule> expectedMutations = new()
+        {
+            // Branch 0 (in(c, v)).           
+            new OpenReadSocketRule(cIn),
+            new FiniteReadRule(cIn, 0, "v"),
+            new ShutRule(cIn, 1),
+            // Branch 2 (out(c, v)) -> Note that the conditional is branch 1.
+            new KnowChannelContentRule(cOut)
+            {
+                Conditions = ifCond
+            },
+            new FiniteWriteRule(cOut, new Dictionary<Socket, int>() { { cOut, 0 } }, outputPremises, vMsg)
+            {
+                Conditions = ifCond
+            },
+            new ShutRule(cOut, 1)
+            {
+                Conditions = ifCond
+            }
+        };
+        DoMutateTest(testSource, expectedSockets, expectedMutations);
+    }
+
     #region Convenience methods.
 
     private static void DoMutateTest(string piSource, HashSet<Socket> expectedSockets, HashSet<IMutateRule> expectedMutations)
     {
         ResolvedNetwork rn = ResolvedNetwork.From(Network.CreateFromCode(piSource));
-        (HashSet<Socket> foundSockets, List<IMutateRule> foundMutations) = Translation.GenerateMutateRules(rn);
+        (HashSet<Socket> foundSockets, List<IMutateRule> foundMutations) = Translation.GenerateMutateRules(rn, new());
 
         try
         {

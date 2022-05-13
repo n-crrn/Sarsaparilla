@@ -15,7 +15,11 @@ public class ShutRule : IMutateRule
 
     public int InteractionCount { get; init; }
 
+    #region IMutateRule implementation.
+
     public string Label => $"Shut:{Socket}(InteractionCount)";
+
+    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 
     public Rule GenerateRule(RuleFactory factory)
     {
@@ -29,14 +33,22 @@ public class ShutRule : IMutateRule
             prior = ((WriteSocket)Socket).RegisterWriteSequence(factory, InteractionCount, Socket.WaitingState());
         }
         prior.TransfersTo = Socket.ShutState();
-        return factory.CreateStateTransferringRule();
+        factory.GuardStatements = Conditions?.CreateGuard();
+        return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateTransferringRule());
     }
 
+    #endregion
     #region Basic object overrides.
 
     public override string ToString() => $"Shut rule for {Socket} after {InteractionCount} interactions.";
 
-    public override bool Equals(object? obj) => obj is ShutRule sr && Socket.Equals(sr.Socket) && InteractionCount == sr.InteractionCount;
+    public override bool Equals(object? obj)
+    {
+        return obj is ShutRule sr &&
+            Socket.Equals(sr.Socket) &&
+            InteractionCount == sr.InteractionCount &&
+            Equals(Conditions, sr.Conditions);
+    }
 
     public override int GetHashCode() => Socket.GetHashCode() + InteractionCount;
 

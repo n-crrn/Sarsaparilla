@@ -34,7 +34,7 @@ public class RuleFactory
     {
         Snapshots = new();
         Premises = new();
-        GuardStatements = new();
+        _GuardStatements = new();
     }
 
     /// <summary>
@@ -45,13 +45,19 @@ public class RuleFactory
         Label = null;
         Snapshots.Clear();
         Premises.Clear();
-        GuardStatements = new();
+        _GuardStatements = new();
     }
+
+    private Guard _GuardStatements;
 
     /// <summary>
     /// Sets the Guard to be used for the next created rule.
     /// </summary>
-    public Guard GuardStatements { get; set; }
+    public Guard? GuardStatements
+    {
+        get => _GuardStatements;
+        set => _GuardStatements = value ?? Guard.Empty;
+    }
 
     #region User-friendly labelling.
 
@@ -201,7 +207,7 @@ public class RuleFactory
         CheckResultEventIsValid(result);
         string lbl = GetValidLabel();
         SnapshotTree tree = new(Snapshots);
-        StateConsistentRule r = new(lbl, GuardStatements, new(Premises), tree, result);
+        StateConsistentRule r = new(lbl, _GuardStatements, new(Premises), tree, result);
         Reset();
         return r;
     }
@@ -228,7 +234,7 @@ public class RuleFactory
                 "transformations specified in snapshot tree.";
             throw new RuleConstructionException(emptyMsg);
         }
-        StateTransferringRule r = new(lbl, GuardStatements, new(Premises), tree, result);
+        StateTransferringRule r = new(lbl, _GuardStatements, new(Premises), tree, result);
         Reset();
         return r;
     }

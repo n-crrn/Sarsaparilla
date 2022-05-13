@@ -28,7 +28,11 @@ public class FiniteWriteRule : IMutateRule
 
     public IMessage ValueToWrite { get; init; }
 
+    #region IMutableRule implementation.
+
     public string Label => $"FinWrite-{ValueToWrite}-{Socket}({PriorWriteCount})";
+
+    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 
     public Rule GenerateRule(RuleFactory factory)
     {
@@ -44,9 +48,11 @@ public class FiniteWriteRule : IMutateRule
         Debug.Assert(latest != null);
         factory.RegisterPremises(latest, Premises);
         latest.TransfersTo = Socket.WriteState(ValueToWrite);
-        return factory.CreateStateTransferringRule();
+        factory.GuardStatements = Conditions?.CreateGuard();
+        return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateTransferringRule());
     }
 
+    #endregion
     #region Basic object override.
 
     public override string ToString() => $"Write to socket rule for {Socket} after {PriorWriteCount} prior writes.";
@@ -57,7 +63,8 @@ public class FiniteWriteRule : IMutateRule
             Socket.Equals(r.Socket) &&
             FiniteActionCounts.SequenceEqual(r.FiniteActionCounts) &&
             Premises.SetEquals(r.Premises) &&
-            ValueToWrite.Equals(r.ValueToWrite);
+            ValueToWrite.Equals(r.ValueToWrite) &&
+            Equals(Conditions, r.Conditions);
     }
 
     public override int GetHashCode() => Socket.GetHashCode();
