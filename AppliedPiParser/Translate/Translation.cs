@@ -48,32 +48,9 @@ public class Translation
         return factory.CreateStateConsistentRule(result);
     }
 
-    private static IMessage TermWithVarsToMessage(Term t, Network nw)
+    private static Rule TranslateDestructor(Destructor dtr, ResolvedNetwork rn, RuleFactory factory)
     {
-        List<IMessage> parameters = new();
-        if (t.Parameters.Count > 0)
-        {
-            parameters.AddRange(from p in t.Parameters select TermWithVarsToMessage(p, nw));
-            if (t.IsTuple)
-            {
-                return new TupleMessage(parameters);
-            }
-            return new FunctionMessage(t.Name, parameters);
-        }
-        else
-        {
-            // Ensure that the term is not a declared free or a constant.
-            if (nw.FreeDeclarations.ContainsKey(t.Name) || null != nw.GetConstant(t.Name))
-            {
-                return new NameMessage(t.Name);
-            }
-            return new VariableMessage(t.Name);
-        }
-    }
-
-    private static Rule TranslateDestructor(Destructor dtr, Network nw, RuleFactory factory)
-    {
-        IMessage lhs = TermWithVarsToMessage(dtr.LeftHandSide, nw);
+        IMessage lhs = rn.TermToMessage(dtr.LeftHandSide);
         IMessage rhs = new VariableMessage(dtr.RightHandSide);
         factory.RegisterPremises(StatefulHorn.Event.Know(lhs));
         return factory.CreateStateConsistentRule(StatefulHorn.Event.Know(rhs));
@@ -95,7 +72,7 @@ public class Translation
         // Transfer the rules for destructors.
         foreach (Destructor dtr in nw.Destructors)
         {
-            allRules.Add(TranslateDestructor(dtr, nw, factory));
+            allRules.Add(TranslateDestructor(dtr, rn, factory));
         }
 
         // All channels are either free declarations or nonce declarations, so go through and
@@ -118,7 +95,6 @@ public class Translation
 
         (HashSet<Socket> allSockets, List<IMutateRule> allMutateRules) = GenerateMutateRules(rn);
         HashSet<State> initStates = new(from s in allSockets select s.InitialState());
-        //allRules.UnionWith(from r in allMutateRules select r.GenerateRule(factory));
 
         foreach (IMutateRule r in allMutateRules)
         {
@@ -344,7 +320,6 @@ public class Translation
                 case InChannelProcess icp:
                     Term inChannelTerm = new(icp.Channel);
                     ReadSocket reader = summary.Readers[inChannelTerm];
-                    //readCount.TryGetValue(inChannelTerm, out int rc);
                     if (reader.IsInfinite)
                     {
                         yield return new ReadResetRule(reader);
@@ -371,13 +346,10 @@ public class Translation
                     {
                         premises.Add(FiniteReadRule.VariableCellAsPremise(varEntry));
                     }
-                    //readCount[inChannelTerm] = rc + 1;
                     break;
                 case OutChannelProcess ocp:
                     Term outChannelTerm = new(ocp.Channel);
                     WriteSocket writer = summary.Writers[outChannelTerm];
-                    //writeCount.TryGetValue(outChannelTerm, out int wc);
-                    //int wc = interactionCount[writer];
                     IMessage resultMessage = rn.TermToMessage(ocp.SentTerm);
                     // Infinite cross-links have to be done here as this is where the premises and
                     // result are.
