@@ -13,17 +13,11 @@ namespace StatefulHorn;
 /// </summary>
 public class SigmaMap
 {
-    public static readonly SigmaMap Empty = new(new() { });
+    public static readonly SigmaMap Empty = new(Enumerable.Empty<(IMessage, IMessage)>());
 
     public SigmaMap(IMessage variable, IMessage val)
     {
         _Map = new() { (variable, val) };
-    }
-
-    public SigmaMap(List<(IMessage Variable, IMessage Value)> subs)
-    {
-        _Map = subs;
-        _Map.Sort(EntryComparer);
     }
 
     public SigmaMap(IEnumerable<(IMessage, IMessage)> zippedSubs)
@@ -41,6 +35,8 @@ public class SigmaMap
         }
         return cmp;
     }
+
+    public SigmaMap Union(SigmaMap other) => new(_Map.Concat(other._Map));
 
     #region Basic properties and access.
 

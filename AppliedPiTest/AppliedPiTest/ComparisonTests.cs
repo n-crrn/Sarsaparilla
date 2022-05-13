@@ -151,7 +151,7 @@ public class ComparisonTests
             BooleanComparison.Type.And,
             new EqualityComparison(true, "C", "d"),
             new EqualityComparison(true, "E", "f"));
-        SigmaMap expectedExpr1Sm = new(new() { (d, c), (f, e) });
+        SigmaMap expectedExpr1Sm = new(new List<(IMessage, IMessage)>() { (d, c), (f, e) });
         List<(SigmaMap, Guard)> expectedExpr1Ifs = new() { (expectedExpr1Sm, Guard.Empty) };
         List<(SigmaMap, Guard)> expectedExpr1Elses = new()
         { 
