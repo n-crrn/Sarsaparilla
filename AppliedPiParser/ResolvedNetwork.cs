@@ -74,7 +74,7 @@ public class ResolvedNetwork
             throw new UnrecognisedTermException(t);
         }
         (TermSource source, PiType _) = details;
-        if (source == TermSource.Input)
+        if (source == TermSource.Input || source == TermSource.Let)
         {
             return new VariableMessage(t.Name);
         }

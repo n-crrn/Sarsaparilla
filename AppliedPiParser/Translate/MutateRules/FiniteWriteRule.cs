@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Linq;
 
 using StatefulHorn;
-using AppliedPi.Model;
 
 namespace AppliedPi.Translate.MutateRules;
 
@@ -24,7 +23,7 @@ public class FiniteWriteRule : IMutateRule
 
     public IDictionary<Socket, int> FiniteActionCounts { get; init; }
 
-    HashSet<StatefulHorn.Event> Premises { get; init; }
+    public HashSet<StatefulHorn.Event> Premises { get; init; }
 
     public IMessage ValueToWrite { get; init; }
 

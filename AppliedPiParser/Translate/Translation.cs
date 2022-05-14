@@ -464,20 +464,22 @@ public class Translation
             childParallelLists.Add(subParallel);
         }
 
+        // The following constants are used for both IfProcesses and LetProcesses.
+        const int GuardedBranchOffset = 0;
+        const int ElseBranchOffset = 1;
         if (n.Process is IfProcess ifp)
         {
             BranchRestrictionSet brs = BranchRestrictionSet.From(ifp.Comparison, rn, nw);
 
             // Handle if conditions by generating a complete set of rules for each condition
             // of the branch.
-            const int IfBranchOffset = 0;
             foreach (IfBranchConditions ifCond in brs.IfConditions)
             {
                 IfBranchConditions updatedIfConditions = conditions.And(ifCond);
                 IEnumerable<IMutateRule> ifChildRules = ProcessBranch(
-                    n.Branches[IfBranchOffset],
-                    summary.Children[IfBranchOffset],
-                    childParallelLists[IfBranchOffset],
+                    n.Branches[GuardedBranchOffset],
+                    summary.Children[GuardedBranchOffset],
+                    childParallelLists[GuardedBranchOffset],
                     thisBranchSockets,
                     updatedIfConditions,
                     new(premises),
@@ -488,7 +490,6 @@ public class Translation
 
             // Handle else conditions, if they exist. Again, complete set of rules for 
             // every condition.
-            const int ElseBranchOffset = 1;
             if (n.Branches.Count > 1)
             {
                 foreach (IfBranchConditions elseCond in brs.ElseConditions)
@@ -505,6 +506,46 @@ public class Translation
                         nw);
                     foreach (IMutateRule r in elseChildRules) { yield return r; }
                 }
+            }
+        }
+        else if (n.Process is LetProcess lp)
+        {
+            LetValueSetFactory lvsFactory = new(lp, rn, nw, thisBranchSockets, premises);
+
+            // Generate the rules that actually set a value given a set of conditions.
+            foreach (IMutateRule r in lvsFactory.GenerateSetRules())
+            {
+                yield return r;
+            }
+
+            premises.Add(StatefulHorn.Event.Know(lvsFactory.EmptyStoragePremiseMessage));
+
+            // Alter the premise for the guarded branch.
+            IEnumerable<IMutateRule> guardedRules = ProcessBranch(
+                n.Branches[GuardedBranchOffset],
+                summary.Children[GuardedBranchOffset],
+                childParallelLists[GuardedBranchOffset],
+                thisBranchSockets,
+                conditions,
+                new(premises),
+                rn,
+                nw);
+            foreach (IMutateRule r in guardedRules) { yield return r; }
+
+            if (n.Branches.Count > 1)
+            {
+                // Alter the guard for the else branch.
+                IfBranchConditions updatedConds = conditions.Not(lvsFactory.Variable, lvsFactory.StoragePremiseMessage);
+                IEnumerable<IMutateRule> elseRules = ProcessBranch(
+                    n.Branches[GuardedBranchOffset],
+                    summary.Children[GuardedBranchOffset],
+                    childParallelLists[GuardedBranchOffset],
+                    thisBranchSockets,
+                    updatedConds,
+                    new(premises),
+                    rn,
+                    nw);
+                foreach (IMutateRule r in elseRules) { yield return r; }
             }
         }
         else if (n.Process is ReplicateProcess || n.Process is ParallelCompositionProcess)

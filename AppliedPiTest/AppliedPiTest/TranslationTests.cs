@@ -182,6 +182,51 @@ process
         DoMutateTest(testSource, expectedSockets, expectedMutations);
     }
 
+    [TestMethod]
+    public void BasicLetTest()
+    {
+        string testSource =
+@"free c: channel.
+free s: bitstring [private].
+
+fun hash(s): bistring.
+
+process
+  in(c, v: bitstring);
+  let x: bitstring = hash(s) in
+  out(c, x).
+";
+
+        ReadSocket cIn = new("c", 0);
+        WriteSocket cOut = new("c", 2);
+        HashSet<Socket> expectedSockets = new() { cIn, cOut };
+
+        VariableMessage vMsg = new("v");
+        VariableMessage xMsg = new("x");
+        FunctionMessage emptyXMsg = new("x@cell", new() { xMsg });
+        FunctionMessage hashMsg = new("hash", new() { new NameMessage("s") });
+        FunctionMessage filledXMsg = new("x@cell", new() { hashMsg });
+        //IfBranchConditions elseCond = new(new(), new(xMsg, emptyXMsg));
+
+        FunctionMessage vCell = new("v@cell", new() { vMsg });
+        HashSet<Event> letPremises = new() { Event.Know(vCell) };
+        HashSet<Event> outPremises = new() { Event.Know(vCell), Event.Know(emptyXMsg) };
+
+        HashSet<IMutateRule> expectedMutations = new()
+        {
+            // Branch 0 (in(c, v)).
+            new OpenReadSocketRule(cIn),
+            new FiniteReadRule(cIn, 0, "v"),
+            new ShutRule(cIn, 1),
+            // Branch 2 (let x: bitstring = hash(s) in...).
+            new LetSetRule("x", letPremises, new List<Socket>() { cIn }, IfBranchConditions.Empty, Event.Know(filledXMsg)),
+            new KnowChannelContentRule(cOut),
+            new FiniteWriteRule(cOut, new Dictionary<Socket, int>() {{cOut, 0}}, outPremises, xMsg),
+            new ShutRule(cOut, 1)
+        };
+        DoMutateTest(testSource, expectedSockets, expectedMutations);
+    }
+
     #region Convenience methods.
 
     private static void DoMutateTest(string piSource, HashSet<Socket> expectedSockets, HashSet<IMutateRule> expectedMutations)

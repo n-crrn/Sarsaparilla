@@ -26,8 +26,8 @@ public class IfBranchConditions
         Dictionary<IAssignableMessage, IMessage> repl,
         BucketSet<IAssignableMessage, IMessage> ban)
     {
-        Replacements = repl;
-        Bans = ban;
+        Replacements = new(repl);
+        Bans = new(ban);
     }
 
     public IfBranchConditions(IfBranchConditions ifc)
@@ -45,6 +45,18 @@ public class IfBranchConditions
     public static IfBranchConditions IfThen(GroupSet<IMessage> msgSets) => new(GroupToReplacements(msgSets), new());
 
     public static IfBranchConditions Else(GroupSet<IMessage> msgSets) => new(new(), GroupToBans(msgSets));
+
+    public IfBranchConditions Not(IAssignableMessage aMsg, IMessage vMsg)
+    {
+        // Ensure that the banned value is not already in the replacement list.
+        if (Replacements.TryGetValue(aMsg, out IMessage? replaceVMsg) && replaceVMsg.Equals(vMsg))
+        {
+            throw new InvalidOperationException($"Attempt to place guard {aMsg} ~/> {vMsg} when {aMsg} = {replaceVMsg}.");
+        }
+        IfBranchConditions cond = new(Replacements, Bans);
+        cond.Bans.Add(aMsg, vMsg);
+        return cond;
+    }
 
     public IfBranchConditions And(IfBranchConditions other)
     {
