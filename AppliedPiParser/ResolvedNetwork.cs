@@ -81,6 +81,31 @@ public class ResolvedNetwork
         return new NameMessage(t.Name);
     }
 
+    /// <summary>
+    /// Translates the given term much like TermToMessage(Term). However, if a term is not
+    /// recognised as either a free declaration or a constant, that term is assumed to be a
+    /// variable rather than an error. This method is used when translating destructors, 
+    /// which may reuse variable names.
+    /// </summary>
+    /// <param name="t">Applied Pi term to translate.</param>
+    /// <returns>A Stateful Horn message version of the term.</returns>
+    public IMessage TermToLooseMessage(Term t)
+    {
+        if (t.Parameters.Count > 0)
+        {
+            List<IMessage> msgParams = new(from p in t.Parameters select TermToLooseMessage(p));
+            return t.IsTuple ? new TupleMessage(msgParams) : new FunctionMessage(t.Name, msgParams);
+        }
+
+        if (TermDetails.TryGetValue(t, out TermOriginRecord? details) &&
+            (details.Source == TermSource.Constant ||
+             details.Source == TermSource.Free))
+        {
+            return new NameMessage(t.Name);
+        }
+        return new VariableMessage(t.Name);
+    }
+
     public StatefulHorn.Event TermToKnow(Term t) => StatefulHorn.Event.Know(TermToMessage(t));
 
     public bool CheckTermType(Term t, PiType pt)

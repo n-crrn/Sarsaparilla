@@ -51,7 +51,7 @@ public class Translation
 
     private static Rule TranslateDestructor(Destructor dtr, ResolvedNetwork rn, RuleFactory factory)
     {
-        IMessage lhs = rn.TermToMessage(dtr.LeftHandSide);
+        IMessage lhs = rn.TermToLooseMessage(dtr.LeftHandSide);
         IMessage rhs = new VariableMessage(dtr.RightHandSide);
         factory.RegisterPremises(StatefulHorn.Event.Know(lhs));
         return factory.CreateStateConsistentRule(StatefulHorn.Event.Know(rhs));
