@@ -61,6 +61,8 @@ process
     public void FullResolutionTest()
     {
         // Create test ResolvedNetwork first - see if it raises exceptions during creation.
+        // Include a macro with no arguments to specifically ensure its variables are 
+        // handled correctly.
         string source =
             @"(* Full test of calling processings. *)
 free c: channel.
@@ -74,11 +76,12 @@ const Good: bitstring.
 let rx(k: key) = in(c, value: bitstring);
                  let x: bitstring = decrypt(value, k) in event gotValue(x).
 let send(k: key) = out(c, encrypt(Good, k)).
+let randomIntercept = in(c, iValue: bitstring).
 
 (* Main *)
 process
     new kValue: key;
-    (! send(kValue) | ! rx(kValue)).
+    (! send(kValue) | ! rx(kValue) | randomIntercept).
 ";
         Network nw = Network.CreateFromCode(source);
         ResolvedNetwork resNw = ResolvedNetwork.From(nw);
@@ -86,13 +89,14 @@ process
         // Create expected ResolvedNetwork.
         Dictionary<Term, TermOriginRecord> details = new()
         {
-            { new("c"),        new(TermSource.Free, new(Network.ChannelType)) },
-            { new("Good"),     new(TermSource.Constant, new(Network.BitstringType)) },
+            { new("c"),        new(TermSource.Free, PiType.Channel) },
+            { new("Good"),     new(TermSource.Constant, PiType.BitString) },
             { new("kValue"),   new(TermSource.Nonce, new("key")) },
             { new("encrypt", new() { new("Good"), new("kValue") }),
-                               new(TermSource.Constructor, new(Network.BitstringType)) },
-            { new("rx@value"), new(TermSource.Input, new(Network.BitstringType)) },
-            { new("rx@x"),     new(TermSource.Let, new(Network.BitstringType)) }
+                               new(TermSource.Constructor, PiType.BitString) },
+            { new("rx@value"), new(TermSource.Input, PiType.BitString) },
+            { new("rx@x"),     new(TermSource.Let, PiType.BitString) },
+            { new("randomIntercept@iValue"), new(TermSource.Input, PiType.BitString) }
         };
         List<IProcess> sequence = new()
         {
@@ -112,14 +116,57 @@ process
                                 new EventProcess(new("gotValue", new() { new("rx@x") }))
                             ),
                     })
-                )
+                ),
+                new InChannelProcess("c", new() { ("randomIntercept@iValue", "bitstring") })
             })
         };
-        ResolvedNetwork expectedResNW = new();
-        expectedResNW.DirectSet(details, sequence);
+        ResolvedNetwork expectedResNw = new();
+        expectedResNw.DirectSet(details, sequence);
 
         // Check the network correct.
-        CheckResolvedNetworks(expectedResNW, resNw);
+        CheckResolvedNetworks(expectedResNw, resNw);
+    }
+
+    [TestMethod]
+    public void ChannelResolutionTest()
+    {
+        string source =
+@"free c: channel.
+const S: bitstring.
+
+let send = new d: channel; out(c, d).
+let rx = in(c, x: channel); out(x, S).
+process (send | rx).";
+        Network nw = Network.CreateFromCode(source);
+        ResolvedNetwork resNw = ResolvedNetwork.From(nw);
+
+        Dictionary<Term, TermOriginRecord> details = new()
+        {
+            { new("c"), new(TermSource.Free, PiType.Channel) },
+            { new("S"), new(TermSource.Constant, PiType.BitString) },
+            { new("send@d"), new(TermSource.Nonce, PiType.Channel) },
+            { new("rx@x"), new(TermSource.Input, PiType.Channel) }
+        };
+        List<IProcess> sequence = new()
+        {
+            new ParallelCompositionProcess(new List<IProcess>()
+            {
+                new ProcessGroup(new List<IProcess>()
+                {
+                    new NewProcess("send@d", Network.ChannelType),
+                    new OutChannelProcess("c", new Term("send@d"))
+                }),
+                new ProcessGroup(new List<IProcess>()
+                {
+                    new InChannelProcess("c", new() { ("rx@x", "channel") }),
+                    new OutChannelProcess("rx@x", new Term("S"))
+                })
+            })
+        };
+        ResolvedNetwork expectedResNw = new();
+        expectedResNw.DirectSet(details, sequence);
+
+        CheckResolvedNetworks(expectedResNw, resNw);
     }
 
     private static void CheckResolvedNetworks(ResolvedNetwork expected, ResolvedNetwork result)

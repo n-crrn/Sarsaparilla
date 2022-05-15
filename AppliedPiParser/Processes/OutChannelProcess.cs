@@ -21,7 +21,11 @@ public class OutChannelProcess : IProcess
 
     public IEnumerable<string> Terms() => SentTerm.BasicSubTerms;
 
-    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs) => new OutChannelProcess(Channel, SentTerm.ResolveTerm(subs));
+    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    {
+        Term cTerm = new(Channel);        
+        return new OutChannelProcess(cTerm.ResolveTerm(subs).Name, SentTerm.ResolveTerm(subs));
+    }
 
     public IEnumerable<string> VariablesDefined() => Enumerable.Empty<string>();
 
