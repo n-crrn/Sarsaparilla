@@ -54,7 +54,7 @@ public static class ComparisonParser
         public static string FormatList(List<Node> nodes)
         {
             List<string> nodeStrings = new(from n in nodes select n.ToString());
-            return String.Join(" ", nodeStrings);
+            return string.Join(" ", nodeStrings);
         }
     }
 

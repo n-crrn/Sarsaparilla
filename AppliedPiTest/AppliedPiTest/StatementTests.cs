@@ -5,7 +5,7 @@ using AppliedPi;
 using AppliedPi.Model;
 using AppliedPi.Statements;
 
-namespace AppliedPiTest;
+namespace SarsaparillaTests.AppliedPiTest;
 
 /// <summary>
 /// Instances of this class manage tests of the statement parsing by Parser instances.

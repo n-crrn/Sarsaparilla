@@ -412,15 +412,58 @@ public class ProcessGroup : IProcess
 
     private static IComparison ReadComparisonAndThen(Parser p)
     {
-        List<string> cmpTokens = new();
+        // Working out "what is a tuple?", "what is a name?", "what is an operator?" etc is a big
+        // headache. So we simply rip everything up into parts, and then try to reassemble
+        // in a sensible fashion.
+
+        List<string> tkns = new();
         string token = p.ReadNextToken();
         while (token != "then")
         {
-            cmpTokens.Add(token);
+            tkns.Add(token);
             token = p.ReadNextToken();
         }
-        return ComparisonParser.Parse(cmpTokens);
+
+        // If there is a comma, then the text on either side belongs together.
+        for (int i = 1; i < tkns.Count - 1; i++)
+        {
+            if (tkns[i] == ",")
+            {
+                string replacement = tkns[i - 1] + "," + tkns[i + 1];
+                tkns.RemoveRange(i - 1, 3);
+                tkns.Insert(i - 1, replacement);
+                i--;
+            }
+        }
+
+        // Now that we've assembled the parameter lists and tuple internals, let's reassemble
+        // named terms. If we find brackets, we need to work out if they belong together with
+        // other pieces.
+        for (int i = 0; i < tkns.Count - 4; i++)
+        {
+            if (!CompOps.Contains(tkns[i]) && tkns[i + 1] == "(" && !CompOps.Contains(tkns[i + 2]) && tkns[i + 3] == ")")
+            {
+                string termReplacement = tkns[i] + "(" + tkns[i + 2] + ")";
+                tkns.RemoveRange(i, 4);
+                tkns.Insert(i, termReplacement);
+            }
+        }
+
+        // See if we have any tuples to reassemble.
+        for (int i = 1; i < tkns.Count - 1; i++)
+        {
+            if (tkns[i - 1] == "(" && !CompOps.Contains(tkns[i]) && tkns[i + 1] == ")")
+            {
+                string tupleReplacement = "(" + tkns[i] + ")";
+                tkns.RemoveRange(i - 1, 3);
+                tkns.Insert(i - 1, tupleReplacement);
+            }
+        }
+
+        return ComparisonParser.Parse(tkns);
     }
+
+    private static readonly List<string> CompOps = new() { "&&", "||", "=", "<>" };
 
     private static IProcess ReadCompoundProcess(Parser p)
     {

@@ -10,7 +10,7 @@ using AppliedPi.Model;
 using AppliedPi.Model.Comparison;
 using AppliedPi.Processes;
 
-namespace AppliedPiTest;
+namespace SarsaparillaTests.AppliedPiTest;
 
 /// <summary>
 /// Instances of this class manage tests of the model building by Parser instances.
@@ -206,14 +206,17 @@ public class ModelTests
     {
         string testSource = "process\n" +
             "let h: bitstring = if X = A then A else C in\n" +
-            "if h <> A && h <> B then\n" +
+            "if h <> A(D) && f = (B, E) then\n" +
             "  out(c, key)\n" +
             "else out(c, other_key).";
         Network nw = Network.CreateFromCode(testSource);
         Assert.IsNotNull(nw.MainProcess);
 
         // Build the expected model of processes.
-        BooleanComparison line2Cmp = new(BooleanComparison.Type.And, new EqualityComparison(false, "h", "A"), new EqualityComparison(false, "h", "B"));
+        BooleanComparison line2Cmp = new(
+            BooleanComparison.Type.And,
+            new EqualityComparison(false, "h", "A(D)"), 
+            new EqualityComparison(true, "f", "(B,E)"));
         IProcess line3 = new OutChannelProcess("c", new("key"));
         IProcess line4 = new OutChannelProcess("c", new("other_key"));
         IfProcess lines2to4 = new(line2Cmp, line3, line4);

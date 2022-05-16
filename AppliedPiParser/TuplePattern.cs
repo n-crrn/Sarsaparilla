@@ -29,7 +29,6 @@ public class TuplePattern
             Type = tpe;
         }
 
-        //public Element Resolve(IReadOnlyDictionary<string, string> subs) => new(IsMatcher, subs.GetValueOrDefault(Term, Term), Type);
         public Element Resolve(IReadOnlyDictionary<string, string> sub) => new(IsMatcher, Term.ResolveTerm(sub), Type);
 
         public override bool Equals(object? obj)
