@@ -122,14 +122,6 @@ public class ProcessGroup : IProcess
         {
             IProcess initialGrp = InnerReadFromParser(p);
             ProcessGroup grp = initialGrp is ProcessGroup group ? group : new ProcessGroup(initialGrp);
-
-            // Clear out the final period - it is not a problem if this is the end of the file.
-            /*try
-            {
-                p.ReadExpectedToken(".", "Process group");
-            }
-            catch (EndOfCodeException) { }*/
-
             return (grp, null);
         }
         catch (ProcessGroupParseException ex)
@@ -275,7 +267,6 @@ public class ProcessGroup : IProcess
             paramList.Add((token, p.ReadNameToken(stmtType)));
             p.ReadExpectedToken(")", stmtType);
         }
-        //ReadStatementEnd(p, stmtType);
 
         return new InChannelProcess(channelName, paramList);
     }
@@ -296,7 +287,6 @@ public class ProcessGroup : IProcess
         {
             UnexpectedTokenException.Check(")", maybeToken, stmtType);
         }
-        //ReadStatementEnd(p, stmtType);
         return new OutChannelProcess(channelName, sentTerm);
     }
 
@@ -304,7 +294,6 @@ public class ProcessGroup : IProcess
     {
         string stmtType = "Event (process)";
         Term t = Term.ReadTerm(p, stmtType);
-        //ReadStatementEnd(p, stmtType);
         return new EventProcess(t);
     }
 
@@ -314,7 +303,6 @@ public class ProcessGroup : IProcess
         string varName = p.ReadNameToken(stmtType);
         p.ReadExpectedToken(":", stmtType);
         string piType = p.ReadNameToken(stmtType);
-        //ReadStatementEnd(p, stmtType);
         return new NewProcess(varName, piType);
     }
 
@@ -338,7 +326,6 @@ public class ProcessGroup : IProcess
         }
         p.ReadExpectedToken("in", stmtType);
 
-        //IProcess? guardedProcess = ReadNextProcess(p, p.ReadNextToken());
         IProcess guardedProcess = InnerReadFromParser(p);
 
         IProcess? elseProcess = null;
@@ -348,7 +335,6 @@ public class ProcessGroup : IProcess
             if (peekToken == "else")
             {
                 _ = p.ReadNextToken();
-                //elseProcess = ReadNextProcess(p, p.ReadNextToken());
                 elseProcess = InnerReadFromParser(p);
             }
         }
@@ -386,11 +372,6 @@ public class ProcessGroup : IProcess
         IComparison cmp = ReadComparisonAndThen(p);
 
         // Read through the guarded process.
-        /*IProcess? guardedProcesses = ReadNextProcess(p, p.ReadNextToken());
-        if (guardedProcesses == null)
-        {
-            throw new ProcessGroupParseException("Guarded process not found when parsing 'if' clause.");
-        }*/
         IProcess guardedProcesses = InnerReadFromParser(p);
 
         // Is there an else process?
@@ -401,7 +382,6 @@ public class ProcessGroup : IProcess
             if (token == "else")
             {
                 _ = p.ReadNextToken();
-                //elseProcesses = ReadNextProcess(p, p.ReadNextToken());
                 elseProcesses = InnerReadFromParser(p);
             }
         }
@@ -467,13 +447,6 @@ public class ProcessGroup : IProcess
 
     private static IProcess ReadCompoundProcess(Parser p)
     {
-        /*(ProcessGroup? innerGrp, string? innerErrMsg) = ReadFromParser(p);
-        if (innerErrMsg != null)
-        {
-            throw new ProcessGroupParseException(innerErrMsg);
-        }*/
-        // There may be a semi-colon here, let's move past it.
-        //ReadStatementEnd(p, "ProcessGroup");
         IProcess innerGrp = InnerReadFromParser(p);
         p.ReadExpectedToken(")", "Bracketed");
         return innerGrp!;
@@ -487,42 +460,8 @@ public class ProcessGroup : IProcess
         }
         string stmtType = "Call";
         Term t = Term.ReadTermParameters(p, currentToken, stmtType);
-        //ReadStatementEnd(p, stmtType);
         return new CallProcess(t);
     }
-
-    /// <summary>
-    /// When reading processes, a semi-colon, pipe or right bracket is used to separate
-    /// processes and a full-stop is used to indicate termination. The semi-colon is
-    /// not interesting to the higher-level parser, but the others are. This statement
-    /// will peek ahead and skip semi-colons, leave the other tokens in place, and 
-    /// throw an exception if there is any other token. End of code is ignored.
-    /// </summary>
-    /// <param name="p">The parser to use.</param>
-    /// <param name="statementType">
-    /// The type of statement being read. This value is used to create the error message.
-    /// </param>
-    /*private static void ReadStatementEnd(Parser p, string statementType)
-    {
-        string peekedToken;
-        try
-        {
-            peekedToken = p.PeekNextToken();
-        }
-        catch (EndOfCodeException)
-        {
-            return;
-        }
-
-        if (peekedToken == ";")
-        {
-            _ = p.ReadNextToken();
-        }
-        else if (peekedToken != "." && peekedToken != "|" && peekedToken != ")")
-        {
-            throw new UnexpectedTokenException(". or ;", peekedToken, statementType);
-        }
-    }*/
 
     #endregion
 }
