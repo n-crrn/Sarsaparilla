@@ -439,7 +439,7 @@ public class ProcessGroup : IProcess
         // Now that we've assembled the parameter lists and tuple internals, let's reassemble
         // named terms. If we find brackets, we need to work out if they belong together with
         // other pieces.
-        for (int i = 0; i < tkns.Count - 4; i++)
+        for (int i = 0; i < tkns.Count - 3; i++)
         {
             if (!CompOps.Contains(tkns[i]) && tkns[i + 1] == "(" && !CompOps.Contains(tkns[i + 2]) && tkns[i + 3] == ")")
             {
