@@ -22,9 +22,10 @@ public class InChannelProcess : IProcess
 
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
+        Term cTerm = new(Channel);
         List<(string, string)> newPat = new(from rp in ReceivePattern
                                             select (subs.GetValueOrDefault(rp.Item1, rp.Item1), rp.Item2));
-        return new InChannelProcess(Channel, newPat);
+        return new InChannelProcess(cTerm.ResolveTerm(subs).Name, newPat);
     }
 
     public IEnumerable<string> VariablesDefined()
@@ -63,7 +64,6 @@ public class InChannelProcess : IProcess
         resolver.ResolveOrThrow(new(Channel));
         foreach ((string varName, string piType) in ReceivePattern)
         {
-            //resolver.ResolveOrThrow(new(varName));
             resolver.Register(new(varName), new(TermSource.Input, new(piType)));
         }
         return this;
