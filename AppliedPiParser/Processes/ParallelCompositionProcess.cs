@@ -29,16 +29,6 @@ public class ParallelCompositionProcess : IProcess
 
     #region IProcess implementation.
 
-    public IEnumerable<string> Terms()
-    {
-        IEnumerable<string> terms = Processes[0].Terms();
-        for (int i = 1; i < Processes.Count; i++)
-        {
-            terms = terms.Concat(Processes[i].Terms());
-        }
-        return terms;
-    }
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         return new ParallelCompositionProcess(from p in Processes select p.ResolveTerms(subs));

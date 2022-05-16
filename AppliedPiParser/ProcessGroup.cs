@@ -34,17 +34,6 @@ public class ProcessGroup : IProcess
 
     #region IProcess implementation.
 
-    public IEnumerable<string> Terms()
-    {
-        foreach (IProcess subProcess in Processes)
-        {
-            foreach (string itg in subProcess.Terms())
-            {
-                yield return itg;
-            }
-        }
-    }
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         return new ProcessGroup(from p in Processes select p.ResolveTerms(subs));

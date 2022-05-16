@@ -19,8 +19,6 @@ public class EventProcess : IProcess
 
     #region IProcess implementation.
 
-    public IEnumerable<string> Terms() => Event.BasicSubTerms;
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs) => new EventProcess(Event.ResolveTerm(subs));
 
     public IEnumerable<string> VariablesDefined() => Enumerable.Empty<string>();

@@ -18,8 +18,6 @@ public class CallProcess : IProcess
 
     #region IProcess implementation.
 
-    public IEnumerable<string> Terms() => CallSpecification.BasicSubTerms;
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs) => new CallProcess(CallSpecification.ResolveTerm(subs));
 
     public IEnumerable<string> VariablesDefined() => Enumerable.Empty<string>();

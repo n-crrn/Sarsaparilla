@@ -22,16 +22,6 @@ public class IfProcess : IProcess
 
     #region IProcess Implementation.
 
-    public IEnumerable<string> Terms()
-    {
-        IEnumerable<string> terms = Comparison.Variables.Concat(GuardedProcess.Terms());
-        if (ElseProcess != null)
-        {
-            terms = terms.Concat(ElseProcess.Terms());
-        }
-        return terms;
-    }
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         IComparison newComparison = Comparison.SubstituteTerms(subs);

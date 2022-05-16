@@ -21,11 +21,6 @@ public class NewProcess : IProcess
 
     #region IProcess implementation.
 
-    public IEnumerable<string> Terms()
-    {
-        yield return Variable;
-    }
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         return new NewProcess(subs.GetValueOrDefault(Variable, Variable), PiType);

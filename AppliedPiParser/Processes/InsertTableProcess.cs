@@ -21,8 +21,6 @@ public class InsertTableProcess : IProcess
 
     #region IProcess implementation.
 
-    public IEnumerable<string> Terms() => TableTerm.BasicSubTerms;
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         return new InsertTableProcess(TableTerm.ResolveTerm(subs));

@@ -20,8 +20,6 @@ public class MutateProcess : IProcess
 
     #region IProcess implementation.
 
-    public IEnumerable<string> Terms() => NewValue.BasicSubTerms;
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         return new MutateProcess(StateCellName, NewValue.ResolveTerm(subs));

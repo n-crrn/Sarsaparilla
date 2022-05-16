@@ -30,18 +30,6 @@ public class LetProcess : IProcess
 
     #region IProcess implementation.
 
-    public IEnumerable<string> Terms()
-    {
-        foreach (TuplePattern.Element ele in LeftHandSide.Elements)
-        {
-            yield return ele.Name;
-        }
-        foreach (string t in RightHandSide.BasicSubTerms)
-        {
-            yield return t;
-        }
-    }
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         return new LetProcess(

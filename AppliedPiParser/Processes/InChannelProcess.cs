@@ -20,8 +20,6 @@ public class InChannelProcess : IProcess
 
     #region IProcess implementation.
 
-    public IEnumerable<string> Terms() => from rp in ReceivePattern select rp.Item1;
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         List<(string, string)> newPat = new(from rp in ReceivePattern

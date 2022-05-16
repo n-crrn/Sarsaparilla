@@ -20,8 +20,6 @@ public class GetTableProcess : IProcess
 
     #region IProcess implementation.
 
-    public IEnumerable<string> Terms() => from ma in MatchAssignList select ma.Item2;
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         List<(bool, string)> newMAList = new(from ma in MatchAssignList

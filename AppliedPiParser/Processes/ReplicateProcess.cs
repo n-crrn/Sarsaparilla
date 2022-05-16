@@ -15,8 +15,6 @@ public class ReplicateProcess : IProcess
 
     #region IProcess implementation.
 
-    public IEnumerable<string> Terms() => Process.Terms();
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         return new ReplicateProcess(Process.ResolveTerms(subs));

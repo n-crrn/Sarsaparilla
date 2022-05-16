@@ -19,8 +19,6 @@ public class OutChannelProcess : IProcess
 
     #region IProcess implementation.
 
-    public IEnumerable<string> Terms() => SentTerm.BasicSubTerms;
-
     public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
     {
         Term cTerm = new(Channel);        
