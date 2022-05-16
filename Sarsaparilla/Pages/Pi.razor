@@ -100,17 +100,24 @@
             ParsedNetwork = null;
             FullyResolvedNetwork = null;
             ParsedNetwork = Network.CreateFromCode(AppliedPiSource);
-            FullyResolvedNetwork = ResolvedNetwork.From(ParsedNetwork);
-            Translation = Translation.From(FullyResolvedNetwork, ParsedNetwork);
-
-            List<QueryEngine> engines = new(Translation.QueryEngines());
-            if (engines.Count > 0)
+            if (ParsedNetwork.MainProcess == null)
             {
-                Engine = engines[0];
+                ErrorMessage = "No main process specified, network cannot be resolved or rules generated.";
             }
             else
             {
-                ErrorMessage = "No query specified.";
+                FullyResolvedNetwork = ResolvedNetwork.From(ParsedNetwork);
+                Translation = Translation.From(FullyResolvedNetwork, ParsedNetwork);
+
+                List<QueryEngine> engines = new(Translation.QueryEngines());
+                if (engines.Count > 0)
+                {
+                    Engine = engines[0];
+                }
+                else
+                {
+                    ErrorMessage = "No query specified.";
+                }
             }
         }
         catch (NetworkCreationException ex)
