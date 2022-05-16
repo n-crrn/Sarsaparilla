@@ -101,7 +101,7 @@ public class TuplePattern
     #endregion
     #region Pattern parsing from Applied Pi Code.
 
-    internal static TuplePattern ReadPatternAndNextToken(Parser p, string stmtType)
+    internal static TuplePattern ReadPattern(Parser p, string stmtType)
     {
         List<Element> elements = new();
         string token = p.PeekNextToken();
@@ -132,6 +132,10 @@ public class TuplePattern
                 }
                 else
                 {
+                    if (!isMatcher)
+                    {
+                        throw new UnexpectedTokenException(":", token, stmtType);
+                    }
                     elements.Add(new(isMatcher, subTerm, null));
                 }
                 token = p.ReadNextToken();

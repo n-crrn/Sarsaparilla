@@ -309,7 +309,7 @@ public class ProcessGroup : IProcess
     private static LetProcess ReadLetProcess(Parser p)
     {
         string stmtType = "Let";
-        TuplePattern tp = TuplePattern.ReadPatternAndNextToken(p, stmtType);
+        TuplePattern tp = TuplePattern.ReadPattern(p, stmtType);
         string token = p.ReadNextToken();
         UnexpectedTokenException.Check("=", token, stmtType);
 
