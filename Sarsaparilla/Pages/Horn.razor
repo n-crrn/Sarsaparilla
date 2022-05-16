@@ -1,4 +1,4 @@
-﻿@page "/"
+﻿@page "/horn"
 
 @* 
  * The page dedicated to directly editing and processing Stateful Horn clauses.
@@ -67,7 +67,7 @@
 </PaneStack>
 
 @code {
-    public Index()
+    public Horn()
     {
         Compiler.OnComplete += (IClauseCompiler cc, QueryEngine? qe, string? _) =>
         {
