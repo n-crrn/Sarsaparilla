@@ -148,7 +148,7 @@ public class Parser
                 Offset++; // Move beyond the '*'.
                 ReadThroughComment();
             }
-        } while (c != '*' && n != ')');
+        } while (!(c == '*' && n == ')'));
         Offset += 2; // Move beyond the ')'.
     }
 
