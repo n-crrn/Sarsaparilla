@@ -54,11 +54,11 @@ public class LetValueSetFactory
             {
                 if (ele.IsMatcher)
                 {
-                    msgParameters.Add(ResolvedNetwork.TermToMessage(new(ele.Name)));
+                    msgParameters.Add(ResolvedNetwork.TermToMessage(ele.Term));
                 }
                 else
                 {
-                    msgParameters.Add(new VariableMessage(ele.Name));
+                    msgParameters.Add(new VariableMessage(ele.Term.Name));
                 }
             }
             return new FunctionMessage(CellName, msgParameters);
@@ -85,7 +85,7 @@ public class LetValueSetFactory
             {
                 if (!ele.IsMatcher)
                 {
-                    cellNameParts.Add(ele.Name);
+                    cellNameParts.Add(ele.Term.Name);
                 }
             }
             if (cellNameParts.Count == 0)

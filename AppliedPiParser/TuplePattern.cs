@@ -12,25 +12,32 @@ public class TuplePattern
     {
         public bool IsMatcher { get; init; }
 
-        public string Name { get; init; }
+        public Term Term { get; init; }
 
         public string? Type { get; init; }
 
-        public Element(bool match, string n, string? tpe)
+        public Element(bool match, string t, string? tpe) : this(match, new Term(t), tpe) { }
+
+        public Element(bool match, Term t, string? tpe)
         {
             IsMatcher = match;
-            Name = n;
+            if (!IsMatcher && t.IsConstructed)
+            {
+                throw new InvalidTermUsageException(t, "Attempted use as variable to be assigned to.");
+            }
+            Term = t;
             Type = tpe;
         }
 
-        public Element Resolve(IReadOnlyDictionary<string, string> subs) => new(IsMatcher, subs.GetValueOrDefault(Name, Name), Type);
+        //public Element Resolve(IReadOnlyDictionary<string, string> subs) => new(IsMatcher, subs.GetValueOrDefault(Term, Term), Type);
+        public Element Resolve(IReadOnlyDictionary<string, string> sub) => new(IsMatcher, Term.ResolveTerm(sub), Type);
 
         public override bool Equals(object? obj)
         {
-            return obj is Element e && IsMatcher == e.IsMatcher && Name == e.Name && Type == e.Type;
+            return obj is Element e && IsMatcher == e.IsMatcher && Term == e.Term && Type == e.Type;
         }
 
-        public override int GetHashCode() => Name.GetHashCode();
+        public override int GetHashCode() => Term.GetHashCode();
 
         public static bool operator ==(Element e1, Element e2) => Equals(e1, e2);
 
@@ -40,7 +47,7 @@ public class TuplePattern
         {
             string matcherStr = IsMatcher ? "=" : "";
             string typeStr = Type == null ? "" : $": {Type}";
-            return $"{matcherStr}{Name}{typeStr}";
+            return $"{matcherStr}{Term}{typeStr}";
         }
     }
 
@@ -67,11 +74,11 @@ public class TuplePattern
         return new(new(from e in Elements select e.Resolve(subs)));
     }
 
-    public IEnumerable<Term> MatchTerms => from e in Elements where e.IsMatcher select new Term(e.Name);
+    public IEnumerable<Term> MatchTerms => from e in Elements where e.IsMatcher select e.Term;
 
-    public IEnumerable<string> AssignedVariables => from e in Elements where !e.IsMatcher select e.Name;
+    public IEnumerable<string> AssignedVariables => from e in Elements where !e.IsMatcher select e.Term.Name;
 
-    public IEnumerable<(Term, string?)> AssignedTerms => from e in Elements where !e.IsMatcher select (new Term(e.Name), e.Type);
+    public IEnumerable<(Term, string?)> AssignedTerms => from e in Elements where !e.IsMatcher select (e.Term, e.Type);
 
     #region Basic object overrides - required for unit testing.
 
@@ -95,49 +102,54 @@ public class TuplePattern
     #endregion
     #region Pattern parsing from Applied Pi Code.
 
-    internal static (TuplePattern ptn, string? nextToken) ReadPatternAndNextToken(Parser p, string stmtType)
+    internal static TuplePattern ReadPatternAndNextToken(Parser p, string stmtType)
     {
-        // Are we reading a tuple, or just a single values?
-        string token = p.ReadNextToken();
         List<Element> elements = new();
-        string? nextToken = null;
+        string token = p.PeekNextToken();
         if (token == "(")
         {
+            p.ReadNextToken(); // Jump past the "(".
             do
             {
-                Element e;
-                (e, token) = ReadElement(p, null, stmtType);
-                elements.Add(e);
-            } while (token == ",");
-            UnexpectedTokenException.Check(")", token, stmtType);
+                token = p.PeekNextToken();
+                bool isMatcher = false;
+                if (token == "=")
+                {
+                    isMatcher = true;
+                    p.ReadNextToken();
+                }
+
+                Term subTerm = Term.ReadTerm(p, stmtType);
+                token = p.PeekNextToken();
+                if (token == ":")
+                {
+                    if (isMatcher)
+                    {
+                        throw new UnexpectedTokenException(new string[] { ",", ")" }, token, stmtType);
+                    }
+                    p.ReadNextToken();
+                    token = p.ReadNameToken(stmtType);
+                    elements.Add(new(isMatcher, subTerm, token));
+                }
+                else
+                {
+                    elements.Add(new(isMatcher, subTerm, null));
+                }
+                token = p.ReadNextToken();
+                if (token != "," && token != ")")
+                {
+                    throw new UnexpectedTokenException(new string[] { ",", ")" }, token, stmtType);
+                }
+            } while (token != ")");
         }
         else
         {
-            Element singleElement;
-            (singleElement, nextToken) = ReadElement(p, token, stmtType);
-            elements.Add(singleElement);
+            token = p.ReadNameToken(stmtType);
+            p.ReadExpectedToken(":", stmtType);
+            string typeToken = p.ReadNameToken(stmtType);
+            elements.Add(new(false, token, typeToken));
         }
-        return (new TuplePattern(elements), nextToken);
-    }
-
-    private static (Element e, string nextToken) ReadElement(Parser p, string? preToken, string stmtType)
-    {
-        string token = preToken ?? p.ReadNextToken();
-        bool isMatcher = token == "=";
-        if (isMatcher)
-        {
-            token = p.ReadNextToken();
-        }
-        InvalidNameTokenException.Check(token, stmtType);
-        string name = token;
-        string? piType = null;
-        token = p.ReadNextToken();
-        if (token == ":")
-        {
-            piType = p.ReadNameToken(stmtType);
-            token = p.ReadNextToken();
-        }
-        return (new Element(isMatcher, name, piType), token);
+        return new(elements);
     }
 
     #endregion

@@ -39,7 +39,7 @@ let SD(b: channel, sk: key) =
   in(b, x: bitstring); 
   (* Read instruction. *)
   out(b, mStart);
-  let mUpdated = h(mStart, x) in
+  let mUpdated: bitstring = h(mStart, x) in
   in(b, enc_rx: bitstring);
   let (mf, sl, sr, =pk(sk)) = enc_rx in
     if mUpdated = h(mStart, left) then

@@ -107,15 +107,13 @@ public class ModelTests
     /// Provides a basic check of processes.
     /// </summary>
     [TestMethod]
-    public void BasicProcessModelTest()
+    public void LetProcessModelTest()
     {
         string testSource = "process new A: key;\n" +
-            "let bv = pk(A) in out(c, bv);\n" +
+            "let bv: bitstring = pk(A) in out(c, bv);\n" +
             "let (=xB, =pkB) = checksign(cert2, pk2) in\n" +
-            "in(c, other: bitstring);\n" +
-            "mutate(SD, new_value);\n" +
-            "get keys(=xC, cd) in\n" +
-            "insert keys(A, bv).";
+            "let (aB: bitstring, =pk(bB)) = check(x) in\n" +
+            "in(c, other: bitstring).";
         Network nw = Network.CreateFromCode(testSource);
         Assert.IsNotNull(nw.MainProcess);
 
@@ -128,20 +126,28 @@ public class ModelTests
             new(true, "xB", null),
             new(true, "pkB", null)
         };
+        List<TuplePattern.Element> let3Elements = new()
+        {
+            new(false, "aB", "bitstring"),
+            new(true, new Term("pk", new() { new Term("bB")}), null)
+        };
+        List<IProcess> let1Processes = new()
+        {
+            new OutChannelProcess("c", new Term("bv", new())),
+            new LetProcess(new(let2Elements),
+                           new Term("checksign", new() { new Term("cert2"), new Term("pk2") }),
+                           new LetProcess(new(let3Elements),
+                                          new Term("check", new() { new Term("x")}),
+                                          new InChannelProcess("c", new() { ("other", "bitstring") })))
+        };
         List<IProcess> processes = new()
         {
             new NewProcess("A", "key"),
-            new LetProcess(TuplePattern.CreateBasic(new() { "bv" }),
+            new LetProcess(TuplePattern.CreateSingle("bv", "bitstring"),
                            new Term("pk", new() { new Term("A") }),
-                           new OutChannelProcess("c", new Term("bv", new()))),
-            new LetProcess(new(let2Elements),
-                           new Term("checksign", new() { new Term("cert2"), new Term("pk2") }),
-                           new InChannelProcess("c", new() { ("other", "bitstring") })),
-            new MutateProcess("SD", new("new_value")),
-            new GetTableProcess("keys", new() { (true, "xC"), (false, "cd") }),
-            new InsertTableProcess(new Term("keys", new() { new("A"), new("bv") }))
+                           new ProcessGroup(let1Processes))
         };
-        ProcessGroup expectedMain = new(new List<IProcess>(from p in processes select p));
+        ProcessGroup expectedMain = new(processes);
 
         try
         {
@@ -177,7 +183,7 @@ public class ModelTests
         ParallelCompositionProcess line3 = new(
             new ReplicateProcess(new OutChannelProcess("c", new("x"))));
         line3.Add(new ReplicateProcess(new InChannelProcess("c", new() { ("x", "bitstring") })));
-        List<IProcess> expectedProcesses = new() { line1, new ProcessGroup(line2), new ProcessGroup(line3) };
+        List<IProcess> expectedProcesses = new() { line1, line2, line3 };
         ProcessGroup expectedMain = new(expectedProcesses);
 
         try
@@ -199,21 +205,21 @@ public class ModelTests
     public void IfProcessModelTest()
     {
         string testSource = "process\n" +
-            "let h = if X = A then A else C in\n" +
+            "let h: bitstring = if X = A then A else C in\n" +
             "if h <> A && h <> B then\n" +
-            "  insert some_keys(h, key);" +
-            "else insert some_keys(h, other_key).";
+            "  out(c, key)\n" +
+            "else out(c, other_key).";
         Network nw = Network.CreateFromCode(testSource);
         Assert.IsNotNull(nw.MainProcess);
 
         // Build the expected model of processes.
         BooleanComparison line2Cmp = new(BooleanComparison.Type.And, new EqualityComparison(false, "h", "A"), new EqualityComparison(false, "h", "B"));
-        InsertTableProcess line3 = new(new Term("some_keys", new() { new("h"), new("key") }));
-        InsertTableProcess line4 = new(new Term("some_keys", new() { new("h"), new("other_key") }));
+        IProcess line3 = new OutChannelProcess("c", new("key"));
+        IProcess line4 = new OutChannelProcess("c", new("other_key"));
         IfProcess lines2to4 = new(line2Cmp, line3, line4);
 
         LetProcess line1 = new(
-            TuplePattern.CreateSingle("h"),
+            TuplePattern.CreateSingle("h", "bitstring"),
             new IfTerm(new EqualityComparison(true, "X", "A"), new Term("A"), new Term("C")),
             lines2to4);
 

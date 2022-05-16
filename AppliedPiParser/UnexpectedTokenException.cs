@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace AppliedPi;
 
@@ -8,9 +9,15 @@ namespace AppliedPi;
 /// </summary>
 internal class UnexpectedTokenException : Exception
 {
-    public UnexpectedTokenException(string expectedToken, string foundToken, string statementType) :
-        base($"Expected '{expectedToken}', instead found '{foundToken}' while reading {statementType} statement.")
+    public UnexpectedTokenException(string expectedToken, string foundToken, string statementType) 
+        : base($"Expected '{expectedToken}', instead found '{foundToken}' while reading {statementType} statement.")
     { }
+
+    public UnexpectedTokenException(IEnumerable<string> expectedTokens, string foundToken, string statementType)
+        : base("Expected '" + string.Join("', '", expectedTokens) +
+               $"', instead found '{foundToken}' while reading {statementType} statement.")
+    { }
+        
 
     /// <summary>
     /// Throws an UnexpectedTokenException if the foundToken does not match the expectedToken.

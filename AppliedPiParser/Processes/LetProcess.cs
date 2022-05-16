@@ -51,9 +51,9 @@ public class LetProcess : IProcess
             {
                 // Cannot check matching types properly - let allows for some exotic
                 // occurrences. But we can ensure it exists.
-                if (!termResolver.Resolve(new(e.Name), out TermRecord? _))
+                if (!termResolver.Resolve(e.Term, out TermRecord? _))
                 {
-                    errorMessage = $"Term {e.Name} does not exist.";
+                    errorMessage = $"Term {e.Term} does not exist.";
                     return false;
                 }
             }
@@ -66,9 +66,9 @@ public class LetProcess : IProcess
                     errorMessage = $"Type for term {e.Type} must be given.";
                     return false;
                 }
-                if (!termResolver.Register(new(e.Name), new(TermSource.Let, new(e.Type))))
+                if (!termResolver.Register(e.Term, new(TermSource.Let, new(e.Type))))
                 {
-                    errorMessage = $"Term {e.Name} already exists.";
+                    errorMessage = $"Term {e.Term} already exists.";
                     return false;
                 }
             }
@@ -91,12 +91,12 @@ public class LetProcess : IProcess
         {
             if (e.IsMatcher)
             {
-                resolver.ResolveOrThrow(new(e.Name));
+                resolver.ResolveOrThrow(e.Term);
             }
             else
             {
                 Debug.Assert(e.Type != null);
-                resolver.Register(new(e.Name), new(TermSource.Let, new(e.Type)));
+                resolver.Register(e.Term, new(TermSource.Let, new(e.Type)));
             }
         }
         return new LetProcess(LeftHandSide, RightHandSide, GuardedProcess.Resolve(nw, resolver), ElseProcess?.Resolve(nw, resolver));

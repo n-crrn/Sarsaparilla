@@ -120,64 +120,88 @@ public class ProcessGroup : IProcess
     {
         try
         {
-            List<IProcess> processes = new();
-            ParallelCompositionProcess? parallelRegister = null;
-            string token = p.ReadNextToken();
-            do
+            IProcess initialGrp = InnerReadFromParser(p);
+            ProcessGroup grp = initialGrp is ProcessGroup group ? group : new ProcessGroup(initialGrp);
+
+            // Clear out the final period - it is not a problem if this is the end of the file.
+            /*try
             {
-                if (token == "|")
-                {
-                    // Pop the last process off the end of the processes list, and create
-                    // a parallel register.
-                    if (processes.Count == 0)
-                    {
-                        return (null, $"Parallel composition operator '|' at beginning.");
-                    }
-                    if (null == parallelRegister)
-                    {
-                        // Swap out the last process on the list with a new parallel composition.
-                        IProcess lastProcess = processes[^1];
-                        processes.RemoveAt(processes.Count - 1);
-                        parallelRegister = new(lastProcess);
-                        processes.Add(parallelRegister!);
-                    }
-                    // Start on the next process.
-                    token = p.ReadNextToken();
-                }
-                else
-                {
-                    parallelRegister = null;
-                }
+                p.ReadExpectedToken(".", "Process group");
+            }
+            catch (EndOfCodeException) { }*/
 
-                IProcess? nextProcess = ReadNextProcess(p, token);
-                if (nextProcess != null)
-                {
-                    if (parallelRegister != null)
-                    {
-                        parallelRegister.Add(nextProcess);
-                    }
-                    else
-                    {
-                        processes.Add(nextProcess);
-                    }
-                }
-
-                try
-                {
-                    token = p.ReadNextToken();
-                }
-                catch (EndOfCodeException)
-                {
-                    token = "."; // Trigger end of process group processing.
-                }
-                
-            } while (token != "." && token != ")");
-            return (new ProcessGroup(processes), null);
+            return (grp, null);
         }
         catch (ProcessGroupParseException ex)
         {
             return (null, ex.Message);
         }
+    }
+
+    private static IProcess InnerReadFromParser(Parser p)
+    {
+        List<IProcess> processes = new();
+        ParallelCompositionProcess? parallelRegister = null;
+        string token;
+        do
+        {
+            token = p.ReadNextToken();
+            if (token == "|")
+            {
+                // Pop the last process off the end of the processes list, and create
+                // a parallel register.
+                if (processes.Count == 0)
+                {
+                    throw new ProcessGroupParseException("Parallel composition operator '|' at beginning.");
+                }
+                if (null == parallelRegister)
+                {
+                    // Swap out the last process on the list with a new parallel composition.
+                    IProcess lastProcess = processes[^1];
+                    processes.RemoveAt(processes.Count - 1);
+                    parallelRegister = new(lastProcess);
+                    processes.Add(parallelRegister!);
+                }
+                // Start on the next process.
+                token = p.ReadNextToken();
+            }
+            else
+            {
+                parallelRegister = null;
+            }
+
+            IProcess? nextProcess = ReadNextProcess(p, token);
+            if (nextProcess != null)
+            {
+                if (parallelRegister != null)
+                {
+                    parallelRegister.Add(nextProcess);
+                }
+                else
+                {
+                    processes.Add(nextProcess);
+                }
+            }
+
+            try
+            {
+                token = p.PeekNextToken();
+                if (token == ";" || token == ".")
+                {
+                    // Consume the end of statement tokens, with the exception of the parallel
+                    // operator (which will be picked up on the next loop) and the shut-bracket
+                    // operator (which will be cleaned up by the compound reader method).
+                    // Leave anything else to be read on the next call of the ProcessGroup parser.
+                    _ = p.ReadNextToken();
+                }
+            }
+            catch (EndOfCodeException)
+            {
+                token = "."; // Trigger end of process group processing.
+            }
+                
+        } while (token == ";" || token == "|");
+        return processes.Count == 1 ? processes[0] : new ProcessGroup(processes);
     }
 
     private static IProcess? ReadNextProcess(Parser p, string token)
@@ -191,9 +215,6 @@ public class ProcessGroup : IProcess
             "new" => ReadNewProcess(p),
             "let" => ReadLetProcess(p),
             "if" => ReadIfProcess(p),
-            "get" => ReadTableGetProcess(p),
-            "insert" => ReadTableInsertProcess(p),
-            "mutate" => ReadMutateProcess(p),
             "(" => ReadCompoundProcess(p),
             _ => ReadPossibleCallProcess(token, p) // Last one may return null.
         };
@@ -254,7 +275,7 @@ public class ProcessGroup : IProcess
             paramList.Add((token, p.ReadNameToken(stmtType)));
             p.ReadExpectedToken(")", stmtType);
         }
-        ReadStatementEnd(p, stmtType);
+        //ReadStatementEnd(p, stmtType);
 
         return new InChannelProcess(channelName, paramList);
     }
@@ -275,7 +296,7 @@ public class ProcessGroup : IProcess
         {
             UnexpectedTokenException.Check(")", maybeToken, stmtType);
         }
-        ReadStatementEnd(p, stmtType);
+        //ReadStatementEnd(p, stmtType);
         return new OutChannelProcess(channelName, sentTerm);
     }
 
@@ -283,7 +304,7 @@ public class ProcessGroup : IProcess
     {
         string stmtType = "Event (process)";
         Term t = Term.ReadTerm(p, stmtType);
-        ReadStatementEnd(p, stmtType);
+        //ReadStatementEnd(p, stmtType);
         return new EventProcess(t);
     }
 
@@ -293,15 +314,15 @@ public class ProcessGroup : IProcess
         string varName = p.ReadNameToken(stmtType);
         p.ReadExpectedToken(":", stmtType);
         string piType = p.ReadNameToken(stmtType);
-        ReadStatementEnd(p, stmtType);
+        //ReadStatementEnd(p, stmtType);
         return new NewProcess(varName, piType);
     }
 
     private static LetProcess ReadLetProcess(Parser p)
     {
         string stmtType = "Let";
-        (TuplePattern tp, string? possToken) = TuplePattern.ReadPatternAndNextToken(p, stmtType);
-        string token = possToken ?? p.ReadNextToken();
+        TuplePattern tp = TuplePattern.ReadPatternAndNextToken(p, stmtType);
+        string token = p.ReadNextToken();
         UnexpectedTokenException.Check("=", token, stmtType);
 
         string peekToken = p.PeekNextToken();
@@ -317,19 +338,21 @@ public class ProcessGroup : IProcess
         }
         p.ReadExpectedToken("in", stmtType);
 
-        IProcess? guardedProcess = ReadNextProcess(p, p.ReadNextToken());
-        if (guardedProcess == null)
-        {
-            throw new ProcessGroupParseException("A let expression cannot be the final process in a collection.");
-        }
+        //IProcess? guardedProcess = ReadNextProcess(p, p.ReadNextToken());
+        IProcess guardedProcess = InnerReadFromParser(p);
 
-        peekToken = p.PeekNextToken();
         IProcess? elseProcess = null;
-        if (peekToken == "else")
+        try
         {
-            _ = p.ReadNextToken();
-            elseProcess = ReadNextProcess(p, p.ReadNextToken());
+            peekToken = p.PeekNextToken();
+            if (peekToken == "else")
+            {
+                _ = p.ReadNextToken();
+                //elseProcess = ReadNextProcess(p, p.ReadNextToken());
+                elseProcess = InnerReadFromParser(p);
+            }
         }
+        catch (EndOfCodeException) { } // EOC does not matter in this case.
 
         return new(tp, ifTerm, guardedProcess, elseProcess);
     }
@@ -363,20 +386,26 @@ public class ProcessGroup : IProcess
         IComparison cmp = ReadComparisonAndThen(p);
 
         // Read through the guarded process.
-        IProcess? guardedProcesses = ReadNextProcess(p, p.ReadNextToken());
+        /*IProcess? guardedProcesses = ReadNextProcess(p, p.ReadNextToken());
         if (guardedProcesses == null)
         {
             throw new ProcessGroupParseException("Guarded process not found when parsing 'if' clause.");
-        }
+        }*/
+        IProcess guardedProcesses = InnerReadFromParser(p);
 
         // Is there an else process?
         IProcess? elseProcesses = null;
-        string token = p.PeekNextToken();
-        if (token == "else")
+        try
         {
-            _ = p.ReadNextToken();
-            elseProcesses = ReadNextProcess(p, p.ReadNextToken());
+            string token = p.PeekNextToken();
+            if (token == "else")
+            {
+                _ = p.ReadNextToken();
+                //elseProcesses = ReadNextProcess(p, p.ReadNextToken());
+                elseProcesses = InnerReadFromParser(p);
+            }
         }
+        catch (EndOfCodeException) { } // EOC oes not matter in this case.
 
         return new IfProcess(cmp, guardedProcesses, elseProcesses);
     }
@@ -393,69 +422,17 @@ public class ProcessGroup : IProcess
         return ComparisonParser.Parse(cmpTokens);
     }
 
-    private static IProcess ReadTableGetProcess(Parser p)
-    {
-        string stmtType = "Get table";
-        string tableName = p.ReadNameToken(stmtType);
-        p.ReadExpectedToken("(", stmtType);
-        List<(bool, string)> matchAssignList = new();
-        string token;
-        do
-        {
-            token = p.ReadNextToken();
-            bool matcher = token == "=";
-            if (matcher)
-            {
-                token = p.ReadNameToken(stmtType);
-            }
-            else
-            {
-                InvalidNameTokenException.Check(token, stmtType);
-            }
-            matchAssignList.Add((matcher, token));
-            token = p.ReadNextToken();
-        } while (token == ",");
-        UnexpectedTokenException.Check(")", token, stmtType);
-        p.ReadExpectedToken("in", stmtType);
-        return new GetTableProcess(tableName, matchAssignList);
-    }
-
-    private static IProcess ReadTableInsertProcess(Parser p)
-    {
-        string stmtType = "Insert table";
-        Term t = Term.ReadTerm(p, stmtType);
-        ReadStatementEnd(p, stmtType);
-        return new InsertTableProcess(t);
-    }
-
-    private static IProcess ReadMutateProcess(Parser p)
-    {
-        string stmtType = "Mutate";
-        p.ReadExpectedToken("(", stmtType);
-        string stateCellName = p.ReadNameToken(stmtType);
-        p.ReadExpectedToken(",", stmtType);
-        (Term setTerm, string? maybeToken) = Term.ReadTermAndNextToken(p, stmtType);
-        if (maybeToken == null)
-        {
-            p.ReadExpectedToken(")", stmtType);
-        }
-        else
-        {
-            UnexpectedTokenException.Check(")", maybeToken, stmtType);
-        }
-        ReadStatementEnd(p, stmtType);
-        return new MutateProcess(stateCellName, setTerm);
-    }
-
     private static IProcess ReadCompoundProcess(Parser p)
     {
-        (ProcessGroup? innerGrp, string? innerErrMsg) = ReadFromParser(p);
+        /*(ProcessGroup? innerGrp, string? innerErrMsg) = ReadFromParser(p);
         if (innerErrMsg != null)
         {
             throw new ProcessGroupParseException(innerErrMsg);
-        }
+        }*/
         // There may be a semi-colon here, let's move past it.
-        ReadStatementEnd(p, "ProcessGroup");
+        //ReadStatementEnd(p, "ProcessGroup");
+        IProcess innerGrp = InnerReadFromParser(p);
+        p.ReadExpectedToken(")", "Bracketed");
         return innerGrp!;
     }
 
@@ -467,7 +444,7 @@ public class ProcessGroup : IProcess
         }
         string stmtType = "Call";
         Term t = Term.ReadTermParameters(p, currentToken, stmtType);
-        ReadStatementEnd(p, stmtType);
+        //ReadStatementEnd(p, stmtType);
         return new CallProcess(t);
     }
 
@@ -482,7 +459,7 @@ public class ProcessGroup : IProcess
     /// <param name="statementType">
     /// The type of statement being read. This value is used to create the error message.
     /// </param>
-    private static void ReadStatementEnd(Parser p, string statementType)
+    /*private static void ReadStatementEnd(Parser p, string statementType)
     {
         string peekedToken;
         try
@@ -502,7 +479,7 @@ public class ProcessGroup : IProcess
         {
             throw new UnexpectedTokenException(". or ;", peekedToken, statementType);
         }
-    }
+    }*/
 
     #endregion
 }
