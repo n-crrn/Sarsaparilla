@@ -173,7 +173,15 @@ public class ProcessGroup : IProcess
                     }
                 }
 
-                token = p.ReadNextToken();
+                try
+                {
+                    token = p.ReadNextToken();
+                }
+                catch (EndOfCodeException)
+                {
+                    token = "."; // Trigger end of process group processing.
+                }
+                
             } while (token != "." && token != ")");
             return (new ProcessGroup(processes), null);
         }
@@ -257,7 +265,7 @@ public class ProcessGroup : IProcess
             paramList.Add((token, p.ReadNameToken(stmtType)));
             p.ReadExpectedToken(")", stmtType);
         }
-        p.ReadStatementEnd(stmtType);
+        ReadStatementEnd(p, stmtType);
 
         return new InChannelProcess(channelName, paramList);
     }
@@ -278,7 +286,7 @@ public class ProcessGroup : IProcess
         {
             UnexpectedTokenException.Check(")", maybeToken, stmtType);
         }
-        p.ReadStatementEnd(stmtType);
+        ReadStatementEnd(p, stmtType);
         return new OutChannelProcess(channelName, sentTerm);
     }
 
@@ -286,7 +294,7 @@ public class ProcessGroup : IProcess
     {
         string stmtType = "Event (process)";
         Term t = Term.ReadTerm(p, stmtType);
-        p.ReadStatementEnd(stmtType);
+        ReadStatementEnd(p, stmtType);
         return new EventProcess(t);
     }
 
@@ -296,7 +304,7 @@ public class ProcessGroup : IProcess
         string varName = p.ReadNameToken(stmtType);
         p.ReadExpectedToken(":", stmtType);
         string piType = p.ReadNameToken(stmtType);
-        p.ReadStatementEnd(stmtType);
+        ReadStatementEnd(p, stmtType);
         return new NewProcess(varName, piType);
     }
 
@@ -427,7 +435,7 @@ public class ProcessGroup : IProcess
     {
         string stmtType = "Insert table";
         Term t = Term.ReadTerm(p, stmtType);
-        p.ReadStatementEnd(stmtType);
+        ReadStatementEnd(p, stmtType);
         return new InsertTableProcess(t);
     }
 
@@ -446,7 +454,7 @@ public class ProcessGroup : IProcess
         {
             UnexpectedTokenException.Check(")", maybeToken, stmtType);
         }
-        p.ReadStatementEnd(stmtType);
+        ReadStatementEnd(p, stmtType);
         return new MutateProcess(stateCellName, setTerm);
     }
 
@@ -458,7 +466,7 @@ public class ProcessGroup : IProcess
             throw new ProcessGroupParseException(innerErrMsg);
         }
         // There may be a semi-colon here, let's move past it.
-        p.ReadStatementEnd("ProcessGroup");
+        ReadStatementEnd(p, "ProcessGroup");
         return innerGrp!;
     }
 
@@ -470,8 +478,41 @@ public class ProcessGroup : IProcess
         }
         string stmtType = "Call";
         Term t = Term.ReadTermParameters(p, currentToken, stmtType);
-        p.ReadStatementEnd(stmtType);
+        ReadStatementEnd(p, stmtType);
         return new CallProcess(t);
+    }
+
+    /// <summary>
+    /// When reading processes, a semi-colon, pipe or right bracket is used to separate
+    /// processes and a full-stop is used to indicate termination. The semi-colon is
+    /// not interesting to the higher-level parser, but the others are. This statement
+    /// will peek ahead and skip semi-colons, leave the other tokens in place, and 
+    /// throw an exception if there is any other token. End of code is ignored.
+    /// </summary>
+    /// <param name="p">The parser to use.</param>
+    /// <param name="statementType">
+    /// The type of statement being read. This value is used to create the error message.
+    /// </param>
+    private static void ReadStatementEnd(Parser p, string statementType)
+    {
+        string peekedToken;
+        try
+        {
+            peekedToken = p.PeekNextToken();
+        }
+        catch (EndOfCodeException)
+        {
+            return;
+        }
+
+        if (peekedToken == ";")
+        {
+            _ = p.ReadNextToken();
+        }
+        else if (peekedToken != "." && peekedToken != "|" && peekedToken != ")")
+        {
+            throw new UnexpectedTokenException(". or ;", peekedToken, statementType);
+        }
     }
 
     #endregion

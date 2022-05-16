@@ -171,29 +171,6 @@ public class Parser
     }
 
     /// <summary>
-    /// When reading processes, a semi-colon, pipe or right bracket is used to separate
-    /// processes and a full-stop is used to indicate termination. The semi-colon is
-    /// not interesting to the higher-level parser, but the others are. This statement
-    /// will peek ahead and skip semi-colons, leave the other tokens in place, and 
-    /// throw an exception if there is any other token.
-    /// </summary>
-    /// <param name="statementType">
-    /// The type of statement being read. This value is used to create the error message.
-    /// </param>
-    internal void ReadStatementEnd(string statementType)
-    {
-        string peekedToken = PeekNextToken();
-        if (peekedToken == ";")
-        {
-            _ = ReadNextToken();
-        }
-        else if (peekedToken != "." && peekedToken != "|" && peekedToken != ")")
-        {
-            throw new UnexpectedTokenException(". or ;", peekedToken, statementType);
-        }
-    }
-
-    /// <summary>
     /// This convenience method reads the next token and ensures that it is a valid name.
     /// If it is not, then an InvalidNameTokenException is raised to be caught by the loop
     /// in ReadNextStatement();
