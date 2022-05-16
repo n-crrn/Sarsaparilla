@@ -78,7 +78,20 @@ process
         await DoTest(piSource, false, true);
     }
 
-    private async Task DoTest(string src, bool expectGlobalAttack, bool expectNessionAttack)
+    /// <summary>
+    /// Conducts a full integration test, where source code is used to construct a Network to
+    /// conduct a query upon. This is a public method as some other groups of tests
+    /// (e.g. ThesisTests) need to exercise this functionality as well.
+    /// </summary>
+    /// <param name="src">Applied Pi model source code to test.</param>
+    /// <param name="expectGlobalAttack">
+    ///   Whether a global attack is expected to be detected.
+    /// </param>
+    /// <param name="expectNessionAttack">
+    ///   Whether one or more nessions are expected to demonstrate an attack.
+    /// </param>
+    /// <returns></returns>
+    public async static Task DoTest(string src, bool expectGlobalAttack, bool expectNessionAttack)
     {
         Network nw = Network.CreateFromCode(src);
         ResolvedNetwork rn = ResolvedNetwork.From(nw);
