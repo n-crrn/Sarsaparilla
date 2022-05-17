@@ -68,7 +68,7 @@ public class IfProcess : IProcess
     {
         if (Comparison.ResolveType(termResolver) != PiType.Bool)
         {
-            errorMessage = $"Undefined terms in comparison {Comparison}";
+            errorMessage = $"Please check your types for comparison '{Comparison}'";
             return false;
         }
         if (!GuardedProcess.Check(nw, termResolver, out errorMessage))

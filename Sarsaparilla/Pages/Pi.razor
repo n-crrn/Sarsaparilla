@@ -100,6 +100,7 @@
             ParsedNetwork = null;
             FullyResolvedNetwork = null;
             Translation = null;
+            Engine = null;
 
             ParsedNetwork = Network.CreateFromCode(AppliedPiSource);
             if (ParsedNetwork.MainProcess == null)
@@ -125,6 +126,10 @@
         catch (NetworkCreationException ex)
         {
             ErrorMessage = ex.Message;
+        }
+        catch (ArgumentException aEx)
+        {
+            ErrorMessage = aEx.Message;
         }
     }
 

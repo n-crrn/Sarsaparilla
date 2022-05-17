@@ -73,7 +73,7 @@ public class EqualityComparison : IComparison
 
     public override string ToString()
     {
-        return IsEquals ? $"{LeftComparison} == {RightComparison}" : $"{LeftComparison} <> {RightComparison}";
+        return IsEquals ? $"{LeftComparison} = {RightComparison}" : $"{LeftComparison} <> {RightComparison}";
     }
 
     #endregion
