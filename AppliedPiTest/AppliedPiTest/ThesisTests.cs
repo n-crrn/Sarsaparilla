@@ -33,6 +33,8 @@ fun pk(key):key.
 
 query attacker((bobl, bobr)).
 
+free publicChannel: channel.
+
 let SD(b: channel, sk: key) =
   new mStart: bitstring;
   (* Configure left or right. *)
@@ -60,12 +62,13 @@ let Bob(b: channel, sk: key) =
 let BobSDSet(which: bitstring) =
   new b: channel;
   new k: key;
+  out(publicChannel, b);
   ( SD(b, k) |
     ( out(b, which); Bob(b, k) ) ).
 
 process
   (! BobSDSet(left) |
-   ! BobSDSet(right) ).
+   ! BobSDSet(right) | ! in(publicChannel, bChan: channel) ).
 ";
         await IntegrationTests.DoTest(piSource, false, false);
     }
