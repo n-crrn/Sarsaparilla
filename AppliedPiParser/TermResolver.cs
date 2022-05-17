@@ -118,8 +118,8 @@ public class TermResolver
 
         // Replace the variable names with parameterised names.
         MacroCallCounter.TryGetValue(macroName, out int mcc);
-        MacroCallCounter[macroName] = mcc;
         ProcessGroup pg = udp.ResolveForCall(mcc, parameters);
+        MacroCallCounter[macroName] = mcc + 1;
         return pg.Resolve(Network, this);
     }
 
