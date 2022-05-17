@@ -61,7 +61,7 @@ public class BranchRestrictionSet
 
     private readonly List<IfBranchConditions> _ElseConditions;
 
-    public IReadOnlyList<IfBranchConditions> ElseConditions => ElseConditions;
+    public IReadOnlyList<IfBranchConditions> ElseConditions => _ElseConditions;
 
     public BranchRestrictionSet Not() => new(_ElseConditions, _IfConditions);
 
