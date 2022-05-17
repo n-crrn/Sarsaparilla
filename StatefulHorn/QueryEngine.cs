@@ -11,17 +11,24 @@ namespace StatefulHorn;
 public class QueryEngine
 {
     public QueryEngine(IReadOnlySet<State> states, IMessage q, State? when, IEnumerable<Rule> userRules)
+        : this(states, new List<IMessage>() { q }, when, userRules)
+    { }
+
+    public QueryEngine(IReadOnlySet<State> states, List<IMessage> queries, State? when, IEnumerable<Rule> userRules)
     {
         Debug.Assert(states.Count > 0);
 
         StateSet = new(states);
-        Query = q;
+        Queries = queries;
         When = when;
 
-        if (q.ContainsVariables)
+        foreach (IMessage q in queries)
         {
-            string msg = $"Query message ({q}) contains variables - variables are not currently supported in the query.";
-            throw new ArgumentException(msg);
+            if (q.ContainsVariables)
+            {
+                string msg = $"Query message ({q}) contains variables - variables are not currently supported in the query.";
+                throw new ArgumentException(msg);
+            }
         }
 
         BasicFacts = new();
@@ -63,7 +70,9 @@ public class QueryEngine
 
     public HashSet<State> StateSet { get; init; }
 
-    public IMessage Query { get; init; }
+    //public IMessage Query { get; init; }
+
+    public List<IMessage> Queries { get; init; }
 
     public State? When { get; init; }
 
@@ -81,7 +90,8 @@ public class QueryEngine
     public override string ToString()
     {
         string whenDesc = When == null ? "" : $"when {When} ";
-        return $"Query leak {Query} {whenDesc}with {KnowledgeRules.Count} " +
+        string queryDesc = Queries.Count == 1 ? Queries[0].ToString() : string.Join(" or ", Queries);
+        return $"Query leak {queryDesc} {whenDesc}with {KnowledgeRules.Count} " +
             $"knowledge rules, {SystemRules.Count} system rules and " +
             $"{TransferringRules.Count} transferring rules.";
     }
@@ -105,23 +115,29 @@ public class QueryEngine
         }
 
         // Check the basic facts for a global attack.
-        if (BasicFacts.Contains(Query))
+        foreach (IMessage q in Queries)
         {
-            onGlobalAttackFound?.Invoke(new(new List<IMessage>() { Query }, new List<HornClause>()));
-            onCompletion?.Invoke();
-            return;
+            if (BasicFacts.Contains(q))
+            {
+                onGlobalAttackFound?.Invoke(new(new List<IMessage>() { q }, new List<HornClause>()));
+                onCompletion?.Invoke();
+                return;
+            }
         }
 
         // Check the knowledge rules for a global attack.
         HashSet<HornClause> globalKnowledge = new(KnowledgeRules);
         HashSet<HornClause> elaboratedKnowledge = ElaborateAndDetuple(globalKnowledge);
-        QueryResult globalQR = CheckQuery(Query, BasicFacts, elaboratedKnowledge, new(new(), new()));
-        if (globalQR.Found)
+        foreach (IMessage q in Queries)
         {
-            Attack globalAttack = new(globalQR.Facts!, globalQR.Knowledge!);
-            onGlobalAttackFound?.Invoke(globalAttack);
-            onCompletion?.Invoke();
-            return;
+            QueryResult globalQR = CheckQuery(q, BasicFacts, elaboratedKnowledge, new(new(), new()));
+            if (globalQR.Found)
+            {
+                Attack globalAttack = new(globalQR.Facts!, globalQR.Knowledge!);
+                onGlobalAttackFound?.Invoke(globalAttack);
+                onCompletion?.Invoke();
+                return;
+            }
         }
 
         // Check nessions for a attacks.
@@ -131,43 +147,50 @@ public class QueryEngine
             {
                 onStartNextLevel?.Invoke();
 
-                List<(Nession, HashSet<HornClause>)> nessionClauses = new();
                 HashSet<IMessage> premises = new();
-                bool atLeastOneAttack = false;
-                foreach (Nession n in nextLevelNessions)
+                
+                foreach (IMessage q in Queries)
                 {
-                    Nession? validN;
-                    IMessage fullQuery = Query;
-                    if (When != null)
+                    bool atLeastOneAttack = false;
+                    foreach (Nession n in nextLevelNessions)
                     {
-                        validN = n.MatchingWhenAtEnd(When);
-                        if (validN == null)
+                        Nession? validN;
+                        IMessage fullQuery = q;
+                        if (When != null)
                         {
-                            continue;
+                            validN = n.MatchingWhenAtEnd(When);
+                            if (validN == null)
+                            {
+                                continue;
+                            }
+                            HashSet<IMessage> updatedPremises = validN.FinalStateNonVariablePremises();
+                            updatedPremises.Add(q);
+                            fullQuery = new TupleMessage(updatedPremises);
                         }
-                        HashSet<IMessage> updatedPremises = validN.FinalStateNonVariablePremises();
-                        updatedPremises.Add(Query);
-                        fullQuery = new TupleMessage(updatedPremises);
+                        else
+                        {
+                            validN = n;
+                        }
+
+                        HashSet<HornClause> thisNessionClauses = new();
+                        validN.CollectHornClauses(thisNessionClauses, premises);
+
+                        HashSet<HornClause> fullNessionSet = new(KnowledgeRules);
+                        fullNessionSet.UnionWith(thisNessionClauses);
+
+                        HashSet<HornClause> finNessionSet = ElaborateAndDetuple(fullNessionSet);
+
+                        QueryResult qr = CheckQuery(fullQuery, BasicFacts, finNessionSet, new(new(), new()));
+                        Attack? foundAttack = qr.Found ? new(qr.Facts!, qr.Knowledge!) : null;
+                        onAttackAssessed?.Invoke(validN, fullNessionSet, foundAttack);
+                        atLeastOneAttack |= foundAttack != null;
                     }
-                    else
+                    if (atLeastOneAttack)
                     {
-                        validN = n;
+                        return true;
                     }
-
-                    HashSet<HornClause> thisNessionClauses = new();
-                    validN.CollectHornClauses(thisNessionClauses, premises);
-
-                    HashSet<HornClause> fullNessionSet = new(KnowledgeRules);
-                    fullNessionSet.UnionWith(thisNessionClauses);
-
-                    HashSet<HornClause> finNessionSet = ElaborateAndDetuple(fullNessionSet);
-
-                    QueryResult qr = CheckQuery(fullQuery, BasicFacts, finNessionSet, new(new(), new()));
-                    Attack? foundAttack = qr.Found ? new(qr.Facts!, qr.Knowledge!) : null;
-                    onAttackAssessed?.Invoke(validN, fullNessionSet, foundAttack);
-                    atLeastOneAttack |= foundAttack != null;
                 }
-                return atLeastOneAttack;
+                return false;
             }, maxElab);
 
         onCompletion?.Invoke();
