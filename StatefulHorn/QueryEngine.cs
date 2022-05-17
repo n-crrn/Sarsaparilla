@@ -128,7 +128,7 @@ public class QueryEngine
         HashSet<HornClause> elaboratedKnowledge = ElaborateAndDetuple(globalKnowledge);
         foreach (IMessage q in Queries)
         {
-            QueryResult globalQR = CheckQuery(q, BasicFacts, elaboratedKnowledge, new(new(), new()));
+            QueryResult globalQR = CheckQuery(q, BasicFacts, elaboratedKnowledge, new(new(), new()), Guard.Empty);
             if (globalQR.Found)
             {
                 Attack globalAttack = new(globalQR.Facts!, globalQR.Knowledge!);
@@ -178,7 +178,7 @@ public class QueryEngine
 
                         HashSet<HornClause> finNessionSet = ElaborateAndDetuple(fullNessionSet);
 
-                        QueryResult qr = CheckQuery(fullQuery, BasicFacts, finNessionSet, new(new(), new()));
+                        QueryResult qr = CheckQuery(fullQuery, BasicFacts, finNessionSet, new(new(), new()), Guard.Empty);
                         Attack? foundAttack = qr.Found ? new(qr.Facts!, qr.Knowledge!) : null;
                         onAttackAssessed?.Invoke(validN, fullNessionSet, foundAttack);
                         atLeastOneAttack |= foundAttack != null;
@@ -290,6 +290,7 @@ public class QueryEngine
         HashSet<IMessage> basicFacts,
         HashSet<HornClause> rules,
         QueryStatus status,
+        Guard guard,
         int rank = int.MaxValue)
     {
         if (status.NowProving.Contains(queryToFind))
@@ -305,11 +306,11 @@ public class QueryEngine
         }
         else if (queryToFind is TupleMessage tMsg)
         {
-            qr = CheckTupleQuery(tMsg, basicFacts, rules, status, rank);
+            qr = CheckTupleQuery(tMsg, basicFacts, rules, status, guard, rank);
         }
         else if (queryToFind is FunctionMessage fMsg)
         {
-            qr = CheckFunctionQuery(fMsg, basicFacts, rules, status, rank);
+            qr = CheckFunctionQuery(fMsg, basicFacts, rules, status, guard, rank);
         }
         else if (queryToFind is NonceMessage nMsg)
         {
@@ -317,13 +318,19 @@ public class QueryEngine
         }
         else
         {
-            qr = CheckBasicQuery(queryToFind, basicFacts, rules, status, rank);
+            qr = CheckBasicQuery(queryToFind, basicFacts, rules, status, guard, rank);
         }
         status.NowProving.Remove(queryToFind);
         return qr;
     }
 
-    private QueryResult CheckBasicQuery(IMessage queryToFind, HashSet<IMessage> facts, HashSet<HornClause> rules, QueryStatus status, int rank)
+    private QueryResult CheckBasicQuery(
+        IMessage queryToFind, 
+        HashSet<IMessage> facts, 
+        HashSet<HornClause> rules, 
+        QueryStatus status, 
+        Guard guard,
+        int rank)
     {
         List<HornClause> candidates = new(from r in rules where queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank) select r);
         candidates.Sort(SortRules);
@@ -331,13 +338,16 @@ public class QueryEngine
         {
             SigmaFactory sf = new();
             List<QueryResult> qrParts = new();
-            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, sf))
+            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, Guard.Empty, sf) 
+                && sf.ForwardIsValidByGuard(checkRule.Guard)
+                && sf.BackwardIsValidByGuard(guard))
             {
                 HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
+                Guard nextGuard = guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);
                 bool found = true;
                 foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
                 {
-                    QueryResult innerResult = CheckQuery(premise, facts, rules, status, RatchetRank(checkRule, rank));
+                    QueryResult innerResult = CheckQuery(premise, facts, rules, status, nextGuard, RatchetRank(checkRule, rank));
                     if (innerResult.Found)
                     {
                         qrParts.Add(innerResult);
@@ -358,7 +368,11 @@ public class QueryEngine
         return QueryResult.Failed(queryToFind, When);
     }
 
-    private QueryResult CheckNonceQuery(NonceMessage queryToFind, HashSet<IMessage> facts, HashSet<HornClause> rules, int rank)
+    private QueryResult CheckNonceQuery(
+        NonceMessage queryToFind,
+        HashSet<IMessage> facts,
+        HashSet<HornClause> rules,
+        int rank)
     {
         List<HornClause> candidates = new(from r in rules where queryToFind.Equals(r.Result) && r.BeforeRank(rank) select r);
         candidates.Sort(SortRules);
@@ -390,7 +404,13 @@ public class QueryEngine
 
     private static int RatchetRank(HornClause current, int rank) => HornClause.RatchetRank(current.Rank, rank);
 
-    private QueryResult CheckFunctionQuery(IMessage queryToFind, HashSet<IMessage> facts, HashSet<HornClause> rules, QueryStatus status, int rank)
+    private QueryResult CheckFunctionQuery(
+        IMessage queryToFind, 
+        HashSet<IMessage> facts, 
+        HashSet<HornClause> rules,
+        QueryStatus status, 
+        Guard guard,
+        int rank)
     {
         List<HornClause> candidates = new(from r in rules
                                           where r.Result is FunctionMessage && queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank)
@@ -400,13 +420,16 @@ public class QueryEngine
         {
             SigmaFactory sf = new();
             List<QueryResult> qrParts = new();
-            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, sf))
+            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, sf)
+                && sf.ForwardIsValidByGuard(checkRule.Guard) 
+                && sf.BackwardIsValidByGuard(guard))
             {
                 HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
+                Guard updatedGuard = guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);
                 bool found = true;
                 foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
                 {
-                    QueryResult qr = CheckQuery(premise, facts, rules, status, RatchetRank(checkRule, rank));
+                    QueryResult qr = CheckQuery(premise, facts, rules, status, guard, RatchetRank(checkRule, rank));
                     if (!qr.Found)
                     {
                         found = false;
@@ -424,13 +447,19 @@ public class QueryEngine
         return QueryResult.Failed(queryToFind, When);
     }
 
-    private QueryResult CheckTupleQuery(TupleMessage queryToFind, HashSet<IMessage> facts, HashSet<HornClause> rules, QueryStatus status, int rank)
+    private QueryResult CheckTupleQuery(
+        TupleMessage queryToFind, 
+        HashSet<IMessage> facts, 
+        HashSet<HornClause> rules, 
+        QueryStatus status, 
+        Guard guard,
+        int rank)
     {
         // Note that the rules have been detupled, so each element will need to be followed up individually.
         List<QueryResult> qrParts = new();
         foreach (IMessage part in queryToFind.Members)
         {
-            QueryResult qr = CheckQuery(part, facts, rules, status, rank);
+            QueryResult qr = CheckQuery(part, facts, rules, status, guard, rank);
             if (!qr.Found)
             {
                 return QueryResult.Failed(queryToFind, When);

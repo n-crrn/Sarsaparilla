@@ -37,7 +37,7 @@ public class StateTransferringRule : Rule
     public StateConsistentRule? TryTransform(StateConsistentRule r)
     {
         // If there is a match for each trace of the transformation, then this is possible.
-        Guard combinedGuard = GuardStatements.UnionWith(r.GuardStatements);
+        Guard combinedGuard = GuardStatements.Union(r.GuardStatements);
         SigmaFactory sf = new();
 
         // The following tuple is of form Snapshot, Trace Index, Offset Index with Trace.

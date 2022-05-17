@@ -10,10 +10,10 @@ public abstract class Rule
 {
     protected Rule(string lbl, Guard g, HashSet<Event> prems, SnapshotTree ss)
     {
-        GuardStatements = g;
         Label = lbl;
         Snapshots = ss;
         _Premises = prems;
+        GuardStatements = g.Difference(CollectAllVariables());
     }
 
     protected void GenerateHashCode()
@@ -211,13 +211,24 @@ public abstract class Rule
         return CreateDerivedRule(newLabel, newG, newPremises, newTree, sigma);
     }
 
-    public Rule SubscriptVariables(string subscript)
+    private HashSet<IMessage> CollectAllVariables()
     {
         HashSet<IMessage> oldVars = PremiseVariables;
         foreach (Snapshot ss in Snapshots.OrderedList)
         {
             oldVars.UnionWith(ss.Condition.Variables);
         }
+        return oldVars;
+    }
+
+    public Rule SubscriptVariables(string subscript)
+    {
+        HashSet<IMessage> oldVars = CollectAllVariables();
+        /*PremiseVariables;
+        foreach (Snapshot ss in Snapshots.OrderedList)
+        {
+            oldVars.UnionWith(ss.Condition.Variables);
+        }*/
         List<(IMessage Variable, IMessage Value)> newVars = new(from v in oldVars select (v, ScriptVariableMessage(v, subscript)));
         return PerformSubstitution(new SigmaMap(newVars));
     }

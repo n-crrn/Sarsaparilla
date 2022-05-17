@@ -14,7 +14,7 @@ public class Nession
 {
     public Nession(IEnumerable<State> initStates)
     {
-        History.Add(new(new(), new(initStates), new()));
+        History.Add(new(new(), new(initStates), new(), null, null));
     }
 
     private Nession(Rule? initRule, IEnumerable<Frame> frames, int lastVNumber)
@@ -46,15 +46,20 @@ public class Nession
 
     public class Frame
     {
-        public Frame(HashSet<Event> premises, HashSet<State> stateSet, HashSet<StateConsistentRule> rules, StateTransferringRule? transferRule = null)
+        public Frame(HashSet<Event> premises,
+                     HashSet<State> stateSet,
+                     HashSet<StateConsistentRule> rules,
+                     StateTransferringRule? transferRule,
+                     Guard? guard)
         {
             StateChangePremises = premises;
             StateSet = stateSet;
             Rules = rules;
             TransferRule = transferRule;
+            GuardStatements = guard ?? Guard.Empty;
         }
 
-        public Frame Clone() => new(new(StateChangePremises), new(StateSet), new(Rules), TransferRule);
+        public Frame Clone() => new(new(StateChangePremises), new(StateSet), new(Rules), TransferRule, GuardStatements);
 
         public HashSet<Event> StateChangePremises { get; init; }
 
@@ -69,6 +74,8 @@ public class Nession
         public HashSet<State> StateSet { get; init; }
 
         public HashSet<StateConsistentRule> Rules { get; init; }
+
+        public Guard GuardStatements { get; init; }
 
         public State? GetStateByName(string name)
         {
@@ -94,7 +101,7 @@ public class Nession
                 newR.IdTag = r.IdTag;
                 newRules.Add(newR);
             }
-            Frame nf = new(newPremises, newStateSet, newRules);
+            Frame nf = new(newPremises, newStateSet, newRules, null, GuardStatements.PerformSubstitution(map));
             if (TransferRule != null)
             {
                 nf.TransferRule = (StateTransferringRule)TransferRule.PerformSubstitution(map);
@@ -179,8 +186,6 @@ public class Nession
     #endregion
     #region State transferring rule application.
 
-    //public Nession Substitute(SigmaMap map) => new(InitialRule, from f in History select f.Substitute(map), VNumber);
-
     public Nession Substitute(SigmaMap map)
     {
         if (map.IsEmpty)
@@ -203,14 +208,12 @@ public class Nession
             Nession updated = Substitute(bwdMap);
             StateTransferringRule updatedRule = (StateTransferringRule)r.PerformSubstitution(fwdMap);
             HashSet<State> newStateSet = updated.CreateStateSetOnTransfer(updatedRule);
+            Guard gs = updated.History[^1].GuardStatements.Union(updatedRule.GuardStatements);
             // It is possible to have duplicate states pop up in a trace, especially if you have
-            // some sort of reset rule. This logic prevent it.
+            // some sort of reset rule. This logic prevents it.
             if (!(updated.History.Count > 0 && newStateSet.SetEquals(updated.History[^1].StateSet)))
             {
-                Frame newFrame = new(
-                    new(updatedRule.Premises),
-                    newStateSet,
-                    new());
+                Frame newFrame = new(new(updatedRule.Premises), newStateSet, new(), null, gs);
                 updated.History.Add(newFrame);
                 newFrame.TransferRule = updatedRule;
                 UpdateNonceDeclarations();
@@ -265,7 +268,8 @@ public class Nession
             Snapshot ruleSS = ruleTraces[i];
             State? nessionCondition = historyFrame.GetStateByName(ruleSS.Condition.Name);
             if (nessionCondition == null ||
-                !ruleSS.Condition.CanBeUnifiableWith(nessionCondition, r.GuardStatements, sf))
+                !ruleSS.Condition.CanBeUnifiableWith(nessionCondition, r.GuardStatements, sf) ||
+                !(sf.ForwardIsValidByGuard(historyFrame.GuardStatements) && sf.BackwardIsValidByGuard(r.GuardStatements)))
             {
                 goto txFail;
             }
@@ -455,7 +459,8 @@ public class Nession
                     Rank = rank,
                     // Note that the Transfer rule for the nession *must* not be null for there to be
                     // a make event in the nession's premises.
-                    Source = new NessionRuleSource(this, rank, new(accumulator), f.TransferRule!)
+                    Source = new NessionRuleSource(this, rank, new(accumulator), f.TransferRule!),
+                    Guard = f.GuardStatements
                 };
                 clauses.Add(makeClause);
             }
@@ -471,10 +476,12 @@ public class Nession
                 // ... add know events ...
                 HashSet<IMessage> thisRulePremises = new(premises);
                 thisRulePremises.UnionWith(from rp in r.Premises where rp.IsKnow select rp.Messages.Single());
+                Guard g = f.GuardStatements.Union(r.GuardStatements);
                 HornClause hc = new(r.Result.Messages.Single(), thisRulePremises)
                 {
                     Rank = rank,
-                    Source = new NessionRuleSource(this, rank, new(accumulator), r)
+                    Source = new NessionRuleSource(this, rank, new(accumulator), r),
+                    Guard = g
                 };
                 clauses.Add(hc);
 
@@ -486,7 +493,8 @@ public class Nession
                         HornClause makeClause = new(ep.Messages.Single(), premises)
                         {
                             Rank = rank,
-                            Source = new NessionRuleSource(this, rank, new(accumulator), r)
+                            Source = new NessionRuleSource(this, rank, new(accumulator), r),
+                            Guard = g
                         };
                         clauses.Add(makeClause);
                     }

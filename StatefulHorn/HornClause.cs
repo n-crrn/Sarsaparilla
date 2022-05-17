@@ -50,7 +50,8 @@ public class HornClause
         {
             Parent = this,
             Rank = Rank,
-            Source = new SubstitutionRuleSource(this, map)
+            Source = new SubstitutionRuleSource(this, map),
+            Guard = Guard.PerformSubstitution(map)
         };
         return hc;
     }
@@ -65,7 +66,8 @@ public class HornClause
                 {
                     Parent = Parent ?? this,
                     Rank = Rank,
-                    Source = new OperationRuleSource(this, OperationRuleSource.Op.Detuple)
+                    Source = new OperationRuleSource(this, OperationRuleSource.Op.Detuple),
+                    Guard = Guard
                 };
                 foreach (HornClause deepHC in innerHC.DetupleResult())
                 {
@@ -85,7 +87,8 @@ public class HornClause
         {
             Parent = Parent,
             Rank = Rank,
-            Source = Source
+            Source = Source,
+            Guard = Guard
         };
         return hc;
     }
@@ -97,21 +100,26 @@ public class HornClause
             return null;
         }
 
-        Guard combinedGuard = Guard.UnionWith(other.Guard);
-
         List<HornClause> found = new();
         foreach (IMessage msg in other.Premises)
         {
             if (msg is not VariableMessage && msg.GetType() == Result.GetType())
             {
                 SigmaFactory sf = new();
-                if (Result.DetermineUnifiableSubstitution(msg, combinedGuard, sf))
+                if (Result.DetermineUnifiableSubstitution(msg, Guard.Empty, sf) &&
+                    sf.ForwardIsValidByGuard(Guard) && 
+                    sf.BackwardIsValidByGuard(other.Guard))
                 {
-                    HornClause thisUpdated = Substitute(sf.CreateForwardMap());
+                    SigmaMap fwdMap = sf.CreateForwardMap();
                     SigmaMap bwdMap = sf.CreateBackwardMap();
+
+                    HornClause thisUpdated = Substitute(fwdMap);
                     IEnumerable<IMessage> oPremises = (from op in other.Premises where !op.Equals(msg) select op.PerformSubstitution(bwdMap)).Concat(thisUpdated.Premises);
                     IMessage oResult = other.Result.PerformSubstitution(bwdMap);
-                    HornClause otherUpdated = new(oResult, oPremises);
+                    HornClause otherUpdated = new(oResult, oPremises)
+                    {
+                        Guard = Guard.PerformSubstitution(fwdMap).Union(other.Guard.PerformSubstitution(bwdMap))
+                    };
                     
                     // Final check - ensure result not in premise.
                     if (!otherUpdated.Premises.Contains(otherUpdated.Result))
@@ -202,7 +210,6 @@ public class HornClause
 
     public bool IsKnownFrom(HashSet<IMessage> knowledge)
     {
-        //return (from p in Premises where p is not NonceMessage select p).All((IMessage m) => knowledge.Contains(m));
         HashSet<IMessage> foundUnknowns = new();
         foreach (IMessage p in Premises)
         {
@@ -217,7 +224,7 @@ public class HornClause
         }
         return true;
     }
-
+    
     public bool IsResolved => Variables.Count == 0;
 
     #endregion
@@ -229,7 +236,8 @@ public class HornClause
             Result.Equals(hc.Result) &&
             Premises.Count == hc.Premises.Count &&
             Premises.SetEquals(hc.Premises) &&
-            Rank == hc.Rank;
+            Rank == hc.Rank &&
+            Guard.Equals(hc.Guard);
     }
 
     private int Hash;

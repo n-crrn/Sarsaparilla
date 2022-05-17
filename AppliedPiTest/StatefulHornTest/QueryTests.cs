@@ -115,17 +115,27 @@ public class QueryTests
     }
 
     [TestMethod]
-    public async Task GuardedQueryCheck()
+    public async Task GuardedQueriesCheck()
     {
+        string initState = "SD(init[])";
+
         List<string> ruleSet = new()
         {
             "[x ~/> a[]] k(x), k(y) -[ ]-> k(enc(x, y))",
-            //"k(x), k(y) -[ ]-> k(enc(x, y))",
             "-[ ]-> k(a[])",
             "-[ ]-> k(b[])"
         };
-        string initState = "SD(init[])";
         await DoTest(ruleSet, "enc(a[], b[])", initState, false, false);
         await DoTest(ruleSet, "enc(b[], a[])", initState, false, true);
+
+        List<string> ruleSet2 = new()
+        {
+            "-[ ]-> k(test1[])",
+            "-[ ]-> k(test2[])",
+            "[x ~/> test1[]] k(x)(a0) -[ (SD(init[]), a0) ]-> <a0: SD(x)>",
+            "-[ (SD(m), a0) ]-> k(h(m))"
+        };
+        await DoTest(ruleSet2, "h(test1[])", initState, false, false);
+        await DoTest(ruleSet2, "h(test2[])", initState, true, false);
     }
 }

@@ -59,7 +59,7 @@ public class Guard
         return true;
     }
 
-    public Guard UnionWith(Guard other)
+    public Guard Union(Guard other)
     {
         Dictionary<IAssignableMessage, HashSet<IMessage>> comb = new();
         ImportUnunifiedList(comb, _Ununified);
@@ -84,6 +84,19 @@ public class Guard
         }
     }
 
+    public Guard Difference(HashSet<IMessage> varMsgs)
+    {
+        Dictionary<IAssignableMessage, HashSet<IMessage>> newDict = new();
+        foreach (IMessage vMsg in varMsgs)
+        {
+            if (vMsg is IAssignableMessage aMsg && _Ununified.TryGetValue(aMsg, out HashSet<IMessage>? collection))
+            {
+                newDict[aMsg] = collection;
+            }
+        }
+        return new(newDict);
+    }
+
     public Guard PerformSubstitution(SigmaMap sigma)
     {
         return _Ununified.Count == 0 ? this : new(Substitute(_Ununified, sigma));
@@ -97,9 +110,11 @@ public class Guard
 
         foreach ((IAssignableMessage vMsg, HashSet<IMessage> set) in input)
         {
-            if (!sigma.TryGetValue(vMsg, out IMessage? _)) // Skip the value if it is now defined.
+            IMessage possRepl = vMsg.PerformSubstitution(sigma);
+            // Skip the value if it is now defined.
+            if (possRepl is IAssignableMessage setMsg)
             {
-                updated[vMsg] = new HashSet<IMessage>(from s in set select s.PerformSubstitution(sigma));
+                updated[setMsg] = new HashSet<IMessage>(from s in set select s.PerformSubstitution(sigma));
             }
         }
 

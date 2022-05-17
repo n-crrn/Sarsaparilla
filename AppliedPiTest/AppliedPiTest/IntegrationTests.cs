@@ -124,17 +124,22 @@ process macro1 | macro2.
 
         try
         {
-            Assert.AreEqual(1, t.Queries.Count);
-            QueryEngine qe = t.QueryEngines().First();
-
             // Preparations for running the query engine.
             bool globalAttackFound = false;
             void onGlobalAttackFound(Attack a) => globalAttackFound = true;
             bool nessionAttackFound = false;
             void onAttackAssessedFound(Nession n, HashSet<HornClause> hs, Attack? a) => nessionAttackFound |= a != null;
 
-            await qe.Execute(null, onGlobalAttackFound, onAttackAssessedFound, null);
+            foreach (QueryEngine qe in t.QueryEngines())
+            {
+                await qe.Execute(null, onGlobalAttackFound, onAttackAssessedFound, null);
 
+                if (globalAttackFound && nessionAttackFound)
+                {
+                    break; // Mission achieved.
+                }
+            }
+            
             Assert.AreEqual(expectGlobalAttack, globalAttackFound, "Global attack finding.");
             Assert.AreEqual(expectNessionAttack, nessionAttackFound, "Expected non-global attack.");
         }
