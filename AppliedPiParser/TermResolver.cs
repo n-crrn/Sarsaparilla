@@ -1,19 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 
 using AppliedPi.Model;
 
 namespace AppliedPi;
 
 public record TermRecord(TermSource Source, PiType Type);
-
-public class ResolverException : Exception
-{
-    public ResolverException(Term term) : base($"Could not resolve {term}.") { }
-
-    public ResolverException(IComparison cmp) : base($"Invalid types in comparison '{cmp}'.") { }
-}
 
 public class TermResolver
 {
@@ -106,16 +98,6 @@ public class TermResolver
         if (!Resolve(t, out TermRecord? _))
         {
             throw new ResolverException(t);
-        }
-    }
-
-    public bool ResolveComparison(IComparison cmp) => cmp.ResolveType(this) == PiType.Bool;
-
-    public void ResolveComparisonOrThrow(IComparison cmp)
-    {
-        if (cmp.ResolveType(this) != PiType.Bool)
-        {
-            throw new ResolverException(cmp);
         }
     }
 

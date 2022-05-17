@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace AppliedPi.Model;
 
@@ -22,6 +23,61 @@ public class Term : ITermGenerator
     public static Term Tuple(List<Term> parameters)
     {
         return new Term("", parameters);
+    }
+
+    internal static Term Parse(string representation)
+    {
+        (Term t, int _) = InnerParse(representation, 0);
+        return t;
+    }
+
+    private static (Term, int) InnerParse(string repr, int startPos)
+    {
+        StringBuilder nameToken = new();
+        int pos = startPos;
+
+        // Read in name.
+        while (pos < repr.Length)
+        {
+            char c = repr[pos];
+            if (c != '(' && c != ',' && c != ')')
+            {
+                nameToken.Append(repr[pos]);
+            }
+            else
+            {
+                break;
+            }
+            pos++;
+        }
+
+        List<Term> parameters = new();
+        if (pos < repr.Length && repr[pos] == '(')
+        {
+            pos++;
+            // Read any inner terms.
+            while (pos < repr.Length && repr[pos] != ')')
+            {
+                Term nextTerm;
+                (nextTerm, pos) = InnerParse(repr, pos);
+                parameters.Add(nextTerm);
+            }
+        }
+        if (pos < repr.Length && (repr[pos] == ')' || repr[pos] == ','))
+        {
+            pos++;
+        }
+
+        string name = nameToken.ToString().Trim();
+        if (name == string.Empty)
+        {
+            return (Term.Tuple(parameters), pos);
+        }
+        else if (parameters.Count > 0)
+        {
+            return (new Term(name, parameters), pos);
+        }
+        return (new Term(name), pos);
     }
 
     public string Name { get; init; }

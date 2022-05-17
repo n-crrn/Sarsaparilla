@@ -13,11 +13,18 @@ public class IsComparison : IComparison
     public IsComparison(string name)
     {
         Name = name;
+        AsTerm = Term.Parse(name);
+    }
+
+    private IsComparison(Term t)
+    {
+        Name = t.ToString();
+        AsTerm = t;
     }
 
     public string Name { get; init; }
 
-    public Term AsTerm => new(Name);
+    public Term AsTerm { get; init; }
 
     #region IComparison implementation.
 
@@ -25,12 +32,12 @@ public class IsComparison : IComparison
 
     public IComparison SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
-        return new IsComparison(subs.GetValueOrDefault(Name, Name));
+        return new IsComparison(AsTerm.ResolveTerm(subs));
     }
 
     public PiType? ResolveType(TermResolver resolver)
     {
-        return resolver.Resolve(new(Name), out TermRecord? tr) ? tr!.Type : null;
+        return resolver.Resolve(AsTerm, out TermRecord? tr) ? tr!.Type : null;
     }
 
     public IComparison Positivise(bool invert = false)

@@ -41,7 +41,7 @@ let SD(b: channel, sk: key) =
   out(b, mStart);
   let mUpdated: bitstring = h(mStart, x) in
   in(b, enc_rx: bitstring);
-  let (mf, sl, sr, =pk(sk)) = enc_rx in
+  let (mf: bitstring, sl: bitstring, sr: bitstring, =pk(sk)) = enc_rx in
     if mUpdated = h(mStart, left) then
       out(b, sl)
     else

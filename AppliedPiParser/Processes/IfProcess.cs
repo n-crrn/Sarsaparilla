@@ -66,7 +66,7 @@ public class IfProcess : IProcess
 
     public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
     {
-        if (!termResolver.ResolveComparison(Comparison))
+        if (Comparison.ResolveType(termResolver) != PiType.Bool)
         {
             errorMessage = $"Undefined terms in comparison {Comparison}";
             return false;
@@ -85,7 +85,11 @@ public class IfProcess : IProcess
 
     public IProcess Resolve(Network nw, TermResolver resolver)
     {
-        resolver.ResolveComparisonOrThrow(Comparison);
+        PiType? cmpType = Comparison.ResolveType(resolver);
+        if (cmpType != PiType.Bool)
+        {
+            throw new ResolverException(Comparison, cmpType);
+        }
         return new IfProcess(Comparison, GuardedProcess.Resolve(nw, resolver), ElseProcess?.Resolve(nw, resolver));
     }
 
