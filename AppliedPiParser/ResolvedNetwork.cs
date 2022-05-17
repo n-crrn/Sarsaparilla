@@ -34,16 +34,9 @@ public record TermOriginRecord(TermSource Source, PiType Type);
 /// </summary>
 public class ResolvedNetwork
 {
-
-    private static readonly Dictionary<Term, TermOriginRecord> BuiltInValues = new()
-    {
-        { new("true"), new(TermSource.Constant, PiType.Bool) },
-        { new("false"), new(TermSource.Constant, PiType.Bool) }
-    };
-
     public ResolvedNetwork()
     {
-        TermDetails = new(BuiltInValues);
+        TermDetails = new();
     }
 
     public Dictionary<Term, TermOriginRecord> TermDetails { get; }
@@ -155,7 +148,7 @@ public class ResolvedNetwork
             rp._ProcessSequence.Add(updated);
         }
         
-        foreach ((Term t, TermRecord r) in tr.Registered)
+        foreach ((Term t, TermOriginRecord r) in tr.Registered)
         {
             rp.TermDetails[t] = new(r.Source, r.Type);
         }
@@ -192,7 +185,7 @@ public class ResolvedNetwork
         Dictionary<Term, TermOriginRecord> termDetails,
         List<IProcess> sequence)
     {
-        Debug.Assert(TermDetails.Count == BuiltInValues.Count && _ProcessSequence.Count == 0);
+        Debug.Assert(TermDetails.Count == 0 && _ProcessSequence.Count == 0);
         foreach ((Term t, TermOriginRecord details) in termDetails)
         {
             TermDetails[t] = details;

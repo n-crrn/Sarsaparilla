@@ -37,7 +37,7 @@ public class IsComparison : IComparison
 
     public PiType? ResolveType(TermResolver resolver)
     {
-        return resolver.Resolve(AsTerm, out TermRecord? tr) ? tr!.Type : null;
+        return resolver.Resolve(AsTerm, out TermOriginRecord? tr) ? tr!.Type : null;
     }
 
     public IComparison Positivise(bool invert = false)

@@ -44,7 +44,7 @@ public class CallProcess : IProcess
         for (int i = 0; i < paramCount; i++)
         {
             Term paramSpec = CallSpecification.Parameters[i];
-            if (!termResolver.Resolve(paramSpec, out TermRecord? tr))
+            if (!termResolver.Resolve(paramSpec, out TermOriginRecord? tr))
             {
                 errorMessage = $"Term {paramSpec} could not be resolved.";
                 return false;

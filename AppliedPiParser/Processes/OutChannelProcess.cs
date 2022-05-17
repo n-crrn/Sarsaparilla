@@ -31,7 +31,7 @@ public class OutChannelProcess : IProcess
 
     public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
     {
-        if (!termResolver.Resolve(new(Channel), out TermRecord? tr))
+        if (!termResolver.Resolve(new(Channel), out TermOriginRecord? tr))
         {
             errorMessage = $"Channel {Channel} not recognised.";
             return false;
@@ -41,7 +41,7 @@ public class OutChannelProcess : IProcess
             errorMessage = $"Output term {Channel} is not a channel, but used as one.";
             return false;
         }
-        if (!termResolver.Resolve(SentTerm, out TermRecord? _))
+        if (!termResolver.Resolve(SentTerm, out TermOriginRecord? _))
         {
             errorMessage = $"Sent term {SentTerm} not recognised.";
             return false;

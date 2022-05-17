@@ -5,24 +5,28 @@ using AppliedPi.Model;
 
 namespace AppliedPi;
 
-public record TermRecord(TermSource Source, PiType Type);
-
 public class TermResolver
 {
+
+    public static readonly Dictionary<Term, TermOriginRecord> BuiltInValues = new()
+    {
+        { new("true"), new(TermSource.Constant, PiType.Bool) },
+        { new("false"), new(TermSource.Constant, PiType.Bool) }
+    };
 
     public TermResolver(Network nw)
     {
         Network = nw;
-        Registered = new Dictionary<Term, TermRecord>();
+        Registered = new Dictionary<Term, TermOriginRecord>(BuiltInValues);
     }
 
     private readonly Network Network;
 
-    internal readonly Dictionary<Term, TermRecord> Registered;
+    internal readonly Dictionary<Term, TermOriginRecord> Registered;
 
-    public bool Register(Term t, TermRecord rec) => Registered.TryAdd(t, rec);
+    public bool Register(Term t, TermOriginRecord rec) => Registered.TryAdd(t, rec);
 
-    public bool Resolve(Term t, out TermRecord? rec)
+    public bool Resolve(Term t, out TermOriginRecord? rec)
     {
         if (Registered.TryGetValue(t, out rec))
         {
@@ -62,7 +66,7 @@ public class TermResolver
             List<PiType> subTypes = new();
             foreach (Term para in t.Parameters)
             {
-                if (!Resolve(para, out TermRecord? subRec))
+                if (!Resolve(para, out TermOriginRecord? subRec))
                 {
                     return false;
                 }
@@ -95,13 +99,13 @@ public class TermResolver
 
     public void ResolveOrThrow(Term t)
     {
-        if (!Resolve(t, out TermRecord? _))
+        if (!Resolve(t, out TermOriginRecord? _))
         {
             throw new ResolverException(t);
         }
     }
 
-    public bool TryGetRecord(Term t, out TermRecord? record) => Registered.TryGetValue(t, out record);
+    public bool TryGetRecord(Term t, out TermOriginRecord? record) => Registered.TryGetValue(t, out record);
 
     private readonly Dictionary<string, int> MacroCallCounter = new();
 

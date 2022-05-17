@@ -51,7 +51,7 @@ public class LetProcess : IProcess
             {
                 // Cannot check matching types properly - let allows for some exotic
                 // occurrences. But we can ensure it exists.
-                if (!termResolver.Resolve(e.Term, out TermRecord? _))
+                if (!termResolver.Resolve(e.Term, out TermOriginRecord? _))
                 {
                     errorMessage = $"Term {e.Term} does not exist.";
                     return false;
@@ -75,7 +75,7 @@ public class LetProcess : IProcess
         }
         foreach (string rhsSubTermStr in RightHandSide.BasicSubTerms)
         {
-            if (!termResolver.Resolve(new(rhsSubTermStr), out TermRecord? _))
+            if (!termResolver.Resolve(new(rhsSubTermStr), out TermOriginRecord? _))
             {
                 errorMessage = $"Could not resolve term {rhsSubTermStr}.";
                 return false;

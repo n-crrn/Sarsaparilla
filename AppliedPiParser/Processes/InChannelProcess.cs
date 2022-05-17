@@ -40,7 +40,7 @@ public class InChannelProcess : IProcess
 
     public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
     {
-        if (!termResolver.Resolve(new(Channel), out TermRecord? tr))
+        if (!termResolver.Resolve(new(Channel), out TermOriginRecord? tr))
         {
             errorMessage = $"Input channel {Channel} not recognised.";
             return false;

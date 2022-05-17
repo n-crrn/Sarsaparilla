@@ -37,7 +37,7 @@ process
         ResolvedNetwork resNw = ResolvedNetwork.From(nw);
 
         // Create expected ResolvedNetwork.
-        Dictionary<Term, TermOriginRecord> details = new()
+        Dictionary<Term, TermOriginRecord> details = new(TermResolver.BuiltInValues)
         {
             { new("c"), new(TermSource.Free, new("channel")) },
             { new("Kas"), new(TermSource.Nonce, new("key")) },
@@ -87,7 +87,7 @@ process
         ResolvedNetwork resNw = ResolvedNetwork.From(nw);
 
         // Create expected ResolvedNetwork.
-        Dictionary<Term, TermOriginRecord> details = new()
+        Dictionary<Term, TermOriginRecord> details = new(TermResolver.BuiltInValues)
         {
             { new("c"),        new(TermSource.Free, PiType.Channel) },
             { new("Good"),     new(TermSource.Constant, PiType.BitString) },
@@ -140,7 +140,7 @@ process (send | rx).";
         Network nw = Network.CreateFromCode(source);
         ResolvedNetwork resNw = ResolvedNetwork.From(nw);
 
-        Dictionary<Term, TermOriginRecord> details = new()
+        Dictionary<Term, TermOriginRecord> details = new(TermResolver.BuiltInValues)
         {
             { new("c"), new(TermSource.Free, PiType.Channel) },
             { new("S"), new(TermSource.Constant, PiType.BitString) },

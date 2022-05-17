@@ -43,7 +43,7 @@ public class EventProcess : IProcess
         for (int i = 0; i < ev.ParameterTypes.Count; i++)
         {
             Term paraTerm = Event.Parameters[i];
-            if (termResolver.Resolve(paraTerm, out TermRecord? tr))
+            if (termResolver.Resolve(paraTerm, out TermOriginRecord? tr))
             {
                 if (tr!.Type.Name != ev.ParameterTypes[i])
                 {
