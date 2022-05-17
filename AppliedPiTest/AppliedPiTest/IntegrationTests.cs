@@ -103,6 +103,24 @@ process macro1 | macro2.
         await DoTest(piSource2, false, true);
     }
 
+    [TestMethod]
+    public async Task IfThenElseTest()
+    {
+        string piSource =
+@"free c: channel.
+free secret: bitstring [private].
+free something: bitstring [private].
+
+query attacker(secret).
+
+process 
+  ( out(c, something) |
+    ( in(c, v: bitstring); if v <> something then out(c, secret) ) ).";
+
+        // Though "something" is the value sent, the attacker can intervene and send anything else.
+        await DoTest(piSource, false, true);
+    }
+
     /// <summary>
     /// Conducts a full integration test, where source code is used to construct a Network to
     /// conduct a query upon. This is a public method as some other groups of tests

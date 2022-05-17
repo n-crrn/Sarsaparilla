@@ -37,6 +37,7 @@ process out(c, x) | in(c, y: bitstring).";
             new FiniteWriteRule(c2Out, finiteWriteInteractions, new(), new NameMessage("x")),
             new FiniteCrossLinkRule(c2Out, c3In),
             new FiniteReadRule(c3In, 0, "y"),
+            new AttackChannelRule("y"),
             new ShutRule(c2Out, 1),
             new ShutRule(c3In, 1)
         };
@@ -92,6 +93,7 @@ process
             // Branch 2 (in(c, v)) rules.
             new OpenReadSocketRule(c2In, new List<Socket>() { c0Out }),
             new FiniteReadRule(c2In, 0, "v"),
+            new AttackChannelRule("v"),
             new ShutRule(c2In, 1),
             // Branch 3 (new f: channel; out(f, d)) rules.
             new KnowChannelContentRule(f3Out),
@@ -104,6 +106,7 @@ process
             new InfiniteWriteRule(cInfOut, lastPremises, new NameMessage("f")),
             new ReadResetRule(cInfIn),
             new InfiniteReadRule(cInfIn, "x"),
+            new AttackChannelRule("x"),
             new FiniteCrossLinkRule(cInfOut, c2In)
         };
 
@@ -129,7 +132,8 @@ process !( out(c, s) |  in(c, v: bitstring) ).";
             new InfiniteCrossLink(cOut, cIn, new(), new NameMessage("s"), "v"),
             // Following rules should not be triggered during Nession construction.
             new ReadResetRule(cIn),
-            new InfiniteReadRule(cIn, "v")
+            new InfiniteReadRule(cIn, "v"),
+            new AttackChannelRule("v")
         };
         DoMutateTest(testSource, expectedSockets, expectedMutations);
     }
@@ -164,6 +168,7 @@ process
             // Branch 0 (in(c, v)).           
             new OpenReadSocketRule(cIn),
             new FiniteReadRule(cIn, 0, "v"),
+            new AttackChannelRule("v"),
             new ShutRule(cIn, 1),
             // Branch 2 (out(c, v)) -> Note that the conditional is branch 1.
             new KnowChannelContentRule(cOut)
@@ -217,6 +222,7 @@ process
             // Branch 0 (in(c, v)).
             new OpenReadSocketRule(cIn),
             new FiniteReadRule(cIn, 0, "v"),
+            new AttackChannelRule("v"),
             new ShutRule(cIn, 1),
             // Branch 2 (let x: bitstring = hash(s) in...).
             new LetSetRule("x", letPremises, new List<Socket>() { cIn }, IfBranchConditions.Empty, Event.Know(filledXMsg)),

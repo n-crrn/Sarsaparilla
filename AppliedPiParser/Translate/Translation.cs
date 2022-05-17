@@ -103,16 +103,6 @@ public class Translation
             allRules.Add(r.GenerateRule(factory));
         }
 
-        /*HashSet<IMessage> queries;
-        try
-        {
-            queries = new(from q in nw.Queries select rn.TermToMessage(q.LeakQuery));
-        }
-        catch (UnrecognisedTermException tEx)
-        {
-            throw new ArgumentException($"Problem with query: {tEx.Message}");
-        }*/
-
         return new(initStates, allRules, rn.Queries);
     }
 
@@ -367,6 +357,7 @@ public class Translation
                         }
                         interactionCount[reader] = rc + 1;
                     }
+                    rules.UnionWith(AttackChannelRule.GenerateRulesForReceivePattern(icp.ReceivePattern, conditions));
                     
                     foreach ((string varEntry, _) in icp.ReceivePattern)
                     {

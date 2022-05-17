@@ -298,6 +298,13 @@ public class QueryEngine
             return QueryResult.Failed(queryToFind, When);
         }
 
+        if (queryToFind is VariableMessage)
+        {
+            // This will match anything except what is in the guard. The guard never bans 
+            // everything.
+            return QueryResult.BasicFact(NameMessage.Any);
+        }
+
         status.NowProving.Add(queryToFind);
         QueryResult qr;
         if (BasicFacts.Contains(queryToFind))
@@ -347,6 +354,11 @@ public class QueryEngine
                 bool found = true;
                 foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
                 {
+                    if (queryToFind is VariableMessage && premise is VariableMessage)
+                    {
+                        found = false;
+                        break;
+                    }
                     QueryResult innerResult = CheckQuery(premise, facts, rules, status, nextGuard, RatchetRank(checkRule, rank));
                     if (innerResult.Found)
                     {
@@ -420,16 +432,16 @@ public class QueryEngine
         {
             SigmaFactory sf = new();
             List<QueryResult> qrParts = new();
-            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, sf)
+            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, Guard.Empty, sf)
                 && sf.ForwardIsValidByGuard(checkRule.Guard) 
                 && sf.BackwardIsValidByGuard(guard))
             {
                 HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
-                Guard updatedGuard = guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);
+                Guard nextGuard = guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);
                 bool found = true;
                 foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
                 {
-                    QueryResult qr = CheckQuery(premise, facts, rules, status, guard, RatchetRank(checkRule, rank));
+                    QueryResult qr = CheckQuery(premise, facts, rules, status, nextGuard, RatchetRank(checkRule, rank));
                     if (!qr.Found)
                     {
                         found = false;
