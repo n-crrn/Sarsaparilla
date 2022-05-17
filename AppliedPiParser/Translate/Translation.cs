@@ -103,7 +103,15 @@ public class Translation
             allRules.Add(r.GenerateRule(factory));
         }
 
-        HashSet<IMessage> queries = new(from q in nw.Queries select rn.TermToMessage(q.LeakQuery));
+        HashSet<IMessage> queries;
+        try
+        {
+            queries = new(from q in nw.Queries select rn.TermToMessage(q.LeakQuery));
+        }
+        catch (UnrecognisedTermException tEx)
+        {
+            throw new ArgumentException($"Problem with query: {tEx.Message}");
+        }
 
         return new(initStates, allRules, queries);
     }
