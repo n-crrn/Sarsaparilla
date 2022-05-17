@@ -278,22 +278,24 @@ public class Translation
         ResolvedNetwork rn,
         Network nw)
     {
+        HashSet<IMutateRule> rules = new();
+
         // Open required reader sockets.
         foreach (ReadSocket rs in summary.Readers.Values)
         {
-            yield return new OpenReadSocketRule(rs, previousSockets)
+            rules.Add(new OpenReadSocketRule(rs, previousSockets)
             {
                 Conditions = conditions
-            };
+            });
         }
 
         // Know rules for used writer sockets.
         foreach (WriteSocket ws in summary.Writers.Values)
         {
-            yield return new KnowChannelContentRule(ws)
+            rules.Add(new KnowChannelContentRule(ws)
             {
                 Conditions = conditions
-            };
+            });
         }
 
         // Pre-filter infinite readers from the parallel branches. The infinite cross-link rule
@@ -330,14 +332,14 @@ public class Translation
                     ReadSocket reader = summary.Readers[inChannelTerm];
                     if (reader.IsInfinite)
                     {
-                        yield return new ReadResetRule(reader)
+                        rules.Add(new ReadResetRule(reader)
                         {
                             Conditions = conditions
-                        };
+                        });
                         foreach (IMutateRule imr in InfiniteReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
                         {
                             imr.Conditions = conditions;
-                            yield return imr;
+                            rules.Add(imr);
                         }
                     }
                     else
@@ -345,15 +347,15 @@ public class Translation
                         int rc = interactionCount[reader];
                         if (rc > 0)
                         {
-                            yield return new ReadResetRule(reader, rc)
+                            rules.Add(new ReadResetRule(reader, rc)
                             { 
                                 Conditions = conditions
-                            };
+                            });
                         }
                         foreach (IMutateRule mr in FiniteReadRule.GenerateRulesForReceivePattern(reader, rc, icp.ReceivePattern))
                         {
                             mr.Conditions = conditions;
-                            yield return mr;
+                            rules.Add(mr);
                         }
                         interactionCount[reader] = rc + 1;
                     }
@@ -373,30 +375,29 @@ public class Translation
                     {
                         if (infReaders.TryGetValue(outChannelTerm, out ReadSocket? rxSocket))
                         {
-                            //yield return new InfiniteCrossLink(writer, rxSocket, premises, StatefulHorn.Event.Know(resultMessage));
                             // For every matching receive pattern, add an infinite cross link.
                             IEnumerable<IMutateRule> iclRules = InfiniteCrossLink.GenerateRulesForReadReceivePatterns(writer, rxSocket, premises, resultMessage);
                             foreach (IMutateRule rxPatternRule in iclRules)
                             {
                                 rxPatternRule.Conditions = conditions;
-                                yield return rxPatternRule;
+                                rules.Add(rxPatternRule);
                             }
                         }
                         if (finReaders.TryGetValue(outChannelTerm, out List<ReadSocket>? rxSocketList) && rxSocketList!.Count > 0)
                         {
-                            yield return new InfiniteWriteRule(writer, premises, resultMessage)
+                            rules.Add(new InfiniteWriteRule(writer, premises, resultMessage)
                             {
                                 Conditions = conditions
-                            };
+                            });
                         }
                     }
                     else
                     {
                         int wc = interactionCount[writer];
-                        yield return new FiniteWriteRule(writer, interactionCount, premises, resultMessage)
+                        rules.Add(new FiniteWriteRule(writer, interactionCount, premises, resultMessage)
                         {
                             Conditions = conditions
-                        };
+                        });
                         interactionCount[writer] = wc + 1;
                     }
                     break;
@@ -415,10 +416,10 @@ public class Translation
             if (!rs.IsInfinite)
             {
                 thisBranchSockets.Add(rs);
-                yield return new ShutRule(rs, interactionCount[rs])
+                rules.Add(new ShutRule(rs, interactionCount[rs])
                 {
                     Conditions = conditions
-                };
+                });
             }
         }
         foreach (WriteSocket ws in summary.Writers.Values)
@@ -426,10 +427,10 @@ public class Translation
             if (!ws.IsInfinite)
             {
                 thisBranchSockets.Add(ws);
-                yield return new ShutRule(ws, interactionCount[ws])
+                rules.Add(new ShutRule(ws, interactionCount[ws])
                 {
                     Conditions = conditions
-                };
+                });
             }
         }
 
@@ -440,10 +441,10 @@ public class Translation
             {
                 foreach (ReadSocket rx in rxSockets)
                 {
-                    yield return new FiniteCrossLinkRule(ws, rx)
+                    rules.Add(new FiniteCrossLinkRule(ws, rx)
                     {
                         Conditions = conditions
-                    };
+                    });
                 }
             }
         }
@@ -485,7 +486,7 @@ public class Translation
                     new(premises),
                     rn,
                     nw);
-                foreach (IMutateRule r in ifChildRules) { yield return r; }
+                rules.UnionWith(ifChildRules);
             }
 
             // Handle else conditions, if they exist. Again, complete set of rules for 
@@ -504,7 +505,7 @@ public class Translation
                         new(premises),
                         rn,
                         nw);
-                    foreach (IMutateRule r in elseChildRules) { yield return r; }
+                    rules.UnionWith(elseChildRules);
                 }
             }
         }
@@ -513,10 +514,7 @@ public class Translation
             LetValueSetFactory lvsFactory = new(lp, rn, nw, thisBranchSockets, premises);
 
             // Generate the rules that actually set a value given a set of conditions.
-            foreach (IMutateRule r in lvsFactory.GenerateSetRules())
-            {
-                yield return r;
-            }
+            rules.UnionWith(lvsFactory.GenerateSetRules());
 
             premises.Add(StatefulHorn.Event.Know(lvsFactory.EmptyStoragePremiseMessage));
 
@@ -530,7 +528,7 @@ public class Translation
                 new(premises),
                 rn,
                 nw);
-            foreach (IMutateRule r in guardedRules) { yield return r; }
+            rules.UnionWith(guardedRules);
 
             if (n.Branches.Count > 1)
             {
@@ -545,7 +543,7 @@ public class Translation
                     new(premises),
                     rn,
                     nw);
-                foreach (IMutateRule r in elseRules) { yield return r; }
+                rules.UnionWith(elseRules);
             }
         }
         else if (n.Process is ReplicateProcess || n.Process is ParallelCompositionProcess)
@@ -562,13 +560,10 @@ public class Translation
                     new(premises), 
                     rn, 
                     nw);
-                foreach (IMutateRule r in childRules)
-                {
-                    // Condition will already have been set.
-                    yield return r;
-                }
+                rules.UnionWith(childRules);
             }
         }
+        return rules;
     }
 
     private static (Dictionary<Term, ReadSocket>, Dictionary<Term, List<ReadSocket>>) SplitInfiniteReaders(List<BranchSummary> summaries)
