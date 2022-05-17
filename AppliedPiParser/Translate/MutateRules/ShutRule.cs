@@ -17,7 +17,7 @@ public class ShutRule : IMutateRule
 
     #region IMutateRule implementation.
 
-    public string Label => $"Shut:{Socket}(InteractionCount)";
+    public string Label => $"Shut:{Socket}({InteractionCount})";
 
     public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 
