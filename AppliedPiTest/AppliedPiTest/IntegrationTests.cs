@@ -78,6 +78,31 @@ process
         await DoTest(piSource, false, true);
     }
 
+    [TestMethod]
+    public async Task QueryInMacroTests()
+    {
+        string piSource1 =
+@"free c: channel.
+
+query attacker(b).
+
+let macro = new b: bitstring; out(c, b).
+process macro.";
+
+        await DoTest(piSource1, false, true);
+
+        string piSource2 =
+@"free c: channel.
+
+query attacker((b, d)).
+
+let macro1 = new b: bitstring; out(c, b).
+let macro2 = new d: bitstring; out(c, d).
+process macro1 | macro2.
+";
+        await DoTest(piSource2, false, true);
+    }
+
     /// <summary>
     /// Conducts a full integration test, where source code is used to construct a Network to
     /// conduct a query upon. This is a public method as some other groups of tests

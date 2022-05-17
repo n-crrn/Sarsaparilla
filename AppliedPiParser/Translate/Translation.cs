@@ -13,7 +13,7 @@ namespace AppliedPi.Translate;
 public class Translation
 {
 
-    private Translation(HashSet<State> initStates, HashSet<Rule> allRules, HashSet<IMessage> queries)
+    private Translation(HashSet<State> initStates, HashSet<Rule> allRules, IReadOnlySet<IMessage> queries)
     {
         InitialStates = initStates;
         Rules = allRules;
@@ -103,7 +103,7 @@ public class Translation
             allRules.Add(r.GenerateRule(factory));
         }
 
-        HashSet<IMessage> queries;
+        /*HashSet<IMessage> queries;
         try
         {
             queries = new(from q in nw.Queries select rn.TermToMessage(q.LeakQuery));
@@ -111,9 +111,9 @@ public class Translation
         catch (UnrecognisedTermException tEx)
         {
             throw new ArgumentException($"Problem with query: {tEx.Message}");
-        }
+        }*/
 
-        return new(initStates, allRules, queries);
+        return new(initStates, allRules, rn.Queries);
     }
 
     public static (HashSet<Socket>, List<IMutateRule>) GenerateMutateRules(ResolvedNetwork rn, Network nw)

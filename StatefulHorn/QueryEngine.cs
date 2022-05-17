@@ -70,8 +70,6 @@ public class QueryEngine
 
     public HashSet<State> StateSet { get; init; }
 
-    //public IMessage Query { get; init; }
-
     public List<IMessage> Queries { get; init; }
 
     public State? When { get; init; }

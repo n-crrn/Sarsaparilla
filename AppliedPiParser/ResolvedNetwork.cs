@@ -45,6 +45,10 @@ public class ResolvedNetwork
 
     public IReadOnlyList<IProcess> ProcessSequence => _ProcessSequence;
 
+    private readonly HashSet<IMessage> _Queries = new();
+
+    public IReadOnlySet<IMessage> Queries => _Queries;
+
     public ProcessGroup AsGroup()
     {
         if (_ProcessSequence.Count == 0)
@@ -152,6 +156,7 @@ public class ResolvedNetwork
         {
             rp.TermDetails[t] = new(r.Source, r.Type);
         }
+        rp.SetQueries(nw.Queries);
         return rp;
     }
 
@@ -164,6 +169,96 @@ public class ResolvedNetwork
         }
         udp.Processes.Check(nw, tr, out string? errMsg);
         return errMsg;
+    }
+
+    private void SetQueries(IReadOnlySet<AttackerQuery> queries)
+    {
+        foreach (AttackerQuery aq in queries)
+        {
+            Dictionary<string, List<string>> replacements = new();
+
+            SortedSet<string> basics = aq.LeakQuery.BasicSubTerms;
+            foreach (string b in basics)
+            {
+                Term t = new(b);
+                if (TermDetails.TryGetValue(t, out TermOriginRecord? rec))
+                {
+                    replacements[b] = new List<string>() { b };
+                } 
+                else 
+                {
+                    List<string> matches = GetQueryMatchingVariables(b);
+                    if (matches.Count == 0)
+                    {
+                        throw new ArgumentException($"Cannot execute query as term {b} is not modelled in the system.");
+                    }
+                    replacements[b] = matches;
+                }
+            }
+
+            // Valid result?
+            if (replacements.Count == 1 && replacements.Keys.First() == replacements.Values.First().First())
+            {
+                _Queries.Add(TermToMessage(aq.LeakQuery));
+            }
+            else
+            {
+                // Are they all of the same length?
+                List<int> lengthCounts = new();
+                foreach ((string _, List<string> r) in replacements)
+                {
+                    lengthCounts.Add(r.Count);
+                }
+                int maxValue = lengthCounts.Max();
+                bool onesFound = false;
+                foreach (string match in replacements.Keys)
+                {
+                    int thisLength = replacements[match].Count;
+                    if (thisLength != 1 && thisLength != maxValue)
+                    {
+                        throw new ArgumentException($"Cannot execute query as query terms are from multiple macros.");
+                    }
+                    onesFound |= thisLength == 1;
+                }
+                
+                foreach (string match in replacements.Keys)
+                {
+                    List<string> replList = replacements[match];
+                    while (replList.Count < maxValue)
+                    {
+                        replList.Add(replList[0]);
+                    }
+                }
+                for (int i = 0; i < maxValue; i++)
+                {
+                    _Queries.Add(TermToMessage(aq.LeakQuery.ResolveTerm(GetSubstitution(replacements, i))));
+                }
+            }
+        }
+    }
+
+    private List<string> GetQueryMatchingVariables(string localName)
+    {
+        List<string> matches = new();
+        foreach ((Term t, TermOriginRecord _) in TermDetails)
+        {
+            if (!t.IsConstructed && t.Name.EndsWith(localName))
+            {
+                matches.Add(t.Name);
+            }
+        }
+        matches.Sort();
+        return matches;
+    }
+
+    private static Dictionary<string, string> GetSubstitution(Dictionary<string, List<string>> matches, int row)
+    {
+        Dictionary<string, string> subs = new();
+        foreach ((string k, List<string> v) in matches)
+        {
+            subs[k] = v[row];
+        }
+        return subs;
     }
 
     #endregion

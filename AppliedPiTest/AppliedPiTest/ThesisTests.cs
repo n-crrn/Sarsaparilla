@@ -19,7 +19,7 @@ namespace SarsaparillaTests.AppliedPiTest;
 public class ThesisTests
 {
 
-    [TestMethod]
+    //[TestMethod]
     public async Task BobSDTest()
     {
         string piSource =
