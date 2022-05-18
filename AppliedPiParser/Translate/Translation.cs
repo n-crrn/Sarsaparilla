@@ -408,29 +408,12 @@ public class Translation
             n = n.Branches[0];
         }
 
-        // Shut down the sockets.
-        List<Socket> thisBranchSockets = new();
-        foreach (ReadSocket rs in summary.Readers.Values)
+        // Collect and shut down the finite sockets.
+        List<Socket> thisBranchSockets = new(from rs in summary.Readers.Values where !rs.IsInfinite select rs);
+        thisBranchSockets.AddRange(from ws in summary.Writers.Values where !ws.IsInfinite select ws);
+        if (interactionCount.Count > 0)
         {
-            if (!rs.IsInfinite)
-            {
-                thisBranchSockets.Add(rs);
-                rules.Add(new ShutRule(rs, interactionCount[rs])
-                {
-                    Conditions = conditions
-                });
-            }
-        }
-        foreach (WriteSocket ws in summary.Writers.Values)
-        {
-            if (!ws.IsInfinite)
-            {
-                thisBranchSockets.Add(ws);
-                rules.Add(new ShutRule(ws, interactionCount[ws])
-                {
-                    Conditions = conditions
-                });
-            }
+            rules.Add(new ShutSocketsRule(interactionCount) { Conditions = conditions });
         }
 
         // Add in the required finite cross-links.

@@ -38,8 +38,8 @@ process out(c, x) | in(c, y: bitstring).";
             new FiniteCrossLinkRule(c2Out, c3In),
             new FiniteReadRule(c3In, 0, "y"),
             new AttackChannelRule("y"),
-            new ShutRule(c2Out, 1),
-            new ShutRule(c3In, 1)
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { c2Out, 1 } }),
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { c3In, 1 } })
         };
         DoMutateTest(testSource, expectedSockets, expectedMutations);
     }
@@ -88,17 +88,17 @@ process
             new KnowChannelContentRule(c0Out),
             new FiniteWriteRule(c0Out, c0Write1History, new(), new NameMessage("d")),
             new FiniteWriteRule(c0Out, c0Write2History, new(), new NameMessage("e")),
-            new ShutRule(c0Out, 2),
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { c0Out, 2 } }),
             // Branch 1 is the parallel composition process - nothing.
             // Branch 2 (in(c, v)) rules.
             new OpenReadSocketRule(c2In, new List<Socket>() { c0Out }),
             new FiniteReadRule(c2In, 0, "v"),
             new AttackChannelRule("v"),
-            new ShutRule(c2In, 1),
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { c2In, 1 } }),
             // Branch 3 (new f: channel; out(f, d)) rules.
             new KnowChannelContentRule(f3Out),
             new FiniteWriteRule(f3Out, f3Out1History, new(), new NameMessage("d")),
-            new ShutRule(f3Out, 1),
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { f3Out, 1 } }),
             // Branch 4 is the replicant process - nothing.
             // Branch 5 (in(c, x: bitstring); out(c, f)) rules.
             new OpenReadSocketRule(cInfIn, new List<Socket>() { f3Out }),
@@ -169,7 +169,7 @@ process
             new OpenReadSocketRule(cIn),
             new FiniteReadRule(cIn, 0, "v"),
             new AttackChannelRule("v"),
-            new ShutRule(cIn, 1),
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { cIn, 1 } }),
             // Branch 2 (out(c, v)) -> Note that the conditional is branch 1.
             new KnowChannelContentRule(cOut)
             {
@@ -179,7 +179,7 @@ process
             {
                 Conditions = ifCond
             },
-            new ShutRule(cOut, 1)
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { cOut, 1 } })
             {
                 Conditions = ifCond
             }
@@ -223,12 +223,12 @@ process
             new OpenReadSocketRule(cIn),
             new FiniteReadRule(cIn, 0, "v"),
             new AttackChannelRule("v"),
-            new ShutRule(cIn, 1),
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { cIn, 1 } }),
             // Branch 2 (let x: bitstring = hash(s) in...).
             new LetSetRule("x", letPremises, new List<Socket>() { cIn }, IfBranchConditions.Empty, Event.Know(filledXMsg)),
             new KnowChannelContentRule(cOut),
             new FiniteWriteRule(cOut, new Dictionary<Socket, int>() {{cOut, 0}}, outPremises, xMsg),
-            new ShutRule(cOut, 1)
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { cOut, 1 } })
         };
         DoMutateTest(testSource, expectedSockets, expectedMutations);
     }
