@@ -13,7 +13,7 @@ public abstract class Rule
         Label = lbl;
         Snapshots = ss;
         _Premises = prems;
-        GuardStatements = g.Difference(CollectAllVariables());
+        GuardStatements = g.IsEmpty ? g : g.Intersect(CollectAllVariables());
     }
 
     protected void GenerateHashCode()
@@ -224,11 +224,6 @@ public abstract class Rule
     public Rule SubscriptVariables(string subscript)
     {
         HashSet<IMessage> oldVars = CollectAllVariables();
-        /*PremiseVariables;
-        foreach (Snapshot ss in Snapshots.OrderedList)
-        {
-            oldVars.UnionWith(ss.Condition.Variables);
-        }*/
         List<(IMessage Variable, IMessage Value)> newVars = new(from v in oldVars select (v, ScriptVariableMessage(v, subscript)));
         return PerformSubstitution(new SigmaMap(newVars));
     }

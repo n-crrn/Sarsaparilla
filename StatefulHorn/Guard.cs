@@ -84,7 +84,7 @@ public class Guard
         }
     }
 
-    public Guard Difference(HashSet<IMessage> varMsgs)
+    public Guard Intersect(HashSet<IMessage> varMsgs)
     {
         Dictionary<IAssignableMessage, HashSet<IMessage>> newDict = new();
         foreach (IMessage vMsg in varMsgs)
@@ -99,7 +99,7 @@ public class Guard
 
     public Guard PerformSubstitution(SigmaMap sigma)
     {
-        return _Ununified.Count == 0 ? this : new(Substitute(_Ununified, sigma));
+        return _Ununified.Count == 0 || sigma.IsEmpty ? this : new(Substitute(_Ununified, sigma));
     }
 
     private static Dictionary<IAssignableMessage, HashSet<IMessage>> Substitute(
