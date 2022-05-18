@@ -26,19 +26,6 @@ public class HornClause
         Debug.Assert(Variables != null);
     }
 
-    // FIXME: Review whether method should be kept.
-    public HornClause Anify()
-    {
-        List<(IMessage, IMessage)> replacements = new(from v in Variables select (v, (IMessage)NameMessage.Any));
-        if (replacements.Count == 0)
-        {
-            return this;
-        }
-        HornClause newClause = Substitute(new(replacements));
-        newClause.Source = new OperationRuleSource(this, OperationRuleSource.Op.Anify);
-        return newClause;
-    }
-
     public HornClause Substitute(SigmaMap map)
     {
         if (map.IsEmpty)

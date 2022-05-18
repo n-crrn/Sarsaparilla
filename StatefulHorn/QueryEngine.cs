@@ -352,7 +352,7 @@ public class QueryEngine
                 HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
                 Guard nextGuard = guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);
                 bool found = true;
-                foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
+                foreach (IMessage premise in updated.Premises)
                 {
                     if (queryToFind is VariableMessage && premise is VariableMessage)
                     {
@@ -393,7 +393,7 @@ public class QueryEngine
             SigmaFactory sf = new();
             List<QueryResult> qrParts = new();
             bool found = true;
-            foreach (IMessage premise in (from up in checkRule.Premises where !NameMessage.Any.Equals(up) select up))
+            foreach (IMessage premise in checkRule.Premises)
             {
                 if (facts.Contains(premise))
                 {
@@ -439,7 +439,7 @@ public class QueryEngine
                 HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
                 Guard nextGuard = guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);
                 bool found = true;
-                foreach (IMessage premise in (from up in updated.Premises where !NameMessage.Any.Equals(up) select up))
+                foreach (IMessage premise in updated.Premises)
                 {
                     QueryResult qr = CheckQuery(premise, facts, rules, status, nextGuard, RatchetRank(checkRule, rank));
                     if (!qr.Found)
