@@ -9,7 +9,11 @@ namespace AppliedPi.Translate.MutateRules;
 public class FiniteWriteRule : IMutateRule
 {
 
-    public FiniteWriteRule(WriteSocket s, IDictionary<Socket, int> finActionCounts, HashSet<StatefulHorn.Event> premises, IMessage value)
+    public FiniteWriteRule(
+        WriteSocket s, 
+        IDictionary<Socket, int> finActionCounts, 
+        HashSet<Event> premises, 
+        IMessage value)
     {
         Socket = s;
         FiniteActionCounts = new Dictionary<Socket, int>(finActionCounts);
@@ -23,7 +27,7 @@ public class FiniteWriteRule : IMutateRule
 
     public IDictionary<Socket, int> FiniteActionCounts { get; init; }
 
-    public HashSet<StatefulHorn.Event> Premises { get; init; }
+    public HashSet<Event> Premises { get; init; }
 
     public IMessage ValueToWrite { get; init; }
 

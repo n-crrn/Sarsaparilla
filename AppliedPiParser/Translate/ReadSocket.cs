@@ -14,7 +14,7 @@ public class ReadSocket : Socket
 
     public override Snapshot RegisterHistory(RuleFactory factory, int interactions)
     {
-        return RegisterReadSequence(factory, interactions, null);
+        return RegisterReadSequence(factory, interactions);
     }
 
     public Snapshot RegisterReadSequence(RuleFactory factory, int readCount, State? endWith = null)
@@ -24,7 +24,7 @@ public class ReadSocket : Socket
         for (int i = 0; i < readCount; i++)
         {
             allSS.Add(factory.RegisterState(WaitingState()));
-            IMessage readMsg = new VariableMessage($"@v{i}");
+            IMessage readMsg = new VariableMessage($"@{ToString()}@v{i}");
             allSS.Add(factory.RegisterState(ReadState(readMsg)));
         }
         if (endWith != null)

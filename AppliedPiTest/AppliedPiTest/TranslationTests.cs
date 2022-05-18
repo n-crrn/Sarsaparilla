@@ -33,7 +33,7 @@ process out(c, x) | in(c, y: bitstring).";
         HashSet<IMutateRule> expectedMutations = new()
         {
             new KnowChannelContentRule(c2Out),
-            new OpenReadSocketRule(c3In),
+            new OpenReadSocketsRule(c3In),
             new FiniteWriteRule(c2Out, finiteWriteInteractions, new(), new NameMessage("x")),
             new FiniteCrossLinkRule(c2Out, c3In),
             new FiniteReadRule(c3In, 0, "y"),
@@ -91,7 +91,7 @@ process
             new ShutSocketsRule(new Dictionary<Socket, int>() { { c0Out, 2 } }),
             // Branch 1 is the parallel composition process - nothing.
             // Branch 2 (in(c, v)) rules.
-            new OpenReadSocketRule(c2In, new List<Socket>() { c0Out }),
+            new OpenReadSocketsRule(new List<Socket>() { c2In }, new List<Socket>() { c0Out }),
             new FiniteReadRule(c2In, 0, "v"),
             new AttackChannelRule("v"),
             new ShutSocketsRule(new Dictionary<Socket, int>() { { c2In, 1 } }),
@@ -101,7 +101,7 @@ process
             new ShutSocketsRule(new Dictionary<Socket, int>() { { f3Out, 1 } }),
             // Branch 4 is the replicant process - nothing.
             // Branch 5 (in(c, x: bitstring); out(c, f)) rules.
-            new OpenReadSocketRule(cInfIn, new List<Socket>() { f3Out }),
+            new OpenReadSocketsRule(new List<Socket>() { cInfIn }, new List<Socket>() { f3Out }),
             new KnowChannelContentRule(cInfOut),
             new InfiniteWriteRule(cInfOut, lastPremises, new NameMessage("f")),
             new ReadResetRule(cInfIn),
@@ -128,7 +128,7 @@ process !( out(c, s) |  in(c, v: bitstring) ).";
         HashSet<IMutateRule> expectedMutations = new()
         {
             new KnowChannelContentRule(cOut),
-            new OpenReadSocketRule(cIn),
+            new OpenReadSocketsRule(cIn),
             new InfiniteCrossLink(cOut, cIn, new(), new NameMessage("s"), "v"),
             // Following rules should not be triggered during Nession construction.
             new ReadResetRule(cIn),
@@ -166,7 +166,7 @@ process
         HashSet<IMutateRule> expectedMutations = new()
         {
             // Branch 0 (in(c, v)).           
-            new OpenReadSocketRule(cIn),
+            new OpenReadSocketsRule(cIn),
             new FiniteReadRule(cIn, 0, "v"),
             new AttackChannelRule("v"),
             new ShutSocketsRule(new Dictionary<Socket, int>() { { cIn, 1 } }),
@@ -220,7 +220,7 @@ process
         HashSet<IMutateRule> expectedMutations = new()
         {
             // Branch 0 (in(c, v)).
-            new OpenReadSocketRule(cIn),
+            new OpenReadSocketsRule(cIn),
             new FiniteReadRule(cIn, 0, "v"),
             new AttackChannelRule("v"),
             new ShutSocketsRule(new Dictionary<Socket, int>() { { cIn, 1 } }),

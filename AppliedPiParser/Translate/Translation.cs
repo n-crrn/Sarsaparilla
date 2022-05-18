@@ -159,7 +159,6 @@ public class Translation
         Dictionary<Term, WriteSocket> writers;
         (readers, writers) = GetSocketsRequiredForBranch(n, infiniteChannels);
 
-        // Skip to end of branch - see if there is a replication.
         int branchId = n.BranchId;
         while (branchId == n.BranchId && !n.IsTerminating && n.Branches.Count > 0)
         {
@@ -279,9 +278,9 @@ public class Translation
         HashSet<IMutateRule> rules = new();
 
         // Open required reader sockets.
-        foreach (ReadSocket rs in summary.Readers.Values)
+        if (summary.Readers.Count > 0)
         {
-            rules.Add(new OpenReadSocketRule(rs, previousSockets)
+            rules.Add(new OpenReadSocketsRule(summary.Readers.Values, previousSockets)
             {
                 Conditions = conditions
             });

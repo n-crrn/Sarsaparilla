@@ -198,7 +198,7 @@ public class Nession
     public (Nession?, bool) TryApplyTransfer(StateTransferringRule str)
     {
         StateTransferringRule r = (StateTransferringRule)str.SubscriptVariables(NextVNumber());
-        if (CanApplyRuleAt(r, History.Count - 1, out SigmaFactory? sf))
+        if (CanApplyRule(r, out SigmaFactory? sf))
         {
             Debug.Assert(sf != null);
             SigmaMap fwdMap = sf.CreateForwardMap();
@@ -239,12 +239,85 @@ public class Nession
         return stateSet;
     }
 
-    public bool CanApplyRuleAt(Rule r, int startOffset, out SigmaFactory? sf)
+    public bool CanApplyRule(Rule r, out SigmaFactory? sf)
     {
-        // Handle nonce boundaries.
-        if (r.NonceDeclarations.Any((Event ev) => NonceDeclarations.Contains(ev))) // Do not allow redeclaration of nonces.
+        if (!RuleValidByNonces(r))
         {
             sf = null;
+            return false;
+        }
+
+        sf = new();
+        bool match = true;
+        foreach (Snapshot ss in r.Snapshots.Traces)
+        {
+            int historyId = History.Count - 1;
+            string scName = ss.Condition.Name;
+
+            // Current snapshot MUST match.
+            Frame hf = History[historyId];
+            State? nessionCondition = hf.GetStateByName(scName);
+            if (nessionCondition == null ||
+                !(ss.Condition.CanBeUnifiableWith(nessionCondition, Guard.Empty, sf) &&
+                  sf.ForwardIsValidByGuard(hf.GuardStatements) &&
+                  sf.BackwardIsValidByGuard(r.GuardStatements)))
+            {
+                match = false;
+                break;
+            }
+
+            // Try to match the history of the nession with the rule.
+            Snapshot.PriorLink? prev = ss.Prior;
+            State lastMatched = nessionCondition;
+            historyId--;
+            while (prev != null && historyId >= 0)
+            {
+                hf = History[historyId];
+                nessionCondition = hf.GetStateByName(scName);
+                if (nessionCondition == null)
+                {
+                    // Consistency issue if the condition cannot be found.
+                    throw new InvalidOperationException($"Cannot find previous mentions of state {scName}.");
+                }
+
+                if (!lastMatched.Equals(nessionCondition)) // "No change" is ignored.
+                {
+                    //bool canMatch = 
+                    if (prev.S.Condition.CanBeUnifiableWith(nessionCondition, Guard.Empty, sf)
+                        && sf.ForwardIsValidByGuard(hf.GuardStatements)
+                        && sf.BackwardIsValidByGuard(r.GuardStatements))
+                    {
+                        lastMatched = nessionCondition;
+                        prev = prev.S.Prior;
+                    }
+                    else if (prev.O == Snapshot.Ordering.ModifiedOnceAfter)
+                    {
+                        match = false;
+                        break;
+                    }
+                }
+                historyId--;
+            }
+            if (prev != null)
+            {
+                match = false;
+            }
+
+            // Escape if we have disproven the match.
+            if (!match)
+            {
+                sf = null;
+                break;
+            }
+        }
+        
+        return match;
+    }
+
+    private bool RuleValidByNonces(Rule r)
+    {
+        if (r.NonceDeclarations.Any((Event ev) => NonceDeclarations.Contains(ev))) // Do not allow redeclaration of nonces.
+        {
             return false;
         }
         foreach (NonceMessage nMsg in r.NoncesRequired) // Ensure used nonces have been previously declared.
@@ -252,82 +325,10 @@ public class Nession
             if (!NonceDeclarations.Contains(Event.New(nMsg)))
             {
                 string held = string.Join(", ", NonceDeclarations);
-                sf = null;
                 return false;
             }
         }
-
-        // Check that the rule traces are implied by this Nession's history.
-        sf = new();
-        List<Snapshot> ruleTraces = new(from t in r.Snapshots.Traces select t);
-        for (int i = 0; i < ruleTraces.Count; i++)
-        {
-            int historyId = startOffset;
-            Frame historyFrame = History[historyId];
-
-            Snapshot ruleSS = ruleTraces[i];
-            State? nessionCondition = historyFrame.GetStateByName(ruleSS.Condition.Name);
-            if (nessionCondition == null ||
-                !ruleSS.Condition.CanBeUnifiableWith(nessionCondition, r.GuardStatements, sf) ||
-                !(sf.ForwardIsValidByGuard(historyFrame.GuardStatements) && sf.BackwardIsValidByGuard(r.GuardStatements)))
-            {
-                goto txFail;
-            }
-
-            historyId--;
-            while (ruleSS.Prior != null)
-            {
-                Snapshot.PriorLink next = ruleSS.Prior;
-                if (historyId < 0)
-                {
-                    goto txFail;
-                }
-                if (next.O == Snapshot.Ordering.ModifiedOnceAfter)
-                {
-                    historyFrame = History[historyId];
-                    nessionCondition = historyFrame.GetStateByName(next.S.Condition.Name);
-                    if (nessionCondition == null)
-                    {
-                        // Consistency issue if the condition cannot be found.
-                        throw new InvalidOperationException($"Cannot find previous mentions of state {ruleSS.Condition.Name}.");
-                    }
-                    if (!next.S.Condition.CanBeUnifiableWith(nessionCondition, r.GuardStatements, sf))
-                    {
-                        goto txFail;
-                    }
-                }
-                else // Modified later than, which means it just has to find an earlier match in the nession.
-                {
-                    while (historyId >= 0)
-                    {
-                        historyFrame = History[historyId];
-                        nessionCondition = historyFrame.GetStateByName(next.S.Condition.Name);
-                        if (nessionCondition == null)
-                        {
-                            // Consistency issue if the condition cannot be found.
-                            throw new InvalidOperationException($"Cannot find previous mentions of state {ruleSS.Condition.Name}.");
-                        }
-                        if (next.S.Condition.CanBeUnifiableWith(nessionCondition, r.GuardStatements, sf))
-                        {
-                            break;
-                        }
-                        historyId--;
-                    }
-                    if (historyId < 0)
-                    {
-                        goto txFail;
-                    }
-                }
-
-                ruleSS = next.S;
-                historyId--;
-            }
-        }
         return true;
-
-    txFail:
-        sf = null;
-        return false;
     }
 
     #endregion
@@ -348,7 +349,7 @@ public class Nession
         }
 
         StateConsistentRule r = (StateConsistentRule)scr.SubscriptVariables(NextVNumber());
-        if (CanApplyRuleAt(r, History.Count - 1, out SigmaFactory? sf))
+        if (CanApplyRule(r, out SigmaFactory? sf))
         {
             // Determine the final form of the rule.
             Debug.Assert(sf != null);
