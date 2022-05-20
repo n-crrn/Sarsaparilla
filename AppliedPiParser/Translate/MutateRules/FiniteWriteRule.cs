@@ -64,7 +64,7 @@ public class FiniteWriteRule : IMutateRule
     {
         return obj is FiniteWriteRule r &&
             Socket.Equals(r.Socket) &&
-            FiniteActionCounts.SequenceEqual(r.FiniteActionCounts) &&
+            FiniteActionCounts.ToHashSet().SetEquals(r.FiniteActionCounts) &&
             Premises.SetEquals(r.Premises) &&
             ValueToWrite.Equals(r.ValueToWrite) &&
             Equals(Conditions, r.Conditions);
