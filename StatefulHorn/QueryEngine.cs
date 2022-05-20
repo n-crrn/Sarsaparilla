@@ -126,9 +126,10 @@ public class QueryEngine
         // Check the knowledge rules for a global attack.
         HashSet<HornClause> globalKnowledge = new(KnowledgeRules);
         HashSet<HornClause> elaboratedKnowledge = ElaborateAndDetuple(globalKnowledge);
+        (List<HornClause> basic, List<HornClause> comp) = SeparateBasicAndComp(elaboratedKnowledge);
         foreach (IMessage q in Queries)
         {
-            QueryResult globalQR = CheckQuery(q, BasicFacts, elaboratedKnowledge, new(new(), new()), Guard.Empty);
+            QueryResult globalQR = CheckQuery(q, BasicFacts, basic, comp, new(new(), new()), Guard.Empty);
             if (globalQR.Found)
             {
                 Attack globalAttack = new(globalQR.Facts!, globalQR.Knowledge!);
@@ -178,7 +179,8 @@ public class QueryEngine
 
                         HashSet<HornClause> finNessionSet = ElaborateAndDetuple(fullNessionSet);
 
-                        QueryResult qr = CheckQuery(fullQuery, BasicFacts, finNessionSet, new(new(), new()), Guard.Empty);
+                        (List<HornClause> basic, List<HornClause> comp) = SeparateBasicAndComp(finNessionSet);
+                        QueryResult qr = CheckQuery(fullQuery, BasicFacts, basic, comp, new(new(), new()), Guard.Empty);
                         Attack? foundAttack = qr.Found ? new(qr.Facts!, qr.Knowledge!) : null;
                         onAttackAssessed?.Invoke(validN, fullNessionSet, foundAttack);
                         atLeastOneAttack |= foundAttack != null;
@@ -199,6 +201,24 @@ public class QueryEngine
     {
         CancelQuery = true;
         CurrentNessionManager?.CancelElaboration();
+    }
+
+    private static (List<HornClause>, List<HornClause>) SeparateBasicAndComp(HashSet<HornClause> inputSet)
+    {
+        List<HornClause> basic = new();
+        List<HornClause> comp = new();
+        foreach (HornClause hc in inputSet)
+        {
+            if (hc.ComplexResult)
+            {
+                comp.Add(hc);
+            }
+            else
+            {
+                basic.Add(hc);
+            }
+        }
+        return (basic, comp);
     }
 
     private static HashSet<HornClause> ElaborateAndDetuple(HashSet<HornClause> fullRuleset)
@@ -229,8 +249,9 @@ public class QueryEngine
                 }
             }
         }
-        fullRuleset.UnionWith(fullRuleset);
 
+        HashSet<HornClause> finishedRuleset = new(fullRuleset);
+        finishedRuleset.UnionWith(newRuleset);
         bool found = newRuleset.Count > 0;
         while (found)
         {
@@ -262,14 +283,13 @@ public class QueryEngine
                 }
             }
 
-            int fullCount = fullRuleset.Count;
-            fullRuleset.UnionWith(newRuleset);
-            found = fullCount != fullRuleset.Count;
+            int fullCount = finishedRuleset.Count;
+            finishedRuleset.UnionWith(newRuleset);
+            found = fullCount != finishedRuleset.Count;
         }
 
         // === Detuple remaining rules ===
-        HashSet<HornClause> finishedRuleset = new(fullRuleset.Count);
-        foreach (HornClause hc in fullRuleset)
+        foreach (HornClause hc in finishedRuleset.ToList())
         {
             if (hc.Result is TupleMessage)
             {
@@ -288,7 +308,8 @@ public class QueryEngine
     private QueryResult CheckQuery(
         IMessage queryToFind,
         HashSet<IMessage> basicFacts,
-        HashSet<HornClause> rules,
+        List<HornClause> basicRules,
+        List<HornClause> compRules,
         QueryStatus status,
         Guard guard,
         int rank = int.MaxValue)
@@ -313,19 +334,19 @@ public class QueryEngine
         }
         else if (queryToFind is TupleMessage tMsg)
         {
-            qr = CheckTupleQuery(tMsg, basicFacts, rules, status, guard, rank);
+            qr = CheckTupleQuery(tMsg, basicFacts, basicRules, compRules, status, guard, rank);
         }
         else if (queryToFind is FunctionMessage fMsg)
         {
-            qr = CheckFunctionQuery(fMsg, basicFacts, rules, status, guard, rank);
+            qr = CheckFunctionQuery(fMsg, basicFacts, basicRules, compRules, status, guard, rank);
         }
         else if (queryToFind is NonceMessage nMsg)
         {
-            qr = CheckNonceQuery(nMsg, basicFacts, rules, rank);
+            qr = CheckNonceQuery(nMsg, basicFacts, basicRules, rank);
         }
         else
         {
-            qr = CheckBasicQuery(queryToFind, basicFacts, rules, status, guard, rank);
+            qr = CheckBasicQuery(queryToFind, basicFacts, basicRules, compRules, status, guard, rank);
         }
         status.NowProving.Remove(queryToFind);
         return qr;
@@ -334,12 +355,13 @@ public class QueryEngine
     private QueryResult CheckBasicQuery(
         IMessage queryToFind, 
         HashSet<IMessage> facts, 
-        HashSet<HornClause> rules, 
+        List<HornClause> basicRules, 
+        List<HornClause> compRules,
         QueryStatus status, 
         Guard guard,
         int rank)
     {
-        List<HornClause> candidates = new(from r in rules where queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank) select r);
+        List<HornClause> candidates = new(from r in basicRules where queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank) select r);
         candidates.Sort(SortRules);
         foreach (HornClause checkRule in candidates)
         {
@@ -359,7 +381,7 @@ public class QueryEngine
                         found = false;
                         break;
                     }
-                    QueryResult innerResult = CheckQuery(premise, facts, rules, status, nextGuard, RatchetRank(checkRule, rank));
+                    QueryResult innerResult = CheckQuery(premise, facts, basicRules, compRules, status, nextGuard, RatchetRank(checkRule, rank));
                     if (innerResult.Found)
                     {
                         qrParts.Add(innerResult);
@@ -383,10 +405,10 @@ public class QueryEngine
     private QueryResult CheckNonceQuery(
         NonceMessage queryToFind,
         HashSet<IMessage> facts,
-        HashSet<HornClause> rules,
+        List<HornClause> basicRules,
         int rank)
     {
-        List<HornClause> candidates = new(from r in rules where queryToFind.Equals(r.Result) && r.BeforeRank(rank) select r);
+        List<HornClause> candidates = new(from r in basicRules where queryToFind.Equals(r.Result) && r.BeforeRank(rank) select r);
         candidates.Sort(SortRules);
         foreach (HornClause checkRule in candidates)
         {
@@ -417,15 +439,16 @@ public class QueryEngine
     private static int RatchetRank(HornClause current, int rank) => HornClause.RatchetRank(current.Rank, rank);
 
     private QueryResult CheckFunctionQuery(
-        IMessage queryToFind, 
+        FunctionMessage queryToFind, 
         HashSet<IMessage> facts, 
-        HashSet<HornClause> rules,
+        List<HornClause> basicRules,
+        List<HornClause> compRules,
         QueryStatus status, 
         Guard guard,
         int rank)
     {
-        List<HornClause> candidates = new(from r in rules
-                                          where r.Result is FunctionMessage && queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank)
+        List<HornClause> candidates = new(from r in compRules
+                                          where r.Result is FunctionMessage fMsg && fMsg.Name == queryToFind.Name && r.BeforeRank(rank)
                                           select r);
         candidates.Sort(SortRules);
         foreach (HornClause checkRule in candidates)
@@ -441,7 +464,7 @@ public class QueryEngine
                 bool found = true;
                 foreach (IMessage premise in updated.Premises)
                 {
-                    QueryResult qr = CheckQuery(premise, facts, rules, status, nextGuard, RatchetRank(checkRule, rank));
+                    QueryResult qr = CheckQuery(premise, facts, basicRules, compRules, status, nextGuard, RatchetRank(checkRule, rank));
                     if (!qr.Found)
                     {
                         found = false;
@@ -462,7 +485,8 @@ public class QueryEngine
     private QueryResult CheckTupleQuery(
         TupleMessage queryToFind, 
         HashSet<IMessage> facts, 
-        HashSet<HornClause> rules, 
+        List<HornClause> basicRules, 
+        List<HornClause> compRules,
         QueryStatus status, 
         Guard guard,
         int rank)
@@ -471,7 +495,7 @@ public class QueryEngine
         List<QueryResult> qrParts = new();
         foreach (IMessage part in queryToFind.Members)
         {
-            QueryResult qr = CheckQuery(part, facts, rules, status, guard, rank);
+            QueryResult qr = CheckQuery(part, facts, basicRules, compRules, status, guard, rank);
             if (!qr.Found)
             {
                 return QueryResult.Failed(queryToFind, When);
