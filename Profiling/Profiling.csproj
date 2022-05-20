@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AppliedPiParser\AppliedPi.csproj" />
     <ProjectReference Include="..\StatefulHorn\StatefulHorn.csproj" />
   </ItemGroup>
 
