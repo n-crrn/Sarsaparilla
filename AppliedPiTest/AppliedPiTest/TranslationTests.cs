@@ -65,7 +65,7 @@ process
        ! ( in(c, x: bitstring); out(c, f) ) ) ).
 ";
 
-        WriteSocket c0Out = new("c", 0);
+        WriteSocket c0Out = new("c", 1);
         ReadSocket c2In = new("c", 2);
         WriteSocket f3Out = new("f", 3);
         ReadSocket cInfIn = new("c");
@@ -151,8 +151,8 @@ process
   in(c, v: bitstring);
   if v = w && v <> x then out(c, v).";
 
-        ReadSocket cIn = new("c", 0);
-        WriteSocket cOut = new("c", 2);
+        ReadSocket cIn = new("c", 1);
+        WriteSocket cOut = new("c", 1);
         HashSet<Socket> expectedSockets = new() { cIn, cOut };
         VariableMessage vMsg = new("v");
         IfBranchConditions ifCond = new(
@@ -167,19 +167,19 @@ process
         {
             // Branch 0 (in(c, v)).           
             new OpenReadSocketsRule(cIn),
+            new KnowChannelContentRule(cOut),
             new FiniteReadRule(cIn, 0, "v"),
             new AttackChannelRule("v"),
-            new ShutSocketsRule(new Dictionary<Socket, int>() { { cIn, 1 } }),
             // Branch 2 (out(c, v)) -> Note that the conditional is branch 1.
-            new KnowChannelContentRule(cOut)
+            /*new KnowChannelContentRule(cOut)
+            {
+                Conditions = ifCond
+            },*/
+            new FiniteWriteRule(cOut, new Dictionary<Socket, int>() { { cOut, 0 }, { cIn, 1 } }, outputPremises, vMsg)
             {
                 Conditions = ifCond
             },
-            new FiniteWriteRule(cOut, new Dictionary<Socket, int>() { { cOut, 0 } }, outputPremises, vMsg)
-            {
-                Conditions = ifCond
-            },
-            new ShutSocketsRule(new Dictionary<Socket, int>() { { cOut, 1 } })
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { cOut, 1 }, { cIn, 1 } })
             {
                 Conditions = ifCond
             }
@@ -192,9 +192,10 @@ process
     {
         string testSource =
 @"free c: channel.
+free a: bitstring [private].
 free s: bitstring [private].
 
-fun hash(s): bistring.
+fun hash(s): bitstring.
 
 process
   in(c, v: bitstring);
@@ -202,8 +203,8 @@ process
   out(c, x).
 ";
 
-        ReadSocket cIn = new("c", 0);
-        WriteSocket cOut = new("c", 2);
+        ReadSocket cIn = new("c", 1);
+        WriteSocket cOut = new("c", 1);
         HashSet<Socket> expectedSockets = new() { cIn, cOut };
 
         VariableMessage vMsg = new("v");
@@ -219,16 +220,15 @@ process
 
         HashSet<IMutateRule> expectedMutations = new()
         {
-            // Branch 0 (in(c, v)).
+            // in(c, v)
             new OpenReadSocketsRule(cIn),
             new FiniteReadRule(cIn, 0, "v"),
             new AttackChannelRule("v"),
-            new ShutSocketsRule(new Dictionary<Socket, int>() { { cIn, 1 } }),
-            // Branch 2 (let x: bitstring = hash(s) in...).
-            new LetSetRule("x", letPremises, new List<Socket>() { cIn }, IfBranchConditions.Empty, Event.Know(filledXMsg)),
+            // let x: bitstring = hash(s) in...
+            new LetSetRule("x", letPremises, new List<Socket>(), IfBranchConditions.Empty, Event.Know(filledXMsg)),
             new KnowChannelContentRule(cOut),
-            new FiniteWriteRule(cOut, new Dictionary<Socket, int>() {{cOut, 0}}, outPremises, xMsg),
-            new ShutSocketsRule(new Dictionary<Socket, int>() { { cOut, 1 } })
+            new FiniteWriteRule(cOut, new Dictionary<Socket, int>() { {cOut, 0}, { cIn, 1 } }, outPremises, xMsg),
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { cOut, 1 }, { cIn, 1 } })
         };
         DoMutateTest(testSource, expectedSockets, expectedMutations);
     }

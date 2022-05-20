@@ -118,8 +118,9 @@ public class Translation
         }
 
         ProcessTree procTree = new(rn);
-        BranchSummary rootSummary = PreProcessBranch(procTree.StartNode, new(), cellsInUse);
-        List<IMutateRule> allMutateRules = new(ProcessBranch(procTree.StartNode, rootSummary, new(), new(), new(), new(), rn, nw));
+        int branchCounter = 0;
+        BranchSummary rootSummary = PreProcessBranch(procTree.StartNode, new(), cellsInUse, ref branchCounter);
+        List<IMutateRule> allMutateRules = new(ProcessBranch(procTree.StartNode, rootSummary, new(), new(), new(), new(), new(), rn, nw));
         return (rootSummary.AllSockets(), allMutateRules);
     }
 
@@ -153,14 +154,15 @@ public class Translation
     private static BranchSummary PreProcessBranch(
         ProcessTree.Node n, 
         HashSet<Term> infiniteChannels,
-        HashSet<Term> finiteChannels)
+        HashSet<Term> finiteChannels,
+        ref int socketSetCounter)
     {
         Dictionary<Term, ReadSocket> readers;
         Dictionary<Term, WriteSocket> writers;
-        (readers, writers) = GetSocketsRequiredForBranch(n, infiniteChannels);
+        socketSetCounter++;
+        (readers, writers) = GetSocketsRequiredForBranch(n, infiniteChannels, socketSetCounter);
 
-        int branchId = n.BranchId;
-        while (branchId == n.BranchId && !n.IsTerminating && n.Branches.Count > 0)
+        while (n.Branches.Count == 1 && n.Process is not ReplicateProcess)
         {
             if (n.Process is NewProcess np && np.PiType == "channel")
             {
@@ -173,13 +175,13 @@ public class Translation
         if (n.Process is ReplicateProcess)
         {
             HashSet<Term> updatedInfChannels = new(infiniteChannels.Concat(finiteChannels));
-            children.Add(PreProcessBranch(n.Branches[0], updatedInfChannels, new()));
+            children.Add(PreProcessBranch(n.Branches[0], updatedInfChannels, new(), ref socketSetCounter));
         }
         else if (n.Branches.Count > 0)
         {
             foreach (ProcessTree.Node b in n.Branches)
             {
-                children.Add(PreProcessBranch(b, infiniteChannels, new(finiteChannels)));
+                children.Add(PreProcessBranch(b, infiniteChannels, new(finiteChannels), ref socketSetCounter));
             }
         }
 
@@ -214,15 +216,16 @@ public class Translation
 
     private static (Dictionary<Term, ReadSocket>, Dictionary<Term, WriteSocket>) GetSocketsRequiredForBranch(
         ProcessTree.Node n,
-        HashSet<Term> infiniteChannels)
+        HashSet<Term> infiniteChannels,
+        int socketSetId)
     {
         Dictionary<Term, ReadSocket> readers = new();
         Dictionary<Term, WriteSocket> writers = new();
 
-        int branchId = n.BranchId;
-        while (branchId == n.BranchId)
+        ProcessTree.Node? next = n;
+        while (next != null && next.Process is not ReplicateProcess)
         {
-            if (n.Process is InChannelProcess icp)
+            if (next.Process is InChannelProcess icp)
             {
                 Term channelTerm = new(icp.Channel);
                 if (!readers.TryGetValue(channelTerm, out ReadSocket? newReadSocket))
@@ -233,13 +236,13 @@ public class Translation
                     }
                     else
                     {
-                        newReadSocket = new(icp.Channel, branchId);
+                        newReadSocket = new(icp.Channel, socketSetId);
                     }
                     readers[channelTerm] = newReadSocket;
                 }
                 newReadSocket.ReceivePatterns.Add(icp.ReceivePattern);
             }
-            else if (n.Process is OutChannelProcess ocp)
+            else if (next.Process is OutChannelProcess ocp)
             {
                 Term channelTerm = new(ocp.Channel);
                 if (!writers.ContainsKey(channelTerm))
@@ -250,26 +253,23 @@ public class Translation
                     }
                     else
                     {
-                        writers[channelTerm] = new(ocp.Channel, branchId);
+                        writers[channelTerm] = new(ocp.Channel, socketSetId);
                     }
                 }
             }
 
-            if (n.IsTerminating || n.Branches.Count == 0)
-            {
-                break;
-            }
-            n = n.Branches[0];
+            next = next.Branches.Count == 1 ? next.Branches[0] : null;
         }
 
         return (readers, writers);
     }
 
     private static IEnumerable<IMutateRule> ProcessBranch(
-        ProcessTree.Node n, 
-        BranchSummary summary, 
+        ProcessTree.Node n,
+        BranchSummary summary,
         List<BranchSummary> parallelBranches,
-        List<Socket> previousSockets, 
+        List<Socket> previousSockets,
+        Dictionary<Socket, int> interactionCount,
         IfBranchConditions conditions,
         HashSet<StatefulHorn.Event> premises,
         ResolvedNetwork rn,
@@ -286,13 +286,11 @@ public class Translation
             });
         }
 
-        // Know rules for used writer sockets.
+        // Ensure know rules for used writer sockets are set. Do not worry about conditions - the
+        // knowledge of the socket contents, once the socket is known, are available.
         foreach (WriteSocket ws in summary.Writers.Values)
         {
-            rules.Add(new KnowChannelContentRule(ws)
-            {
-                Conditions = conditions
-            });
+            rules.Add(new KnowChannelContentRule(ws));
         }
 
         // Pre-filter infinite readers from the parallel branches. The infinite cross-link rule
@@ -302,19 +300,22 @@ public class Translation
         (infReaders, finReaders) = SplitInfiniteReaders(parallelBranches);
 
         // Set up the socket read/write counts. Necessary for proper sequence of rule generation.
-        Dictionary<Socket, int> interactionCount = new();
-        foreach (ReadSocket rsS in summary.Readers.Values)
+        // Dictionary<Socket, int> interactionCount = new();
+        if (interactionCount.Count == 0 && (summary.Readers.Count > 0 || summary.Writers.Count > 0))
         {
-            if (!rsS.IsInfinite)
+            foreach (ReadSocket rsS in summary.Readers.Values)
             {
-                interactionCount[rsS] = 0;
+                if (!rsS.IsInfinite)
+                {
+                    interactionCount[rsS] = 0;
+                }
             }
-        }
-        foreach (WriteSocket wrS in summary.Writers.Values)
-        {
-            if (!wrS.IsInfinite)
+            foreach (WriteSocket wrS in summary.Writers.Values)
             {
-                interactionCount[wrS] = 0;
+                if (!wrS.IsInfinite)
+                {
+                    interactionCount[wrS] = 0;
+                }
             }
         }
 
@@ -407,14 +408,6 @@ public class Translation
             n = n.Branches[0];
         }
 
-        // Collect and shut down the finite sockets.
-        List<Socket> thisBranchSockets = new(from rs in summary.Readers.Values where !rs.IsInfinite select rs);
-        thisBranchSockets.AddRange(from ws in summary.Writers.Values where !ws.IsInfinite select ws);
-        if (interactionCount.Count > 0)
-        {
-            rules.Add(new ShutSocketsRule(interactionCount) { Conditions = conditions });
-        }
-
         // Add in the required finite cross-links.
         foreach ((Term wt, WriteSocket ws) in summary.Writers)
         {
@@ -431,19 +424,41 @@ public class Translation
         }
 
         // Regardless of the ending process type, each ending process will still require an
-        // individually generated list of what parallel branches are available.
+        // individually generated list of what parallel branches are available, and which 
+        // sockets need to be shut down.
         List<List<BranchSummary>> childParallelLists = new();
-        for (int i = 0; i < n.Branches.Count; i++)
+        List<Socket> thisBranchSockets = new();
+
+        bool oneBranchOnly = n.Branches.Count == 1;
+        if (oneBranchOnly)
         {
-            List<BranchSummary> subParallel = new(parallelBranches);
-            for (int j = 0; j < n.Branches.Count; j++)
+            childParallelLists.Add(parallelBranches);
+        }
+        else if (n.Branches.Count > 1)
+        {
+            for (int i = 0; i < n.Branches.Count; i++)
             {
-                if (i != j)
+                List<BranchSummary> subParallel = new(parallelBranches);
+                for (int j = 0; j < n.Branches.Count; j++)
                 {
-                    subParallel.Add(summary.Children[j]);
+                    if (i != j)
+                    {
+                        subParallel.Add(summary.Children[j]);
+                    }
                 }
+                childParallelLists.Add(subParallel);
             }
-            childParallelLists.Add(subParallel);
+        }
+
+        // Collect and shut down the finite sockets if shutdown is required.
+        if (!oneBranchOnly || n.Process is ReplicateProcess)
+        {
+            thisBranchSockets.AddRange(from rs in summary.Readers.Values where !rs.IsInfinite select rs);
+            thisBranchSockets.AddRange(from ws in summary.Writers.Values where !ws.IsInfinite select ws);
+            if (interactionCount.Count > 0)
+            {
+                rules.Add(new ShutSocketsRule(interactionCount) { Conditions = conditions });
+            }
         }
 
         // The following constants are used for both IfProcesses and LetProcesses.
@@ -460,9 +475,10 @@ public class Translation
                 IfBranchConditions updatedIfConditions = conditions.And(ifCond);
                 IEnumerable<IMutateRule> ifChildRules = ProcessBranch(
                     n.Branches[GuardedBranchOffset],
-                    summary.Children[GuardedBranchOffset],
+                    oneBranchOnly ? summary : summary.Children[GuardedBranchOffset],
                     childParallelLists[GuardedBranchOffset],
                     thisBranchSockets,
+                    oneBranchOnly ? interactionCount : new(),
                     updatedIfConditions,
                     new(premises),
                     rn,
@@ -472,7 +488,7 @@ public class Translation
 
             // Handle else conditions, if they exist. Again, complete set of rules for 
             // every condition.
-            if (n.Branches.Count > 1)
+            if (!oneBranchOnly)
             {
                 foreach (IfBranchConditions elseCond in brs.ElseConditions)
                 {
@@ -482,6 +498,7 @@ public class Translation
                         summary.Children[ElseBranchOffset],
                         childParallelLists[ElseBranchOffset],
                         thisBranchSockets,
+                        new(),
                         updatedElseConditions,
                         new(premises),
                         rn,
@@ -497,31 +514,39 @@ public class Translation
             // Generate the rules that actually set a value given a set of conditions.
             rules.UnionWith(lvsFactory.GenerateSetRules());
 
-            premises.Add(StatefulHorn.Event.Know(lvsFactory.EmptyStoragePremiseMessage));
-
+            HashSet<StatefulHorn.Event> guardedPremises = new(premises)
+            {
+                StatefulHorn.Event.Know(lvsFactory.StoragePremiseMessage)
+            };
             // Alter the premise for the guarded branch.
             IEnumerable<IMutateRule> guardedRules = ProcessBranch(
                 n.Branches[GuardedBranchOffset],
-                summary.Children[GuardedBranchOffset],
+                oneBranchOnly ? summary : summary.Children[GuardedBranchOffset],
                 childParallelLists[GuardedBranchOffset],
                 thisBranchSockets,
+                oneBranchOnly ? interactionCount : new(),
                 conditions,
-                new(premises),
+                guardedPremises,
                 rn,
                 nw);
             rules.UnionWith(guardedRules);
 
-            if (n.Branches.Count > 1)
+            if (!oneBranchOnly)
             {
                 // Alter the guard for the else branch.
                 IfBranchConditions updatedConds = conditions.Not(lvsFactory.Variable, lvsFactory.StoragePremiseMessage);
+                HashSet<StatefulHorn.Event> elsePremises = new(premises)
+                {
+                    StatefulHorn.Event.Know(lvsFactory.EmptyStoragePremiseMessage)
+                };
                 IEnumerable<IMutateRule> elseRules = ProcessBranch(
                     n.Branches[GuardedBranchOffset],
                     summary.Children[GuardedBranchOffset],
                     childParallelLists[GuardedBranchOffset],
                     thisBranchSockets,
+                    new(),
                     updatedConds,
-                    new(premises),
+                    elsePremises,
                     rn,
                     nw);
                 rules.UnionWith(elseRules);
@@ -537,6 +562,7 @@ public class Translation
                     summary.Children[i],
                     childParallelLists[i], 
                     thisBranchSockets, 
+                    new(),
                     conditions, 
                     new(premises), 
                     rn, 
