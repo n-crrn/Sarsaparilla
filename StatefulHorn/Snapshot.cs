@@ -158,7 +158,7 @@ public class Snapshot
 
     public Snapshot? TryCompress(Guard g, SigmaFactory sf)
     {
-        if (Prior != null && Prior.O == Ordering.ModifiedOnceAfter && Prior.S.Condition.CanBeUnifiableWith(Condition, g, sf))
+        if (Prior != null && Prior.O == Ordering.ModifiedOnceAfter && Prior.S.Condition.CanBeUnifiableWith(Condition, g, g, sf))
         {
             SigmaMap? mergeMap = sf.TryCreateMergeMap();
             if (mergeMap != null)

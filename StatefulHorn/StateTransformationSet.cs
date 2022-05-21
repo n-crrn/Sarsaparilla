@@ -67,17 +67,19 @@ public class StateTransformationSet : ISigmaUnifiable
 
     public bool CanBeUnifiedTo(ISigmaUnifiable other, Guard g, SigmaFactory sf)
     {
-        return other is StateTransformationSet sts && sf.CanUnifyMessagesOneWay(ToMsgList(), sts.ToMsgList(), g);
+        return other is StateTransformationSet sts 
+            && sf.CanUnifyMessagesOneWay(ToMsgList(), sts.ToMsgList(), g);
     }
 
-    public bool CanBeUnifiableWith(ISigmaUnifiable other, Guard g, SigmaFactory sf)
+    public bool CanBeUnifiableWith(ISigmaUnifiable other, Guard fwdGuard, Guard bwdGuard, SigmaFactory sf)
     {
-        return other is StateTransformationSet sts && sf.CanUnifyMessagesBothWays(ToMsgList(), sts.ToMsgList(), g);
+        return other is StateTransformationSet sts 
+            && sf.CanUnifyMessagesBothWays(ToMsgList(), sts.ToMsgList(), fwdGuard, bwdGuard);
     }
 
     public override string ToString()
     {
-        return String.Join(", ", from t in _Transformations select $"<{t.After.Label}: {t.Condition}>");
+        return string.Join(", ", from t in _Transformations select $"<{t.After.Label}: {t.Condition}>");
     }
 
     #endregion

@@ -154,7 +154,7 @@ public class SigmaFactory
         return true;
     }
 
-    public bool CanUnifyMessagesBothWays(List<IMessage> list1, List<IMessage> list2, Guard g)
+    public bool CanUnifyMessagesBothWays(List<IMessage> list1, List<IMessage> list2, Guard fwdGuard, Guard bwdGuard)
     {
         if (list1.Count != list2.Count)
         {
@@ -162,13 +162,15 @@ public class SigmaFactory
         }
         for (int i = 0; i < list1.Count; i++)
         {
-            if (!list1[i].DetermineUnifiableSubstitution(list2[i], g, this))
+            if (!list1[i].DetermineUnifiableSubstitution(list2[i], fwdGuard, bwdGuard, this))
             {
                 return false;
             }
-            // A copy of the guard needs to be updated to protect var1 =/= var2 situations.
-            SigmaMap sm = new(list1[i], list2[i]);
-            g = g.PerformSubstitution(sm);
+            // The guards need to be updated to protect var1 =/= var2 situations.
+            SigmaMap fwdSm = new(list1[i], list2[i]);
+            fwdGuard = fwdGuard.PerformSubstitution(fwdSm);
+            SigmaMap bwdSm = new(list2[i], list1[i]);
+            bwdGuard = bwdGuard.PerformSubstitution(bwdSm);
         }
         return true;
     }

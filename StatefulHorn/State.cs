@@ -57,15 +57,11 @@ public class State : ISigmaUnifiable, IComparable<State>
             subs.ForwardIsValidByGuard(g);
     }
 
-    public bool CanBeUnifiableWith(ISigmaUnifiable other, Guard g, SigmaFactory subs)
+    public bool CanBeUnifiableWith(ISigmaUnifiable other, Guard fwdGuard, Guard bwdGuard, SigmaFactory subs)
     {
-        // FIXME: Need to be upgraded to use two guards.
         return other is State s &&
             Name.Equals(s.Name) &&
-            //g.CanUnifyMessages(Value, s.Value) &&
-            Value.DetermineUnifiableSubstitution(s.Value, g, subs) &&
-            subs.ForwardIsValidByGuard(g) &&
-            subs.BackwardIsValidByGuard(g);
+            Value.DetermineUnifiableSubstitution(s.Value, fwdGuard, bwdGuard, subs);
     }
 
     public override string ToString() => $"{Name}({Value})";

@@ -110,9 +110,9 @@ public class Event : ISigmaUnifiable
         return other is Event ev && IsKnow && ev.IsKnow && subs.CanUnifyMessagesOneWay(_Messages, ev._Messages, g);
     }
 
-    public bool CanBeUnifiableWith(ISigmaUnifiable other, Guard g, SigmaFactory subs)
+    public bool CanBeUnifiableWith(ISigmaUnifiable other, Guard fwdG, Guard bwdG, SigmaFactory subs)
     {
-        return other is Event ev && IsKnow && ev.IsKnow && subs.CanUnifyMessagesBothWays(_Messages, ev._Messages, g);
+        return other is Event ev && IsKnow && ev.IsKnow && subs.CanUnifyMessagesBothWays(_Messages, ev._Messages, fwdG, bwdG);
     }
 
     #endregion

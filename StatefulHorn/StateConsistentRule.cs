@@ -130,12 +130,12 @@ public class StateConsistentRule : Rule
         return new StateConsistentRule(label, g, prems, ss, Result.PerformSubstitution(substitutions));
     }
 
-    public bool CanOldComposeWith(Rule r, out SigmaFactory? sf)
+    private bool CanComposeWith(Rule r, out SigmaFactory? sf)
     {
         foreach (Event premise in r.Premises)
         {
             sf = new();
-            if (Result.CanBeUnifiableWith(premise, GuardStatements, sf))
+            if (Result.CanBeUnifiableWith(premise, GuardStatements, r.GuardStatements, sf))
             {
                 return true;
             }
@@ -147,7 +147,7 @@ public class StateConsistentRule : Rule
     public bool TryComposeWith(Rule r, out Rule? output)
     {
         // Check that we can do a composition, set output to null and return false if we can't.
-        if (!CanOldComposeWith(r, out SigmaFactory? substitutions))
+        if (!CanComposeWith(r, out SigmaFactory? substitutions))
         {
             output = null;
             return false;
@@ -289,13 +289,13 @@ public class StateConsistentRule : Rule
 
     public IEnumerable<Event> NewEvents => from p in _Premises where p.IsNew select p;
 
-    public bool CanComposeWith(StateConsistentRule r, out SigmaFactory? sf, out List<(Snapshot, int, int)>? overallCorrespondence)
+    private bool CanComposeUpon(StateConsistentRule r, out SigmaFactory? sf, out List<(Snapshot, int, int)>? overallCorrespondence)
     {
         overallCorrespondence = null;
         foreach (Event premise in r.Premises)
         {
             sf = new();
-            if (Result.CanBeUnifiableWith(premise, r.GuardStatements, sf))
+            if (Result.CanBeUnifiableWith(premise, GuardStatements, r.GuardStatements, sf))
             {
                 // If nonced declared in this rule are declared in the other r, then the two rules
                 // cannot be composed as they cross sessions.
@@ -315,7 +315,7 @@ public class StateConsistentRule : Rule
                     overallCorrespondence = new();
                     return true;
                 }
-                List<(Snapshot, int, int)>? overallCorres = DetermineSnapshotCorrespondencesWith(r, r.GuardStatements, sf);
+                List<(Snapshot, int, int)>? overallCorres = DetermineSnapshotCorrespondencesWith(r, GuardStatements, r.GuardStatements, sf);
                 if (overallCorres != null)
                 {
                     overallCorrespondence = overallCorres;
@@ -330,7 +330,7 @@ public class StateConsistentRule : Rule
     public StateConsistentRule? TryComposeUpon(StateConsistentRule r)
     {
         // Check that we can do a composition, set output to null and return false if we can't.
-        if (!CanComposeWith(r, out SigmaFactory? substitutions, out List<(Snapshot, int, int)>? overallCorres))
+        if (!CanComposeUpon(r, out SigmaFactory? substitutions, out List<(Snapshot, int, int)>? overallCorres))
         {
             return null;
         }

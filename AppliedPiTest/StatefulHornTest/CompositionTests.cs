@@ -160,7 +160,7 @@ public class CompositionTests
     private static void ShouldNotBeUnifiable(Event ev1, Event ev2)
     {
         SigmaFactory sf = new();
-        bool canBeUnified = ev1.CanBeUnifiableWith(ev2, new(), sf);
+        bool canBeUnified = ev1.CanBeUnifiableWith(ev2, new(), new(), sf);
         if (canBeUnified)
         {
             Debug.WriteLine("Sigma Maps are as follows:");

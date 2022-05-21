@@ -89,7 +89,7 @@ public abstract class Rule
     #endregion
 
     // The following tuple is of form Snapshot, Trace Index, Offset Index with Trace.
-    protected List<(Snapshot, int, int)>? DetermineSnapshotCorrespondencesWith(Rule other, Guard g, SigmaFactory sf)
+    protected List<(Snapshot, int, int)>? DetermineSnapshotCorrespondencesWith(Rule other, Guard fwdGuard, Guard bwdGuard, SigmaFactory sf)
     {
         List<(Snapshot, int, int)>? overallCorres = new();
 
@@ -99,7 +99,7 @@ public abstract class Rule
             for (int otherTraceI = 0; otherTraceI < other.Snapshots.Traces.Count; otherTraceI++)
             {
                 Snapshot otherTrace = other.Snapshots.Traces[otherTraceI];
-                List<(Snapshot, int, int)>? corres = IsTraceUnifiableWith(ss, otherTrace, otherTraceI, g, sf);
+                List<(Snapshot, int, int)>? corres = IsTraceUnifiableWith(ss, otherTrace, otherTraceI, fwdGuard, bwdGuard, sf);
                 if (corres != null)
                 {
                     found = true;
@@ -118,10 +118,16 @@ public abstract class Rule
         return overallCorres;
     }
 
-    private static List<(Snapshot, int, int)>? IsTraceUnifiableWith(Snapshot ss1, Snapshot ss2, int traceId, Guard g, SigmaFactory sf)
+    private static List<(Snapshot, int, int)>? IsTraceUnifiableWith(
+        Snapshot ss1, 
+        Snapshot ss2, 
+        int traceId, 
+        Guard fwdGuard, 
+        Guard bwdGuard, 
+        SigmaFactory sf)
     {
         List<(Snapshot, int, int)>? matches = null;
-        if (ss1.Condition.Name == ss2.Condition.Name && ss1.Condition.CanBeUnifiableWith(ss2.Condition, g, sf))
+        if (ss1.Condition.Name == ss2.Condition.Name && ss1.Condition.CanBeUnifiableWith(ss2.Condition, fwdGuard, bwdGuard, sf))
         {
             matches = new();
             Snapshot.PriorLink? prior1 = ss1.Prior;
@@ -133,7 +139,7 @@ public abstract class Rule
                 {
                     return null;
                 }
-                if (prior1.O == prior2.O && prior1.S.Condition.CanBeUnifiableWith(prior2.S.Condition, g, sf))
+                if (prior1.O == prior2.O && prior1.S.Condition.CanBeUnifiableWith(prior2.S.Condition, fwdGuard, bwdGuard, sf))
                 {
                     matches.Add(new(prior1.S, traceId, offset));
                     prior1 = prior1.S.Prior;
@@ -141,7 +147,7 @@ public abstract class Rule
                 }
                 else if (prior1.O == Snapshot.Ordering.LaterThan && prior2.O == Snapshot.Ordering.ModifiedOnceAfter)
                 {
-                    if (prior1.S.Condition.CanBeUnifiableWith(prior2.S.Condition, g, sf))
+                    if (prior1.S.Condition.CanBeUnifiableWith(prior2.S.Condition, fwdGuard, bwdGuard, sf))
                     {
                         matches.Add(new(prior1.S, traceId, offset));
                         prior1 = prior1.S.Prior;

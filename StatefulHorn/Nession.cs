@@ -258,9 +258,7 @@ public class Nession
             Frame hf = History[historyId];
             State? nessionCondition = hf.GetStateByName(scName);
             if (nessionCondition == null ||
-                !(ss.Condition.CanBeUnifiableWith(nessionCondition, Guard.Empty, sf) &&
-                  sf.ForwardIsValidByGuard(hf.GuardStatements) &&
-                  sf.BackwardIsValidByGuard(r.GuardStatements)))
+                !ss.Condition.CanBeUnifiableWith(nessionCondition, hf.GuardStatements, r.GuardStatements, sf))
             {
                 match = false;
                 break;
@@ -283,9 +281,7 @@ public class Nession
                 if (!lastMatched.Equals(nessionCondition)) // "No change" is ignored.
                 {
                     //bool canMatch = 
-                    if (prev.S.Condition.CanBeUnifiableWith(nessionCondition, Guard.Empty, sf)
-                        && sf.ForwardIsValidByGuard(hf.GuardStatements)
-                        && sf.BackwardIsValidByGuard(r.GuardStatements))
+                    if (prev.S.Condition.CanBeUnifiableWith(nessionCondition, hf.GuardStatements, r.GuardStatements, sf))
                     {
                         lastMatched = nessionCondition;
                         prev = prev.S.Prior;
@@ -391,7 +387,7 @@ public class Nession
         {
             SigmaFactory sf = new();
 
-            if (when.CanBeUnifiableWith(s, Guard.Empty, sf))
+            if (when.CanBeUnifiableWith(s, Guard.Empty, Guard.Empty, sf))
             {
                 // The forward map does not matter - the backward match does matter as it will
                 // propogate any required constants or nonces backwards in time.

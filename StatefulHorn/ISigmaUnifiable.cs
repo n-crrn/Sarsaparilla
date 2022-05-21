@@ -14,7 +14,7 @@ public interface ISigmaUnifiable
 
     public bool CanBeUnifiedTo(ISigmaUnifiable other, Guard guardTest, SigmaFactory substitutions);
 
-    public bool CanBeUnifiableWith(ISigmaUnifiable other, Guard guardTest, SigmaFactory substitutions);
+    public bool CanBeUnifiableWith(ISigmaUnifiable other, Guard fwdGuard, Guard bwdGuard, SigmaFactory substitutions);
 
     public string ToString();
 }

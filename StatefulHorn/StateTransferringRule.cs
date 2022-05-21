@@ -36,12 +36,10 @@ public class StateTransferringRule : Rule
 
     public StateConsistentRule? TryTransform(StateConsistentRule r)
     {
-        // If there is a match for each trace of the transformation, then this is possible.
-        Guard combinedGuard = GuardStatements.Union(r.GuardStatements);
         SigmaFactory sf = new();
 
         // The following tuple is of form Snapshot, Trace Index, Offset Index with Trace.
-        List<(Snapshot, int, int)>? overallCorres = DetermineSnapshotCorrespondencesWith(r, combinedGuard, sf);
+        List<(Snapshot, int, int)>? overallCorres = DetermineSnapshotCorrespondencesWith(r, GuardStatements, r.GuardStatements, sf);
         if (overallCorres == null)
         {
             return null;
@@ -79,6 +77,7 @@ public class StateTransferringRule : Rule
         }
         transformedRule.Snapshots.ActivateTransfers();
 
+        Guard combinedGuard = GuardStatements.PerformSubstitution(fwd).Union(r.GuardStatements.PerformSubstitution(bwd));
         return new StateConsistentRule($"({Label}) ⋈ ({r.Label})", combinedGuard, newPremises, transformedRule.Snapshots, transformedRule.Result);
     }
 

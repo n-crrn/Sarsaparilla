@@ -104,15 +104,15 @@ public class TupleMessage : IMessage
         return other is TupleMessage tMsg && sf.CanUnifyMessagesOneWay(_Members, tMsg._Members, gs);
     }
 
-    public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, new(), new());
+    public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, new(), new(), new());
 
-    public bool DetermineUnifiableSubstitution(IMessage other, Guard gs, SigmaFactory sf)
+    public bool DetermineUnifiableSubstitution(IMessage other, Guard fwdG, Guard bwdG, SigmaFactory sf)
     {
         if (other is VariableMessage)
         {
             return sf.TryAdd(this, other);
         }
-        return other is TupleMessage tMsg && sf.CanUnifyMessagesBothWays(_Members, tMsg._Members, gs);
+        return other is TupleMessage tMsg && sf.CanUnifyMessagesBothWays(_Members, tMsg._Members, fwdG, bwdG);
     }
 
     public IMessage PerformSubstitution(SigmaMap sigma)

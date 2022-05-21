@@ -48,13 +48,14 @@ public interface IMessage
     /// valid one to be found).
     /// </summary>
     /// <param name="other">The other message to attempt to unify with.</param>
-    /// <param name="guardStatements">Guard statements for indicating ununifiable messages.</param>
+    /// <param name="fwdGuard">Guard for substituting from this message to other.</param>
+    /// <param name="bwdGuard">Guard for substituting from other to this message.</param>
     /// <param name="sf">SigmaFactory to be populated with viable mappings.</param>
     /// <returns>
     ///   False if this message cannot be unified without contradicting existing substitutions in sf.
     ///   True otherwise, including if no substitution is required.
     /// </returns>
-    public bool DetermineUnifiableSubstitution(IMessage other, Guard guardStatements, SigmaFactory sf);
+    public bool DetermineUnifiableSubstitution(IMessage other, Guard fwdGuard, Guard bwdGuard, SigmaFactory sf);
 
     /// <summary>
     /// Substitutes occurances of messages. Each member of the sigma parameter is a substitution

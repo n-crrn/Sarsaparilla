@@ -86,9 +86,9 @@ public class FunctionMessage : IMessage
             sf.CanUnifyMessagesOneWay(_Parameters, fMsg._Parameters, gs);
     }
 
-    public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, new(), new());
+    public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, new(), new(), new());
 
-    public bool DetermineUnifiableSubstitution(IMessage other, Guard gs, SigmaFactory sf)
+    public bool DetermineUnifiableSubstitution(IMessage other, Guard fwdGuard, Guard bwdGuard, SigmaFactory sf)
     {
         if (other is VariableMessage)
         {
@@ -96,7 +96,7 @@ public class FunctionMessage : IMessage
         }
         return other is FunctionMessage fMsg &&
             Name.Equals(fMsg.Name) &&
-            sf.CanUnifyMessagesBothWays(_Parameters, fMsg._Parameters, gs);
+            sf.CanUnifyMessagesBothWays(_Parameters, fMsg._Parameters, fwdGuard, bwdGuard);
     }
 
     public IMessage PerformSubstitution(SigmaMap sigma)

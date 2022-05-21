@@ -367,9 +367,7 @@ public class QueryEngine
         {
             SigmaFactory sf = new();
             List<QueryResult> qrParts = new();
-            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, Guard.Empty, sf) 
-                && sf.ForwardIsValidByGuard(checkRule.Guard)
-                && sf.BackwardIsValidByGuard(guard))
+            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, guard, sf))
             {
                 HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
                 Guard nextGuard = guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);
@@ -455,9 +453,7 @@ public class QueryEngine
         {
             SigmaFactory sf = new();
             List<QueryResult> qrParts = new();
-            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, Guard.Empty, sf)
-                && sf.ForwardIsValidByGuard(checkRule.Guard) 
-                && sf.BackwardIsValidByGuard(guard))
+            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, guard, sf))
             {
                 HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
                 Guard nextGuard = guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);

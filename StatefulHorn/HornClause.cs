@@ -93,9 +93,7 @@ public class HornClause
             if (msg is not VariableMessage && msg.GetType() == Result.GetType())
             {
                 SigmaFactory sf = new();
-                if (Result.DetermineUnifiableSubstitution(msg, Guard.Empty, sf) &&
-                    sf.ForwardIsValidByGuard(Guard) && 
-                    sf.BackwardIsValidByGuard(other.Guard))
+                if (Result.DetermineUnifiableSubstitution(msg, Guard, other.Guard, sf))
                 {
                     SigmaMap fwdMap = sf.CreateForwardMap();
                     SigmaMap bwdMap = sf.CreateBackwardMap();

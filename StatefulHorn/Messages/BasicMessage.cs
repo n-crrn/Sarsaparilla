@@ -52,9 +52,6 @@ public abstract class BasicMessage : IMessage
         return DetermineUnifiableSubstitution(other, sf) && sf.ForwardIsValidByGuard(fwdGuard) && sf.BackwardIsValidByGuard(bwdGuard);
     }
 
-    // FIXME: This is a splint method - to be removed as part of the guard logic correction.
-    public bool DetermineUnifiableSubstitution(IMessage other, Guard g, SigmaFactory sf) => DetermineUnifiableSubstitution(other, g, g, sf);
-
     public abstract IMessage PerformSubstitution(SigmaMap sigma);
 
     public override abstract string ToString();
