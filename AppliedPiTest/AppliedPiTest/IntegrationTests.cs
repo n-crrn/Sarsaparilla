@@ -104,7 +104,7 @@ process macro1 | macro2.
     }
 
     [TestMethod]
-    public async Task IfThenElseTest()
+    public async Task KnowBoolTest()
     {
         string piSource =
 @"free c: channel.
@@ -118,6 +118,26 @@ process
     ( in(c, v: bitstring); if v <> something then out(c, secret) ) ).";
 
         // Though "something" is the value sent, the attacker can intervene and send anything else.
+        await DoTest(piSource, false, true);
+    }
+
+    [TestMethod]
+    public async Task DeconstructorTest()
+    {
+        string piSource =
+@"free c: channel.
+
+query attacker(new value).
+
+type key.
+free theKey: key.
+
+fun enc(bitstring, bitstring): bitstring.
+reduc forall x: bitstring, y: key; dec(enc(x, y), y) = x.
+
+process 
+  new value: bitstring;
+  out(c, enc(value, theKey)).";
         await DoTest(piSource, false, true);
     }
 

@@ -42,4 +42,30 @@ public class GuardTests
         bool succeed = to.DetermineUnifiedToSubstitution(from, g, sf);
         Assert.AreEqual(expectedSucceed, succeed, failMsg);
     }
+
+    [TestMethod]
+    public void EmptyGuardTest()
+    {
+        IMessage check = new FunctionMessage("dec", new()
+        {
+            new FunctionMessage("enc",
+                                new()
+                                {
+                                    new VariableMessage("x"),
+                                    new VariableMessage("y")
+                                })
+        });
+        IMessage query = new FunctionMessage("dec", new()
+        {
+            new FunctionMessage("enc",
+                                new()
+                                {
+                                    new NameMessage("value"),
+                                    new VariableMessage("y")
+                                })
+        });
+        SigmaFactory sf = new();
+        bool succeed = check.DetermineUnifiableSubstitution(query, Guard.Empty, sf);
+        Assert.IsTrue(succeed, "Failed to find unifiable substitution with empty guard.");
+    }
 }

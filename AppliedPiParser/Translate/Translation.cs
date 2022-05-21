@@ -49,12 +49,20 @@ public class Translation
         return factory.CreateStateConsistentRule(result);
     }
 
-    private static Rule TranslateDestructor(Destructor dtr, ResolvedNetwork rn, RuleFactory factory)
+    private static IEnumerable<Rule> TranslateDestructor(Destructor dtr, ResolvedNetwork rn, RuleFactory factory)
     {
+        // The premises to the destructor rule.
         IMessage lhs = rn.TermToLooseMessage(dtr.LeftHandSide);
+        foreach (Term p in dtr.LeftHandSide.Parameters)
+        {
+            factory.RegisterPremise(StatefulHorn.Event.Know(rn.TermToLooseMessage(p)));
+        }
+        yield return factory.CreateStateConsistentRule(StatefulHorn.Event.Know(lhs));
+
+        // The destructor to value rule.
         IMessage rhs = new VariableMessage(dtr.RightHandSide);
         factory.RegisterPremises(StatefulHorn.Event.Know(lhs));
-        return factory.CreateStateConsistentRule(StatefulHorn.Event.Know(rhs));
+        yield return factory.CreateStateConsistentRule(StatefulHorn.Event.Know(rhs));
     }
 
     public static Translation From(ResolvedNetwork rn, Network nw)
@@ -73,7 +81,7 @@ public class Translation
         // Transfer the rules for destructors.
         foreach (Destructor dtr in nw.Destructors)
         {
-            allRules.Add(TranslateDestructor(dtr, rn, factory));
+            allRules.UnionWith(TranslateDestructor(dtr, rn, factory));
         }
 
         // All channels are either free declarations or nonce declarations, so go through and

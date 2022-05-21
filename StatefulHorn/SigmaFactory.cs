@@ -62,7 +62,11 @@ public class SigmaFactory
     #endregion
     #region Adding new substitutions
 
-    private static bool ContainsContradictingValue(Dictionary<VariableMessage, IMessage> oneWay, Dictionary<VariableMessage, IMessage> otherWay, VariableMessage vMsg, IMessage sub)
+    private static bool ContainsContradictingValue(
+        Dictionary<VariableMessage, IMessage> oneWay, 
+        Dictionary<VariableMessage, IMessage> otherWay, 
+        VariableMessage vMsg, 
+        IMessage sub)
     {
         if (oneWay.TryGetValue(vMsg, out IMessage? existing))
         {
@@ -72,14 +76,17 @@ public class SigmaFactory
             }
         }
 
-        if (otherWay.ContainsValue(vMsg))
+        foreach ((VariableMessage fromMsg, IMessage toMsg) in otherWay)
         {
-            return true;
+            if (toMsg.Equals(vMsg) && !fromMsg.Equals(sub))
+            {
+                return true;
+            }
         }
 
         // Need to check vMsg is not within otherWay.Value.
         HashSet<IMessage> heldVariables = new();
-        foreach (IMessage heldValue in otherWay.Values)
+        foreach (IMessage heldValue in from owv in otherWay.Values where !owv.Equals(vMsg) select owv)
         {
             heldValue.CollectVariables(heldVariables);
         }
@@ -88,17 +95,20 @@ public class SigmaFactory
             return true;
         }
 
-        HashSet<IMessage> subVariables = new();
-        sub.CollectVariables(subVariables);
-        foreach (IMessage varValue in subVariables)
+        if (sub is not VariableMessage)
         {
-            if (otherWay.ContainsKey((VariableMessage)varValue))
+            HashSet<IMessage> subVariables = new();
+            sub.CollectVariables(subVariables);
+            foreach (IMessage varValue in subVariables)
             {
-                return true;
-            }
-            if (oneWay.ContainsValue((VariableMessage)varValue))
-            {
-                return true;
+                if (otherWay.ContainsKey((VariableMessage)varValue))
+                {
+                    return true;
+                }
+                if (oneWay.ContainsValue((VariableMessage)varValue))
+                {
+                    return true;
+                }
             }
         }
         return false;
