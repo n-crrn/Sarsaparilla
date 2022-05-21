@@ -63,8 +63,8 @@ public class ModelTests
         };
         Dictionary<string, Constructor> expectedConstructors = new()
         {
-            { "pk", new("pk", new() { "skey" }, "pkey") },
-            { "sencrypt", new("sencrypt", new() { "bitstring", "nonce" }, "bitstring") }
+            { "pk", new("pk", new() { "skey" }, "pkey", false) },
+            { "sencrypt", new("sencrypt", new() { "bitstring", "nonce" }, "bitstring", false) }
         };
         HashSet<Destructor> expectedDestructors = new()
         {

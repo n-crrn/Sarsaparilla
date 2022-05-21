@@ -90,23 +90,9 @@ public class FreeStatement : IStatement
         string typeName = p.ReadNameToken(stmtType);
 
         // Do we have a modifier (e.g. private)?
+        List<string> tags = p.TryReadTag(stmtType);
+        bool declPrivate = tags.Contains("private");
         token = p.ReadNextToken();
-        bool declPrivate = false;
-        if (token == "[")
-        {
-            token = p.ReadNextToken();
-            if (token != "private")
-            {
-                return ParseResult.Failure(p, $"Expected valid modifier (private), instead found '{token}'.");
-            }
-            declPrivate = true;
-            token = p.ReadNextToken();
-            if (token != "]")
-            {
-                return ParseResult.Failure(p, $"Expected closing square bracket, instead found '{token}'.");
-            }
-            token = p.ReadNextToken();
-        }
         if (token != ".")
         {
             return ParseResult.Failure(p, $"Expected '.' indicating end of statement, instead found '{token}'.");

@@ -314,6 +314,27 @@ public class Parser
         } while (token != ".");
     }
 
+    internal List<string> TryReadTag(string stmtType)
+    {
+        List<string> tags = new();
+        string next = PeekNextToken();
+        if (next == "[")
+        {
+            ReadNextToken();
+            string divider;
+            do
+            {
+                tags.Add(ReadNextToken());
+                divider = ReadNextToken();
+            } while (divider == ",");
+            if (divider != "]")
+            {
+                throw new UnexpectedTokenException("]", divider, stmtType);
+            }
+        }
+        return tags;
+    }
+
     private static readonly List<string> Keywords = new()
     {
         "fun",

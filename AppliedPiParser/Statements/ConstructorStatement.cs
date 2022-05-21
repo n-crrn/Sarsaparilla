@@ -17,11 +17,14 @@ public class ConstructorStatement : IStatement
 
     public string PiType { get; init; }
 
-    public ConstructorStatement(string n, List<string> paramTypeList, string type)
+    public bool DeclaredPrivate { get; init; }
+
+    public ConstructorStatement(string n, List<string> paramTypeList, string type, bool isPrivate = false)
     {
         Name = n;
         ParameterTypes = paramTypeList;
         PiType = type;
+        DeclaredPrivate = isPrivate;
     }
 
     #region IStatement implementation.
@@ -30,7 +33,7 @@ public class ConstructorStatement : IStatement
 
     public void ApplyTo(Network nw)
     {
-        nw._Constructors[Name] = new Constructor(Name, ParameterTypes, PiType);
+        nw._Constructors[Name] = new Constructor(Name, ParameterTypes, PiType, DeclaredPrivate);
     }
 
     #endregion
@@ -42,7 +45,8 @@ public class ConstructorStatement : IStatement
             obj is ConstructorStatement cs &&
             Name.Equals(cs.Name) &&
             ParameterTypes.SequenceEqual(cs.ParameterTypes) &&
-            PiType.Equals(cs.PiType);
+            PiType.Equals(cs.PiType) &&
+            DeclaredPrivate == cs.DeclaredPrivate;
     }
 
     public override int GetHashCode() => Name.GetHashCode();
@@ -70,7 +74,9 @@ public class ConstructorStatement : IStatement
         (string name, List<string> paramTypeList) = p.ReadFlatTerm(termType);
         p.ReadExpectedToken(":", termType);
         string piType = p.ReadNameToken(termType);
+        List<string> tags = p.TryReadTag(termType);
+        bool isPrivate = tags.Contains("private");
         p.ReadExpectedToken(".", termType);
-        return ParseResult.Success(new ConstructorStatement(name, paramTypeList, piType));
+        return ParseResult.Success(new ConstructorStatement(name, paramTypeList, piType, isPrivate));
     }
 }
