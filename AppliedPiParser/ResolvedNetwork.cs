@@ -136,6 +136,16 @@ public class ResolvedNetwork
             }
         }
         TermResolver tr = new(nw);
+        // FIXME: The code below means that the Free and Constant look-up code in 
+        // TermResolver is no longer required.
+        foreach ((string _, FreeDeclaration fd) in nw.FreeDeclarations)
+        {
+            tr.Register(new(fd.Name), new(TermSource.Free, new(fd.PiType)));
+        }
+        foreach (Constant c in nw.Constants)
+        {
+            tr.Register(new(c.Name), new(TermSource.Constant, new(c.PiType)));
+        }
         if (!main.Check(nw, tr, out string? errMsg))
         {
             throw new ArgumentException(errMsg);
