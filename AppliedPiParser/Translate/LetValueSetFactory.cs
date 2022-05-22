@@ -61,7 +61,11 @@ public class LetValueSetFactory
                     msgParameters.Add(new VariableMessage(ele.Term.Name));
                 }
             }
-            return new FunctionMessage(CellName, msgParameters);
+            if (msgParameters.Count == 1)
+            {
+                return new FunctionMessage(CellName, msgParameters);
+            }
+            return new FunctionMessage(CellName, new() { new TupleMessage(msgParameters) });
         }
     }
 
