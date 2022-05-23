@@ -136,7 +136,9 @@ public class Translation
         ProcessTree procTree = new(rn);
         int branchCounter = 0;
         BranchSummary rootSummary = PreProcessBranch(procTree.StartNode, new(), cellsInUse, ref branchCounter);
-        List<IMutateRule> allMutateRules = new(ProcessBranch(procTree.StartNode, rootSummary, new(), new(), new(), new(), new(), false, new(), rn, nw));
+        List<IMutateRule> allMutateRules = new(ProcessBranch(
+            new TranslateFrame(procTree.StartNode, rootSummary, new(), new(), new(), new(), new(), false, new(), null, rn, nw))
+        );
         return (rootSummary.AllSockets(), allMutateRules);
     }
 
@@ -280,33 +282,38 @@ public class Translation
         return (readers, writers);
     }
 
-    private static IEnumerable<IMutateRule> ProcessBranch(
-        ProcessTree.Node n,
-        BranchSummary summary,
-        List<BranchSummary> parallelBranches,
-        List<Socket> previousSockets,
-        Dictionary<Socket, int> interactionCount,
-        IfBranchConditions conditions,
-        HashSet<StatefulHorn.Event> premises,
-        bool replicated,
-        Dictionary<string, int> leakedSockets,
-        ResolvedNetwork rn,
-        Network nw)
+    private record TranslateFrame
+    (
+        ProcessTree.Node Node,
+        BranchSummary Summary,
+        List<BranchSummary> ParallelBranches,
+        List<Socket> PreviousSockets,
+        Dictionary<Socket, int> InteractionCount,
+        IfBranchConditions Conditions,
+        HashSet<StatefulHorn.Event> Premises,
+        bool Replicated,
+        Dictionary<string, int> LeakedSockets,
+        TranslateFrame? PreviousControlSplit,
+        ResolvedNetwork Rn,
+        Network Nw
+    );
+
+    private static IEnumerable<IMutateRule> ProcessBranch(TranslateFrame tf)
     {
         HashSet<IMutateRule> rules = new();
 
         // Open required reader sockets.
-        if (summary.Readers.Count > 0)
+        if (tf.Summary.Readers.Count > 0)
         {
-            rules.Add(new OpenReadSocketsRule(summary.Readers.Values, previousSockets)
+            rules.Add(new OpenReadSocketsRule(tf.Summary.Readers.Values, tf.PreviousSockets)
             {
-                Conditions = conditions
+                Conditions = tf.Conditions
             });
         }
 
         // Ensure know rules for used writer sockets are set. Do not worry about conditions - the
         // knowledge of the socket contents, once the socket is known, are available.
-        foreach (WriteSocket ws in summary.Writers.Values)
+        foreach (WriteSocket ws in tf.Summary.Writers.Values)
         {
             rules.Add(new KnowChannelContentRule(ws));
         }
@@ -315,83 +322,84 @@ public class Translation
         // requires that the premises and result are provided.
         Dictionary<Term, ReadSocket> infReaders;
         Dictionary<Term, List<ReadSocket>> finReaders;
-        (infReaders, finReaders) = SplitInfiniteReaders(parallelBranches);
+        (infReaders, finReaders) = SplitInfiniteReaders(tf.ParallelBranches);
 
         // Set up the socket read/write counts. Necessary for proper sequence of rule generation.
         // Dictionary<Socket, int> interactionCount = new();
-        if (interactionCount.Count == 0 && (summary.Readers.Count > 0 || summary.Writers.Count > 0))
+        if (tf.InteractionCount.Count == 0 && (tf.Summary.Readers.Count > 0 || tf.Summary.Writers.Count > 0))
         {
-            foreach (ReadSocket rsS in summary.Readers.Values)
+            foreach (ReadSocket rsS in tf.Summary.Readers.Values)
             {
                 if (!rsS.IsInfinite)
                 {
-                    interactionCount[rsS] = 0;
+                    tf.InteractionCount[rsS] = 0;
                 }
             }
-            foreach (WriteSocket wrS in summary.Writers.Values)
+            foreach (WriteSocket wrS in tf.Summary.Writers.Values)
             {
                 if (!wrS.IsInfinite)
                 {
-                    interactionCount[wrS] = 0;
+                    tf.InteractionCount[wrS] = 0;
                 }
             }
         }
 
         // Go through processes one at a time.
-        int branchId = n.BranchId;
+        int branchId = tf.Node.BranchId;
+        ProcessTree.Node n = tf.Node;
         while (branchId == n.BranchId)
         {
             if (n.Process is InChannelProcess icp)
             {
                 Term inChannelTerm = new(icp.Channel);
-                ReadSocket reader = summary.Readers[inChannelTerm];
+                ReadSocket reader = tf.Summary.Readers[inChannelTerm];
                 if (reader.IsInfinite)
                 {
                     rules.Add(new ReadResetRule(reader)
                     {
-                        Conditions = conditions
+                        Conditions = tf.Conditions
                     });
                     foreach (IMutateRule imr in InfiniteReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
                     {
-                        imr.Conditions = conditions;
+                        imr.Conditions = tf.Conditions;
                         rules.Add(imr);
                     }
                 }
                 else
                 {
-                    int rc = interactionCount[reader];
+                    int rc = tf.InteractionCount[reader];
                     if (rc > 0)
                     {
                         rules.Add(new ReadResetRule(reader, rc)
                         {
-                            Conditions = conditions
+                            Conditions = tf.Conditions
                         });
                     }
                     foreach (IMutateRule mr in FiniteReadRule.GenerateRulesForReceivePattern(reader, rc, icp.ReceivePattern))
                     {
-                        mr.Conditions = conditions;
+                        mr.Conditions = tf.Conditions;
                         rules.Add(mr);
                     }
-                    interactionCount[reader] = rc + 1;
+                    tf.InteractionCount[reader] = rc + 1;
                 }
-                rules.UnionWith(AttackChannelRule.GenerateRulesForReceivePattern(icp.ReceivePattern, conditions));
+                rules.UnionWith(AttackChannelRule.GenerateRulesForReceivePattern(icp.ReceivePattern, tf.Conditions));
 
                 foreach ((string varEntry, _) in icp.ReceivePattern)
                 {
-                    premises.Add(FiniteReadRule.VariableCellAsPremise(varEntry));
+                    tf.Premises.Add(FiniteReadRule.VariableCellAsPremise(varEntry));
                 }
             }
             else if (n.Process is OutChannelProcess ocp)
             {
                 Term outChannelTerm = new(ocp.Channel);
-                WriteSocket writer = summary.Writers[outChannelTerm];
-                IMessage resultMessage = rn.TermToMessage(ocp.SentTerm);
+                WriteSocket writer = tf.Summary.Writers[outChannelTerm];
+                IMessage resultMessage = tf.Rn.TermToMessage(ocp.SentTerm);
 
-                if (replicated && rn.CheckTermType(ocp.SentTerm, PiType.Channel) && n.Branches.Count > 0)
+                if (tf.Replicated && tf.Rn.CheckTermType(ocp.SentTerm, PiType.Channel) && n.Branches.Count > 0)
                 {
-                    IMessage sendMessage = new NameMessage(GetNextSentSocketMarker(ocp.SentTerm.ToString(), leakedSockets));
-                    HashSet<StatefulHorn.Event> sendPremises = new(premises) { StatefulHorn.Event.Know(sendMessage) };
-                    ProVerifTranslate(ocp.SentTerm.ToString(), n.Branches[0], sendPremises, rules, rn, nw);
+                    IMessage sendMessage = new NameMessage(GetNextSentSocketMarker(ocp.SentTerm.ToString(), tf.LeakedSockets));
+                    HashSet<StatefulHorn.Event> sendPremises = new(tf.Premises) { StatefulHorn.Event.Know(sendMessage) };
+                    ProVerifTranslate(ocp.SentTerm.ToString(), n.Branches[0], sendPremises, rules, tf.Rn, tf.Nw);
 
                     resultMessage = sendMessage;
                 }
@@ -404,29 +412,29 @@ public class Translation
                     {
                         // For every matching receive pattern, add an infinite cross link.
                         IEnumerable<IMutateRule> iclRules =
-                            InfiniteCrossLink.GenerateRulesForReadReceivePatterns(writer, rxSocket, premises, resultMessage);
+                            InfiniteCrossLink.GenerateRulesForReadReceivePatterns(writer, rxSocket, tf.Premises, resultMessage);
                         foreach (IMutateRule rxPatternRule in iclRules)
                         {
-                            rxPatternRule.Conditions = conditions;
+                            rxPatternRule.Conditions = tf.Conditions;
                             rules.Add(rxPatternRule);
                         }
                     }
                     if (finReaders.TryGetValue(outChannelTerm, out List<ReadSocket>? rxSocketList) && rxSocketList!.Count > 0)
                     {
-                        rules.Add(new InfiniteWriteRule(writer, premises, resultMessage, false)
+                        rules.Add(new InfiniteWriteRule(writer, tf.Premises, resultMessage, false)
                         {
-                            Conditions = conditions
+                            Conditions = tf.Conditions
                         });
                     }
                 }
                 else
                 {
-                    int wc = interactionCount[writer];
-                    rules.Add(new FiniteWriteRule(writer, interactionCount, premises, resultMessage)
+                    int wc = tf.InteractionCount[writer];
+                    rules.Add(new FiniteWriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
                     {
-                        Conditions = conditions
+                        Conditions = tf.Conditions
                     });
-                    interactionCount[writer] = wc + 1;
+                    tf.InteractionCount[writer] = wc + 1;
                 }
             }
 
@@ -438,7 +446,7 @@ public class Translation
         }
 
         // Add in the required finite cross-links.
-        foreach ((Term wt, WriteSocket ws) in summary.Writers)
+        foreach ((Term wt, WriteSocket ws) in tf.Summary.Writers)
         {
             if (finReaders.TryGetValue(wt, out List<ReadSocket>? rxSockets))
             {
@@ -446,7 +454,7 @@ public class Translation
                 {
                     rules.Add(new FiniteCrossLinkRule(ws, rx)
                     {
-                        Conditions = conditions
+                        Conditions = tf.Conditions
                     });
                 }
             }
@@ -461,18 +469,18 @@ public class Translation
         bool oneBranchOnly = n.Branches.Count == 1;
         if (oneBranchOnly)
         {
-            childParallelLists.Add(parallelBranches);
+            childParallelLists.Add(tf.ParallelBranches);
         }
         else if (n.Branches.Count > 1)
         {
             for (int i = 0; i < n.Branches.Count; i++)
             {
-                List<BranchSummary> subParallel = new(parallelBranches);
+                List<BranchSummary> subParallel = new(tf.ParallelBranches);
                 for (int j = 0; j < n.Branches.Count; j++)
                 {
                     if (i != j)
                     {
-                        subParallel.Add(summary.Children[j]);
+                        subParallel.Add(tf.Summary.Children[j]);
                     }
                 }
                 childParallelLists.Add(subParallel);
@@ -482,11 +490,11 @@ public class Translation
         // Collect and shut down the finite sockets if shutdown is required.
         if (!oneBranchOnly || n.Process is ReplicateProcess || n.Process is LetProcess)
         {
-            thisBranchSockets.AddRange(from rs in summary.Readers.Values where !rs.IsInfinite select rs);
-            thisBranchSockets.AddRange(from ws in summary.Writers.Values where !ws.IsInfinite select ws);
-            if (interactionCount.Count > 0)
+            thisBranchSockets.AddRange(from rs in tf.Summary.Readers.Values where !rs.IsInfinite select rs);
+            thisBranchSockets.AddRange(from ws in tf.Summary.Writers.Values where !ws.IsInfinite select ws);
+            if (tf.InteractionCount.Count > 0)
             {
-                rules.Add(new ShutSocketsRule(interactionCount) { Conditions = conditions });
+                rules.Add(new ShutSocketsRule(tf.InteractionCount) { Conditions = tf.Conditions });
             }
         }
 
@@ -495,26 +503,23 @@ public class Translation
         const int ElseBranchOffset = 1;
         if (n.Process is IfProcess ifp)
         {
-            BranchRestrictionSet brs = BranchRestrictionSet.From(ifp.Comparison, rn, nw);
+            BranchRestrictionSet brs = BranchRestrictionSet.From(ifp.Comparison, tf.Rn, tf.Nw);
 
             // Handle if conditions by generating a complete set of rules for each condition
             // of the branch.
             foreach (IfBranchConditions ifCond in brs.IfConditions)
             {
-                IfBranchConditions updatedIfConditions = conditions.And(ifCond);
-                IEnumerable<IMutateRule> ifChildRules = ProcessBranch(
-                    n.Branches[GuardedBranchOffset],
-                    oneBranchOnly ? summary : summary.Children[GuardedBranchOffset],
-                    childParallelLists[GuardedBranchOffset],
-                    thisBranchSockets,
-                    oneBranchOnly ? interactionCount : new(),
-                    updatedIfConditions,
-                    new(premises),
-                    replicated,
-                    leakedSockets,
-                    rn,
-                    nw);
-                rules.UnionWith(ifChildRules);
+                TranslateFrame ifFrame = tf with
+                {
+                    Node = n.Branches[GuardedBranchOffset],
+                    Summary = oneBranchOnly ? tf.Summary : tf.Summary.Children[GuardedBranchOffset],
+                    ParallelBranches = childParallelLists[GuardedBranchOffset],
+                    PreviousSockets = thisBranchSockets,
+                    InteractionCount = oneBranchOnly ? tf.InteractionCount : new(),
+                    Conditions = tf.Conditions.And(ifCond),
+                    Premises = new(tf.Premises)
+                };
+                rules.UnionWith(ProcessBranch(ifFrame));
             }
 
             // Handle else conditions, if they exist. Again, complete set of rules for 
@@ -523,90 +528,79 @@ public class Translation
             {
                 foreach (IfBranchConditions elseCond in brs.ElseConditions)
                 {
-                    IfBranchConditions updatedElseConditions = conditions.And(elseCond);
-                    IEnumerable<IMutateRule> elseChildRules = ProcessBranch(
-                        n.Branches[ElseBranchOffset],
-                        summary.Children[ElseBranchOffset],
-                        childParallelLists[ElseBranchOffset],
-                        thisBranchSockets,
-                        new(),
-                        updatedElseConditions,
-                        new(premises),
-                        replicated,
-                        leakedSockets,
-                        rn,
-                        nw);
-                    rules.UnionWith(elseChildRules);
+                    TranslateFrame elseFrame = tf with
+                    {
+                        Node = n.Branches[ElseBranchOffset],
+                        Summary = tf.Summary.Children[ElseBranchOffset],
+                        ParallelBranches = childParallelLists[ElseBranchOffset],
+                        InteractionCount = new(),
+                        PreviousSockets = thisBranchSockets,
+                        Conditions = tf.Conditions.And(elseCond),
+                        Premises = new(tf.Premises)
+                    };
+                    rules.UnionWith(ProcessBranch(elseFrame));
                 }
             }
         }
         else if (n.Process is LetProcess lp)
         {
-            LetValueSetFactory lvsFactory = new(lp, rn, nw, thisBranchSockets, summary.Children[GuardedBranchOffset].AllSockets(), premises);
+            // Generates rules that set a value for the conditions.
+            LetValueSetFactory lvsFactory = new(
+                lp, 
+                tf.Rn, 
+                tf.Nw, 
+                thisBranchSockets, 
+                tf.Summary.Children[GuardedBranchOffset].AllSockets(), 
+                tf.Premises
+            );
+            rules.UnionWith(lvsFactory.GenerateSetRules()); 
 
-            // Generate the rules that actually set a value given a set of conditions.
-            rules.UnionWith(lvsFactory.GenerateSetRules());
-
-            HashSet<StatefulHorn.Event> guardedPremises = new(premises)
+            // Generate the guarded branch rules.
+            TranslateFrame guardedLetFrame = tf with
             {
-                StatefulHorn.Event.Know(lvsFactory.StoragePremiseMessage)
+                Node = n.Branches[GuardedBranchOffset],
+                Summary = tf.Summary.Children[GuardedBranchOffset],
+                ParallelBranches = childParallelLists[GuardedBranchOffset],
+                PreviousSockets = thisBranchSockets,
+                InteractionCount = new(),
+                Conditions = tf.Conditions,
+                Premises = new(tf.Premises) { StatefulHorn.Event.Know(lvsFactory.StoragePremiseMessage) }
             };
-            // Alter the premise for the guarded branch.
-            IEnumerable<IMutateRule> guardedRules = ProcessBranch(
-                n.Branches[GuardedBranchOffset],
-                summary.Children[GuardedBranchOffset],
-                childParallelLists[GuardedBranchOffset],
-                thisBranchSockets,
-                new(),
-                conditions,
-                guardedPremises,
-                replicated,
-                leakedSockets,
-                rn,
-                nw);
-            rules.UnionWith(guardedRules);
+            rules.UnionWith(ProcessBranch(guardedLetFrame));
 
             if (!oneBranchOnly)
             {
-                // Alter the guard for the else branch.
-                IfBranchConditions updatedConds = conditions.Not(lvsFactory.Variable, lvsFactory.StoragePremiseMessage);
-                HashSet<StatefulHorn.Event> elsePremises = new(premises)
+                // Generate the else branch rules.
+                TranslateFrame letElseFrame = tf with
                 {
-                    StatefulHorn.Event.Know(lvsFactory.EmptyStoragePremiseMessage)
+                    Node = n.Branches[ElseBranchOffset],
+                    Summary = tf.Summary.Children[ElseBranchOffset],
+                    ParallelBranches = childParallelLists[ElseBranchOffset],
+                    PreviousSockets = thisBranchSockets,
+                    InteractionCount = new(),
+                    Conditions = tf.Conditions.Not(lvsFactory.Variable, lvsFactory.StoragePremiseMessage),
+                    Premises = new(tf.Premises) { StatefulHorn.Event.Know(lvsFactory.EmptyStoragePremiseMessage) }
                 };
-                IEnumerable<IMutateRule> elseRules = ProcessBranch(
-                    n.Branches[GuardedBranchOffset],
-                    summary.Children[GuardedBranchOffset],
-                    childParallelLists[GuardedBranchOffset],
-                    thisBranchSockets,
-                    new(),
-                    updatedConds,
-                    elsePremises,
-                    replicated,
-                    leakedSockets,
-                    rn,
-                    nw);
-                rules.UnionWith(elseRules);
+                rules.UnionWith(ProcessBranch(letElseFrame));
             }
         }
         else if (n.Process is ReplicateProcess || n.Process is ParallelCompositionProcess)
         {
             // Translate the child process, and pass the found children up the "callstack".
+            bool nextRepl = n.Process is ReplicateProcess;
             for (int i = 0; i < n.Branches.Count; i++)
             {
-                IEnumerable<IMutateRule> childRules = ProcessBranch(
-                    n.Branches[i], 
-                    summary.Children[i],
-                    childParallelLists[i], 
-                    thisBranchSockets, 
-                    new(),
-                    conditions, 
-                    new(premises),
-                    n.Process is ReplicateProcess,
-                    leakedSockets,
-                    rn, 
-                    nw);
-                rules.UnionWith(childRules);
+                TranslateFrame childFrame = tf with
+                {
+                    Node = n.Branches[i],
+                    Summary = tf.Summary.Children[i],
+                    ParallelBranches = childParallelLists[i],
+                    PreviousSockets = thisBranchSockets,
+                    InteractionCount = new(),
+                    Premises = new(tf.Premises),
+                    Replicated = nextRepl
+                };
+                rules.UnionWith(ProcessBranch(childFrame));
             }
         }
         return rules;
