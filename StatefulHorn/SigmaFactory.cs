@@ -209,6 +209,30 @@ public class SigmaFactory
 
     public bool BackwardIsValidByGuard(Guard g) => IsValidByGuard(Backward, g);
 
+    public bool AnyContradictionsWithState(Dictionary<IMessage, IMessage?> stateVariables)
+    {
+        foreach ((VariableMessage vm, IMessage sm) in Forward.Concat(Backward))
+        {
+            if (stateVariables.TryGetValue(vm, out IMessage? setValue) && setValue != null && !Equals(sm, setValue))
+            {
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    public Dictionary<IMessage, IMessage?> UpdateStateReplacements(Dictionary<IMessage, IMessage?> stateVariables)
+    {
+        foreach ((VariableMessage vm, IMessage sm) in Forward.Concat(Backward))
+        {
+            if (stateVariables.ContainsKey(vm))
+            {
+                stateVariables[vm] = sm;
+            }
+        }
+        return stateVariables;
+    }
+
     #endregion
 
 }

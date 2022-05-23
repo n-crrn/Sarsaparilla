@@ -141,6 +141,77 @@ process
         await DoTest(piSource, false, true);
     }
 
+    [TestMethod]
+    public async Task LetTest()
+    {
+        string piSource =
+@"free publicChannel: channel.
+free value1: bitstring [private].
+free value2: bitstring [private].
+
+fun h(bitstring): bitstring.
+
+query attacker(value1).
+
+process
+  new c: channel;
+  ( out(c, (value1, value2)) | 
+    ( in(c, v: bitstring); let (a: bitstring, b: bitstring) = v in out(publicChannel, a) ) ).
+";
+        await DoTest(piSource, false, true);
+    }
+
+    [TestMethod]
+    public async Task LoopTest()
+    {
+        // In this first example, there is a process that is capable of generating
+        // h(h(value)) but it must be run at least twice to do so. This is a test
+        // of a channel being made public from its inner scope.
+        string piSource1 =
+@"free publicChannel: channel.
+free value: bitstring.
+const holder: bitstring.
+
+fun h(bitstring): bitstring [private].
+
+query attacker(h(h(value))).
+
+process
+  ( in(publicChannel, aChannel: channel) ) (* Read anything from public channel. *)
+  | (! ( new c: channel;
+         out(publicChannel, c);
+         ( in(c, inRead: bitstring);
+           out(c, h(inRead)) )
+         | ( out(c, holder);
+             in(c, v: bitstring) ) ) ).
+";
+        await DoTest(piSource1, false, true);
+
+        // FIXME: Get the test below working.
+
+        // In this second example, the channel is again made public but the process
+        // can only run once. Therefore, h(h(value)) cannot be generated.
+        string piSource2 =
+@"free pubC: channel.
+free value: bitstring.
+const holder: bitstring.
+
+fun h(bitstring): bitstring [private].
+
+query attacker(h(h(value))).
+
+process
+  ( in(pubC, aChannel: channel) ) (* Read anything from public channel. *)
+  | ( new c: channel;
+      out(pubC, c);
+      ( in(c, inRead: bitstring);
+        out(c, h(inRead)) )
+      | ( out(c, holder);
+          in(c, v: bitstring) ) ).
+";
+        await DoTest(piSource2, false, false);
+    }
+
     /// <summary>
     /// Conducts a full integration test, where source code is used to construct a Network to
     /// conduct a query upon. This is a public method as some other groups of tests
@@ -170,7 +241,7 @@ process
 
             foreach (QueryEngine qe in t.QueryEngines())
             {
-                await qe.Execute(null, onGlobalAttackFound, onAttackAssessedFound, null);
+                await qe.Execute(null, onGlobalAttackFound, onAttackAssessedFound, null, t.RecommendedDepth);
 
                 if (globalAttackFound && nessionAttackFound)
                 {

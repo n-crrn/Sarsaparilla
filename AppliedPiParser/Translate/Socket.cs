@@ -27,6 +27,8 @@ public abstract class Socket
 
     public SocketDirection Direction { get; init; }
 
+    public Event KnowEvent => Event.Know(new NameMessage(ChannelName));
+
     public abstract Snapshot RegisterHistory(RuleFactory factory, int interactions);
 
     #region Standard socket states.

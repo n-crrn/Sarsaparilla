@@ -70,6 +70,8 @@ public class InfiniteCrossLink : IMutateRule
         return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateConsistentRule(Result));
     }
 
+    public int RecommendedDepth => 0;
+
     #endregion
     #region Basic object overrides.
 

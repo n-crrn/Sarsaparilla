@@ -54,6 +54,8 @@ public class ShutSocketsRule : IMutateRule
             PriorInteractions.ToHashSet().SetEquals(ssr.PriorInteractions.ToHashSet());
     }
 
+    public int RecommendedDepth => 1;
+
     public override int GetHashCode() => PriorInteractions.Count; // Only semi-efficient way to do it.
 
     #endregion

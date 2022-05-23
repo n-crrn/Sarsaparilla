@@ -45,6 +45,8 @@ public class ReadResetRule : IMutateRule
         return factory.CreateStateTransferringRule();
     }
 
+    public int RecommendedDepth => 0; // The reset is counted as part of the initial read.
+
     #endregion
     #region Basic object overrides.
 

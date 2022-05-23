@@ -354,7 +354,6 @@ public class Nession
             StateConsistentRule updatedRule = (StateConsistentRule)r.PerformSubstitution(fwdMap);
             updatedRule.IdTag = scr.IdTag;
             if (bwdMap.IsEmpty)
-            //if (fwdMap.IsEmpty)
             {
                 Frame historyFrame = History[^1];
                 historyFrame.Rules.Add(updatedRule);
@@ -499,6 +498,22 @@ public class Nession
             }
             rank++;
         }
+    }
+
+    /// <summary>
+    /// Returns the variables that are fundamentally part of the state transition system.
+    /// </summary>
+    public HashSet<IMessage> FindStateVariables()
+    {
+        HashSet<IMessage> varSet = new();
+        foreach (Frame f in History)
+        {
+            foreach (State s in f.StateSet)
+            {
+                varSet.UnionWith(s.Variables);
+            }
+        }
+        return varSet;
     }
 
     #endregion

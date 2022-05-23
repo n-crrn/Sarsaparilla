@@ -6,11 +6,12 @@ namespace AppliedPi.Translate.MutateRules;
 
 public class InfiniteWriteRule : IMutateRule
 {
-    public InfiniteWriteRule(WriteSocket s, HashSet<Event> premises, IMessage value)
+    public InfiniteWriteRule(WriteSocket s, HashSet<Event> premises, IMessage value, bool reqKnowPremise)
     {
         Socket = s;
         Premises = new(premises); // Copy, so additional premises are not added.
         ValueToWrite = value;
+        RequireKnowSocketPremise = reqKnowPremise;
     }
 
     public WriteSocket Socket { get; init; }
@@ -18,6 +19,8 @@ public class InfiniteWriteRule : IMutateRule
     public HashSet<Event> Premises { get; init; }
 
     public IMessage ValueToWrite { get; init; }
+
+    public bool RequireKnowSocketPremise { get; init; }
 
     #region IMutateRule implementation.
 
@@ -29,10 +32,16 @@ public class InfiniteWriteRule : IMutateRule
     {
         Snapshot latest = factory.RegisterState(Socket.AnyState());
         factory.RegisterPremises(latest, Premises);
+        if (RequireKnowSocketPremise)
+        {
+            factory.RegisterPremises(latest, Socket.KnowEvent);
+        }
         latest.TransfersTo = Socket.WriteState(ValueToWrite);
         factory.GuardStatements = Conditions?.CreateGuard();
         return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateTransferringRule());
     }
+
+    public int RecommendedDepth => 2;
 
     #endregion
     #region Basic object override.

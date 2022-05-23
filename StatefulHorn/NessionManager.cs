@@ -66,7 +66,6 @@ public class NessionManager
         }
 
         int numberOfSubElaborations = maxDepth == -1 ? TransferringRules.Count + SystemRules.Count : maxDepth;
-        //const int numberOfSubElaborations = 4;
 
         Nession initSeed = new(InitialConditions);
 

@@ -31,7 +31,10 @@ public class FiniteReadRule : IMutateRule
 
     #region Static convenience methods.
 
-    public static IEnumerable<IMutateRule> GenerateRulesForReceivePattern(ReadSocket readSocket, int prevReads, List<(string, string)> rxPattern)
+    public static IEnumerable<IMutateRule> GenerateRulesForReceivePattern(
+        ReadSocket readSocket, 
+        int prevReads, 
+        List<(string, string)> rxPattern)
     {
         List<string> simplifiedRxPattern = new(from rx in rxPattern select rx.Item1);
         foreach (string varName in simplifiedRxPattern)
@@ -71,6 +74,8 @@ public class FiniteReadRule : IMutateRule
         Rule r = factory.CreateStateConsistentRule(VariableCellAsPremise(VariableName));
         return IfBranchConditions.ApplyReplacements(Conditions, r);
     }
+
+    public int RecommendedDepth => 2;
 
     #endregion
     #region Basic object overrides.

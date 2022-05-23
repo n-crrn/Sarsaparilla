@@ -103,7 +103,7 @@ process
             // Branch 5 (in(c, x: bitstring); out(c, f)) rules.
             new OpenReadSocketsRule(new List<Socket>() { cInfIn }, new List<Socket>() { f3Out }),
             new KnowChannelContentRule(cInfOut),
-            new InfiniteWriteRule(cInfOut, lastPremises, new NameMessage("f")),
+            new InfiniteWriteRule(cInfOut, lastPremises, new NameMessage("f"), false),
             new ReadResetRule(cInfIn),
             new InfiniteReadRule(cInfIn, "x"),
             new AttackChannelRule("x"),
@@ -204,7 +204,7 @@ process
 ";
 
         ReadSocket cIn = new("c", 1);
-        WriteSocket cOut = new("c", 1);
+        WriteSocket cOut = new("c", 2);
         HashSet<Socket> expectedSockets = new() { cIn, cOut };
 
         VariableMessage vMsg = new("v");
@@ -212,7 +212,6 @@ process
         FunctionMessage emptyXMsg = new("x@cell", new() { xMsg });
         FunctionMessage hashMsg = new("hash", new() { new NameMessage("s") });
         FunctionMessage filledXMsg = new("x@cell", new() { hashMsg });
-        //IfBranchConditions elseCond = new(new(), new(xMsg, emptyXMsg));
 
         FunctionMessage vCell = new("v@cell", new() { vMsg });
         HashSet<Event> letPremises = new() { Event.Know(vCell) };
@@ -224,11 +223,12 @@ process
             new OpenReadSocketsRule(cIn),
             new FiniteReadRule(cIn, 0, "v"),
             new AttackChannelRule("v"),
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { cIn, 1 } }),
             // let x: bitstring = hash(s) in...
-            new LetSetRule("x", letPremises, new List<Socket>(), IfBranchConditions.Empty, Event.Know(filledXMsg)),
+            new LetSetRule("x", letPremises, new List<Socket>() { cIn }, new List<Socket>() { cOut }, IfBranchConditions.Empty, Event.Know(filledXMsg)),
             new KnowChannelContentRule(cOut),
-            new FiniteWriteRule(cOut, new Dictionary<Socket, int>() { {cOut, 0}, { cIn, 1 } }, outPremises, xMsg),
-            new ShutSocketsRule(new Dictionary<Socket, int>() { { cOut, 1 }, { cIn, 1 } })
+            new FiniteWriteRule(cOut, new Dictionary<Socket, int>() { {cOut, 0} }, outPremises, xMsg),
+            new ShutSocketsRule(new Dictionary<Socket, int>() { { cOut, 1 } })
         };
         DoMutateTest(testSource, expectedSockets, expectedMutations);
     }

@@ -55,6 +55,8 @@ public class FiniteWriteRule : IMutateRule
         return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateTransferringRule());
     }
 
+    public int RecommendedDepth => 2;
+
     #endregion
     #region Basic object override.
 

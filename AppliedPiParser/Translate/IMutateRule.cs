@@ -11,4 +11,6 @@ public interface IMutateRule
 
     public Rule GenerateRule(RuleFactory factory);
 
+    public int RecommendedDepth { get; }
+
 }

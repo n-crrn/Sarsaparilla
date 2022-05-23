@@ -23,12 +23,14 @@ public class LetValueSetFactory
         ResolvedNetwork rn, 
         Network nw, 
         IEnumerable<Socket> previousSockets, 
+        IEnumerable<Socket> nextSockets,
         HashSet<StatefulHorn.Event> premises)
     {
         Let = lp;
         ResolvedNetwork = rn;
         Network = nw;
         PreviousSockets = new List<Socket>(previousSockets);
+        NextSockets = new List<Socket>(nextSockets);
         Premises = new HashSet<StatefulHorn.Event>(premises);
     }
 
@@ -41,6 +43,8 @@ public class LetValueSetFactory
     public IReadOnlySet<StatefulHorn.Event> Premises { get; init; }
 
     public IReadOnlyList<Socket> PreviousSockets { get; init; }
+
+    public IReadOnlyList<Socket> NextSockets { get; init; }
 
     /// <summary>
     /// This is the specific premise, which can be used in the guarded branch of the let process.
@@ -118,6 +122,7 @@ public class LetValueSetFactory
                 uniqueDesig,
                 Premises,
                 PreviousSockets,
+                NextSockets,
                 IfBranchConditions.Empty,
                 StatefulHorn.Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })));
         }

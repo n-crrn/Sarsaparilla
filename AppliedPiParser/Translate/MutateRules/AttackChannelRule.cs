@@ -37,6 +37,8 @@ public class AttackChannelRule : IMutateRule
         return IfBranchConditions.ApplyReplacements(Conditions, r);
     }
 
+    public int RecommendedDepth => 0;
+
     #endregion
     #region Basic object overrides.
 

@@ -43,6 +43,8 @@ public class OpenReadSocketsRule : IMutateRule
         return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateTransferringRule());
     }
 
+    public int RecommendedDepth => 1;
+
     #endregion
     #region Basic object overrides.
 

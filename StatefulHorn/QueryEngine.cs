@@ -10,7 +10,10 @@ namespace StatefulHorn;
 
 public class QueryEngine
 {
-    public QueryEngine(IReadOnlySet<State> states, IMessage q, State? when, IEnumerable<Rule> userRules)
+    public QueryEngine(
+        IReadOnlySet<State> states, 
+        IMessage q, State? when, 
+        IEnumerable<Rule> userRules)
         : this(states, new List<IMessage>() { q }, when, userRules)
     { }
 
@@ -105,7 +108,8 @@ public class QueryEngine
         Action? onStartNextLevel,
         Action<Attack>? onGlobalAttackFound,
         Action<Nession, HashSet<HornClause>, Attack?>? onAttackAssessed,
-        Action? onCompletion)
+        Action? onCompletion,
+        int maxDepth = -1)
     {
         if (CancelQuery)
         {
@@ -129,7 +133,7 @@ public class QueryEngine
         (List<HornClause> basic, List<HornClause> comp) = SeparateBasicAndComp(elaboratedKnowledge);
         foreach (IMessage q in Queries)
         {
-            QueryResult globalQR = CheckQuery(q, BasicFacts, basic, comp, new(new(), new()), Guard.Empty);
+            QueryResult globalQR = CheckQuery(q, BasicFacts, basic, comp, new(new(), new()), Guard.Empty, new());
             if (globalQR.Found)
             {
                 Attack globalAttack = new(globalQR.Facts!, globalQR.Knowledge!);
@@ -141,7 +145,11 @@ public class QueryEngine
 
         // Check nessions for a attacks.
         CurrentNessionManager = new(StateSet, SystemRules.ToList(), TransferringRules.ToList());
-        int maxElab = When == null ? -1 : (SystemRules.Count + TransferringRules.Count) * 2;
+        int maxElab = maxDepth;
+        if (maxElab == -1)
+        {
+            maxElab = When == null ? -1 : (SystemRules.Count + TransferringRules.Count) * 2;
+        }
         await CurrentNessionManager.Elaborate((List<Nession> nextLevelNessions) =>
             {
                 onStartNextLevel?.Invoke();
@@ -180,7 +188,14 @@ public class QueryEngine
                         HashSet<HornClause> finNessionSet = ElaborateAndDetuple(fullNessionSet);
 
                         (List<HornClause> basic, List<HornClause> comp) = SeparateBasicAndComp(finNessionSet);
-                        QueryResult qr = CheckQuery(fullQuery, BasicFacts, basic, comp, new(new(), new()), Guard.Empty);
+                        QueryResult qr = CheckQuery(
+                            fullQuery, 
+                            BasicFacts, 
+                            basic, 
+                            comp, 
+                            new(new(), new()), 
+                            Guard.Empty, 
+                            StateVarsReplacementSpec(validN));
                         Attack? foundAttack = qr.Found ? new(qr.Facts!, qr.Knowledge!) : null;
                         onAttackAssessed?.Invoke(validN, fullNessionSet, foundAttack);
                         atLeastOneAttack |= foundAttack != null;
@@ -219,6 +234,17 @@ public class QueryEngine
             }
         }
         return (basic, comp);
+    }
+
+    private static Dictionary<IMessage, IMessage?> StateVarsReplacementSpec(Nession n)
+    {
+        HashSet<IMessage> stateVarsSet = n.FindStateVariables();
+        Dictionary<IMessage, IMessage?> result = new();
+        foreach (IMessage sv in stateVarsSet)
+        {
+            result[sv] = null;
+        }
+        return result;
     }
 
     private static HashSet<HornClause> ElaborateAndDetuple(HashSet<HornClause> fullRuleset)
@@ -312,6 +338,7 @@ public class QueryEngine
         List<HornClause> compRules,
         QueryStatus status,
         Guard guard,
+        Dictionary<IMessage, IMessage?> stateVarReplacements,
         int rank = int.MaxValue)
     {
         if (status.NowProving.Contains(queryToFind))
@@ -334,11 +361,11 @@ public class QueryEngine
         }
         else if (queryToFind is TupleMessage tMsg)
         {
-            qr = CheckTupleQuery(tMsg, basicFacts, basicRules, compRules, status, guard, rank);
+            qr = CheckTupleQuery(tMsg, basicFacts, basicRules, compRules, status, guard, stateVarReplacements, rank);
         }
         else if (queryToFind is FunctionMessage fMsg)
         {
-            qr = CheckFunctionQuery(fMsg, basicFacts, basicRules, compRules, status, guard, rank);
+            qr = CheckFunctionQuery(fMsg, basicFacts, basicRules, compRules, status, guard, stateVarReplacements, rank);
         }
         else if (queryToFind is NonceMessage nMsg)
         {
@@ -346,10 +373,24 @@ public class QueryEngine
         }
         else
         {
-            qr = CheckBasicQuery(queryToFind, basicFacts, basicRules, compRules, status, guard, rank);
+            qr = CheckBasicQuery(queryToFind, basicFacts, basicRules, compRules, status, guard, stateVarReplacements, rank);
         }
         status.NowProving.Remove(queryToFind);
         return qr;
+    }
+
+    private static Dictionary<IMessage, IMessage?> TransferStateReplacements(
+        Dictionary<IMessage, IMessage?> whole, 
+        Dictionary<IMessage, IMessage?> part)
+    {
+        foreach ((IMessage fromMsg, IMessage? toMsg) in part)
+        {
+            if (whole.ContainsKey(fromMsg))
+            {
+                whole[fromMsg] = toMsg;
+            }
+        }
+        return whole;
     }
 
     private QueryResult CheckBasicQuery(
@@ -359,6 +400,7 @@ public class QueryEngine
         List<HornClause> compRules,
         QueryStatus status, 
         Guard guard,
+        Dictionary<IMessage, IMessage?> stateRepl,
         int rank)
     {
         List<HornClause> candidates = new(from r in basicRules where queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank) select r);
@@ -369,8 +411,15 @@ public class QueryEngine
             List<QueryResult> qrParts = new();
             if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, guard, sf))
             {
+                if (sf.AnyContradictionsWithState(stateRepl))
+                {
+                    continue;
+                }
+
                 HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
                 Guard nextGuard = guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);
+                Dictionary<IMessage, IMessage?> updatedStateRepl = sf.UpdateStateReplacements(stateRepl);
+
                 bool found = true;
                 foreach (IMessage premise in updated.Premises)
                 {
@@ -379,7 +428,15 @@ public class QueryEngine
                         found = false;
                         break;
                     }
-                    QueryResult innerResult = CheckQuery(premise, facts, basicRules, compRules, status, nextGuard, RatchetRank(checkRule, rank));
+                    QueryResult innerResult = CheckQuery(
+                        premise, 
+                        facts, 
+                        basicRules, 
+                        compRules, 
+                        status, 
+                        nextGuard, 
+                        updatedStateRepl, 
+                        RatchetRank(checkRule, rank));
                     if (innerResult.Found)
                     {
                         qrParts.Add(innerResult);
@@ -392,6 +449,7 @@ public class QueryEngine
                 }
                 if (found)
                 {
+                    TransferStateReplacements(stateRepl, updatedStateRepl);
                     qrParts.Add(QueryResult.ResolvedKnowledge(queryToFind, updated));
                     return QueryResult.Compose(queryToFind, When, qrParts);
                 }
@@ -443,6 +501,7 @@ public class QueryEngine
         List<HornClause> compRules,
         QueryStatus status, 
         Guard guard,
+        Dictionary<IMessage, IMessage?> stateRepl,
         int rank)
     {
         List<HornClause> candidates = new(from r in compRules
@@ -455,12 +514,27 @@ public class QueryEngine
             List<QueryResult> qrParts = new();
             if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, guard, sf))
             {
+                if (sf.AnyContradictionsWithState(stateRepl))
+                {
+                    continue;
+                }
+
                 HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
                 Guard nextGuard = guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);
+                Dictionary<IMessage, IMessage?> updatedStateRepl = sf.UpdateStateReplacements(stateRepl);
+
                 bool found = true;
                 foreach (IMessage premise in updated.Premises)
                 {
-                    QueryResult qr = CheckQuery(premise, facts, basicRules, compRules, status, nextGuard, RatchetRank(checkRule, rank));
+                    QueryResult qr = CheckQuery(
+                        premise, 
+                        facts, 
+                        basicRules, 
+                        compRules, 
+                        status, 
+                        nextGuard, 
+                        updatedStateRepl, 
+                        RatchetRank(checkRule, rank));
                     if (!qr.Found)
                     {
                         found = false;
@@ -485,13 +559,14 @@ public class QueryEngine
         List<HornClause> compRules,
         QueryStatus status, 
         Guard guard,
+        Dictionary<IMessage, IMessage?> stateRepl,
         int rank)
     {
         // Note that the rules have been detupled, so each element will need to be followed up individually.
         List<QueryResult> qrParts = new();
         foreach (IMessage part in queryToFind.Members)
         {
-            QueryResult qr = CheckQuery(part, facts, basicRules, compRules, status, guard, rank);
+            QueryResult qr = CheckQuery(part, facts, basicRules, compRules, status, guard, stateRepl, rank);
             if (!qr.Found)
             {
                 return QueryResult.Failed(queryToFind, When);

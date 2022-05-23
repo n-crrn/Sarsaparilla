@@ -13,11 +13,12 @@ namespace AppliedPi.Translate;
 public class Translation
 {
 
-    private Translation(HashSet<State> initStates, HashSet<Rule> allRules, IReadOnlySet<IMessage> queries)
+    private Translation(HashSet<State> initStates, HashSet<Rule> allRules, IReadOnlySet<IMessage> queries, int depth)
     {
         InitialStates = initStates;
         Rules = allRules;
         Queries = queries;
+        RecommendedDepth = depth;
     }
 
     public IReadOnlySet<State> InitialStates { get; init; }
@@ -33,6 +34,8 @@ public class Translation
             yield return new QueryEngine(InitialStates, queryMsg, null, Rules);
         }
     }
+
+    public int RecommendedDepth { get; init; }
 
     private static Rule TranslateConstructor(Constructor ctr, RuleFactory factory)
     {
@@ -75,7 +78,10 @@ public class Translation
         // Transfer the rules for constructors.
         foreach ((string _, Constructor ctr) in nw.Constructors)
         {
-            allRules.Add(TranslateConstructor(ctr, factory));
+            if (!ctr.DeclaredPrivate)
+            {
+                allRules.Add(TranslateConstructor(ctr, factory));
+            }
         }
 
         // Transfer the rules for destructors.
@@ -105,13 +111,15 @@ public class Translation
         (HashSet<Socket> allSockets, List<IMutateRule> allMutateRules) = GenerateMutateRules(rn, nw);
         HashSet<State> initStates = new(from s in allSockets select s.InitialState());
 
+        int recommendedDepth = 0;
         foreach (IMutateRule r in allMutateRules)
         {
             factory.SetNextLabel(r.Label);
             allRules.Add(r.GenerateRule(factory));
+            recommendedDepth += r.RecommendedDepth;
         }
 
-        return new(initStates, allRules, rn.Queries);
+        return new(initStates, allRules, rn.Queries, recommendedDepth);
     }
 
     public static (HashSet<Socket>, List<IMutateRule>) GenerateMutateRules(ResolvedNetwork rn, Network nw)
@@ -128,7 +136,7 @@ public class Translation
         ProcessTree procTree = new(rn);
         int branchCounter = 0;
         BranchSummary rootSummary = PreProcessBranch(procTree.StartNode, new(), cellsInUse, ref branchCounter);
-        List<IMutateRule> allMutateRules = new(ProcessBranch(procTree.StartNode, rootSummary, new(), new(), new(), new(), new(), rn, nw));
+        List<IMutateRule> allMutateRules = new(ProcessBranch(procTree.StartNode, rootSummary, new(), new(), new(), new(), new(), false, new(), rn, nw));
         return (rootSummary.AllSockets(), allMutateRules);
     }
 
@@ -170,7 +178,7 @@ public class Translation
         socketSetCounter++;
         (readers, writers) = GetSocketsRequiredForBranch(n, infiniteChannels, socketSetCounter);
 
-        while (n.Branches.Count == 1 && n.Process is not ReplicateProcess)
+        while (n.Branches.Count == 1 && n.Process is not ReplicateProcess && n.Process is not LetProcess)
         {
             if (n.Process is NewProcess np && np.PiType == "channel")
             {
@@ -231,7 +239,7 @@ public class Translation
         Dictionary<Term, WriteSocket> writers = new();
 
         ProcessTree.Node? next = n;
-        while (next != null && next.Process is not ReplicateProcess)
+        while (next != null && next.Process is not ReplicateProcess && next.Process is not LetProcess)
         {
             if (next.Process is InChannelProcess icp)
             {
@@ -280,6 +288,8 @@ public class Translation
         Dictionary<Socket, int> interactionCount,
         IfBranchConditions conditions,
         HashSet<StatefulHorn.Event> premises,
+        bool replicated,
+        Dictionary<string, int> leakedSockets,
         ResolvedNetwork rn,
         Network nw)
     {
@@ -331,84 +341,95 @@ public class Translation
         int branchId = n.BranchId;
         while (branchId == n.BranchId)
         {
-            switch (n.Process)
+            if (n.Process is InChannelProcess icp)
             {
-                case InChannelProcess icp:
-                    Term inChannelTerm = new(icp.Channel);
-                    ReadSocket reader = summary.Readers[inChannelTerm];
-                    if (reader.IsInfinite)
+                Term inChannelTerm = new(icp.Channel);
+                ReadSocket reader = summary.Readers[inChannelTerm];
+                if (reader.IsInfinite)
+                {
+                    rules.Add(new ReadResetRule(reader)
                     {
-                        rules.Add(new ReadResetRule(reader)
+                        Conditions = conditions
+                    });
+                    foreach (IMutateRule imr in InfiniteReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
+                    {
+                        imr.Conditions = conditions;
+                        rules.Add(imr);
+                    }
+                }
+                else
+                {
+                    int rc = interactionCount[reader];
+                    if (rc > 0)
+                    {
+                        rules.Add(new ReadResetRule(reader, rc)
                         {
                             Conditions = conditions
                         });
-                        foreach (IMutateRule imr in InfiniteReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
-                        {
-                            imr.Conditions = conditions;
-                            rules.Add(imr);
-                        }
                     }
-                    else
+                    foreach (IMutateRule mr in FiniteReadRule.GenerateRulesForReceivePattern(reader, rc, icp.ReceivePattern))
                     {
-                        int rc = interactionCount[reader];
-                        if (rc > 0)
-                        {
-                            rules.Add(new ReadResetRule(reader, rc)
-                            { 
-                                Conditions = conditions
-                            });
-                        }
-                        foreach (IMutateRule mr in FiniteReadRule.GenerateRulesForReceivePattern(reader, rc, icp.ReceivePattern))
-                        {
-                            mr.Conditions = conditions;
-                            rules.Add(mr);
-                        }
-                        interactionCount[reader] = rc + 1;
+                        mr.Conditions = conditions;
+                        rules.Add(mr);
                     }
-                    rules.UnionWith(AttackChannelRule.GenerateRulesForReceivePattern(icp.ReceivePattern, conditions));
-                    
-                    foreach ((string varEntry, _) in icp.ReceivePattern)
-                    {
-                        premises.Add(FiniteReadRule.VariableCellAsPremise(varEntry));
-                    }
-                    break;
-                case OutChannelProcess ocp:
-                    Term outChannelTerm = new(ocp.Channel);
-                    WriteSocket writer = summary.Writers[outChannelTerm];
-                    IMessage resultMessage = rn.TermToMessage(ocp.SentTerm);
-                    // Infinite cross-links have to be done here as this is where the premises and
-                    // result are.
-                    if (writer.IsInfinite)
-                    {
-                        if (infReaders.TryGetValue(outChannelTerm, out ReadSocket? rxSocket))
-                        {
-                            // For every matching receive pattern, add an infinite cross link.
-                            IEnumerable<IMutateRule> iclRules = InfiniteCrossLink.GenerateRulesForReadReceivePatterns(writer, rxSocket, premises, resultMessage);
-                            foreach (IMutateRule rxPatternRule in iclRules)
-                            {
-                                rxPatternRule.Conditions = conditions;
-                                rules.Add(rxPatternRule);
-                            }
-                        }
-                        if (finReaders.TryGetValue(outChannelTerm, out List<ReadSocket>? rxSocketList) && rxSocketList!.Count > 0)
-                        {
-                            rules.Add(new InfiniteWriteRule(writer, premises, resultMessage)
-                            {
-                                Conditions = conditions
-                            });
-                        }
-                    }
-                    else
-                    {
-                        int wc = interactionCount[writer];
-                        rules.Add(new FiniteWriteRule(writer, interactionCount, premises, resultMessage)
-                        {
-                            Conditions = conditions
-                        });
-                        interactionCount[writer] = wc + 1;
-                    }
-                    break;
+                    interactionCount[reader] = rc + 1;
+                }
+                rules.UnionWith(AttackChannelRule.GenerateRulesForReceivePattern(icp.ReceivePattern, conditions));
+
+                foreach ((string varEntry, _) in icp.ReceivePattern)
+                {
+                    premises.Add(FiniteReadRule.VariableCellAsPremise(varEntry));
+                }
             }
+            else if (n.Process is OutChannelProcess ocp)
+            {
+                Term outChannelTerm = new(ocp.Channel);
+                WriteSocket writer = summary.Writers[outChannelTerm];
+                IMessage resultMessage = rn.TermToMessage(ocp.SentTerm);
+
+                if (replicated && rn.CheckTermType(ocp.SentTerm, PiType.Channel) && n.Branches.Count > 0)
+                {
+                    IMessage sendMessage = new NameMessage(GetNextSentSocketMarker(ocp.SentTerm.ToString(), leakedSockets));
+                    HashSet<StatefulHorn.Event> sendPremises = new(premises) { StatefulHorn.Event.Know(sendMessage) };
+                    ProVerifTranslate(ocp.SentTerm.ToString(), n.Branches[0], sendPremises, rules, rn, nw);
+
+                    resultMessage = sendMessage;
+                }
+
+                // Infinite cross-links have to be done here as this is where the premises and
+                // result are.
+                if (writer.IsInfinite)
+                {
+                    if (infReaders.TryGetValue(outChannelTerm, out ReadSocket? rxSocket))
+                    {
+                        // For every matching receive pattern, add an infinite cross link.
+                        IEnumerable<IMutateRule> iclRules =
+                            InfiniteCrossLink.GenerateRulesForReadReceivePatterns(writer, rxSocket, premises, resultMessage);
+                        foreach (IMutateRule rxPatternRule in iclRules)
+                        {
+                            rxPatternRule.Conditions = conditions;
+                            rules.Add(rxPatternRule);
+                        }
+                    }
+                    if (finReaders.TryGetValue(outChannelTerm, out List<ReadSocket>? rxSocketList) && rxSocketList!.Count > 0)
+                    {
+                        rules.Add(new InfiniteWriteRule(writer, premises, resultMessage, false)
+                        {
+                            Conditions = conditions
+                        });
+                    }
+                }
+                else
+                {
+                    int wc = interactionCount[writer];
+                    rules.Add(new FiniteWriteRule(writer, interactionCount, premises, resultMessage)
+                    {
+                        Conditions = conditions
+                    });
+                    interactionCount[writer] = wc + 1;
+                }
+            }
+
             if (n.Branches.Count == 0 || n.IsTerminating)
             {
                 break;
@@ -459,7 +480,7 @@ public class Translation
         }
 
         // Collect and shut down the finite sockets if shutdown is required.
-        if (!oneBranchOnly || n.Process is ReplicateProcess)
+        if (!oneBranchOnly || n.Process is ReplicateProcess || n.Process is LetProcess)
         {
             thisBranchSockets.AddRange(from rs in summary.Readers.Values where !rs.IsInfinite select rs);
             thisBranchSockets.AddRange(from ws in summary.Writers.Values where !ws.IsInfinite select ws);
@@ -489,6 +510,8 @@ public class Translation
                     oneBranchOnly ? interactionCount : new(),
                     updatedIfConditions,
                     new(premises),
+                    replicated,
+                    leakedSockets,
                     rn,
                     nw);
                 rules.UnionWith(ifChildRules);
@@ -509,6 +532,8 @@ public class Translation
                         new(),
                         updatedElseConditions,
                         new(premises),
+                        replicated,
+                        leakedSockets,
                         rn,
                         nw);
                     rules.UnionWith(elseChildRules);
@@ -517,7 +542,7 @@ public class Translation
         }
         else if (n.Process is LetProcess lp)
         {
-            LetValueSetFactory lvsFactory = new(lp, rn, nw, thisBranchSockets, premises);
+            LetValueSetFactory lvsFactory = new(lp, rn, nw, thisBranchSockets, summary.Children[GuardedBranchOffset].AllSockets(), premises);
 
             // Generate the rules that actually set a value given a set of conditions.
             rules.UnionWith(lvsFactory.GenerateSetRules());
@@ -529,12 +554,14 @@ public class Translation
             // Alter the premise for the guarded branch.
             IEnumerable<IMutateRule> guardedRules = ProcessBranch(
                 n.Branches[GuardedBranchOffset],
-                oneBranchOnly ? summary : summary.Children[GuardedBranchOffset],
+                summary.Children[GuardedBranchOffset],
                 childParallelLists[GuardedBranchOffset],
                 thisBranchSockets,
-                oneBranchOnly ? interactionCount : new(),
+                new(),
                 conditions,
                 guardedPremises,
+                replicated,
+                leakedSockets,
                 rn,
                 nw);
             rules.UnionWith(guardedRules);
@@ -555,6 +582,8 @@ public class Translation
                     new(),
                     updatedConds,
                     elsePremises,
+                    replicated,
+                    leakedSockets,
                     rn,
                     nw);
                 rules.UnionWith(elseRules);
@@ -572,7 +601,9 @@ public class Translation
                     thisBranchSockets, 
                     new(),
                     conditions, 
-                    new(premises), 
+                    new(premises),
+                    n.Process is ReplicateProcess,
+                    leakedSockets,
                     rn, 
                     nw);
                 rules.UnionWith(childRules);
@@ -581,7 +612,8 @@ public class Translation
         return rules;
     }
 
-    private static (Dictionary<Term, ReadSocket>, Dictionary<Term, List<ReadSocket>>) SplitInfiniteReaders(List<BranchSummary> summaries)
+    private static (Dictionary<Term, ReadSocket>, Dictionary<Term, List<ReadSocket>>) SplitInfiniteReaders(
+        List<BranchSummary> summaries)
     {
         Dictionary<Term, ReadSocket> infReaders = new();
         Dictionary<Term, List<ReadSocket>> finReaders = new();
@@ -610,6 +642,110 @@ public class Translation
             }
         }
         return (infReaders, finReaders);
+    }
+
+    private static string GetNextSentSocketMarker(string channel, Dictionary<string, int> sentSockets)
+    {
+        sentSockets.TryGetValue(channel, out int sentCount);
+        string marker = $"@{channel}@{sentCount}";
+        sentSockets[channel] = 1;
+        return marker;
+    }
+
+    private static void ProVerifTranslate(
+        string sentChannel,
+        ProcessTree.Node n,
+        HashSet<StatefulHorn.Event> premises,
+        HashSet<IMutateRule> allRules,
+        ResolvedNetwork rn,
+        Network nw)
+    {
+        switch (n.Process)
+        {
+            case InChannelProcess icp:
+                foreach ((string varEntry, _) in icp.ReceivePattern)
+                {
+                    //premises.Add(FiniteReadRule.VariableCellAsPremise(varEntry));
+                    // No need for read-cell tag.
+                    premises.Add(StatefulHorn.Event.Know(new VariableMessage(varEntry)));
+                }
+                if (n.Branches.Count > 0)
+                {
+                    ProVerifTranslate(sentChannel, n.Branches[0], premises, allRules, rn, nw);
+                }
+                break;
+            case OutChannelProcess ocp:
+                if (ocp.Channel == sentChannel)
+                {
+                    allRules.Add(new BasicRule(premises, rn.TermToMessage(ocp.SentTerm)));
+                }
+                if (n.Branches.Count > 0)
+                {
+                    ProVerifTranslate(sentChannel, n.Branches[0], premises, allRules, rn, nw);
+                }
+                break;
+            case IfProcess ifp:
+                BranchRestrictionSet brs = BranchRestrictionSet.From(ifp.Comparison, rn, nw);
+                foreach (IfBranchConditions ic in brs.IfConditions)
+                {
+                    // FIXME: This is inefficient, cloning the rules would be quicker.
+                    HashSet<IMutateRule> ifBranchRules = new();
+                    ProVerifTranslate(sentChannel, n.Branches[0], premises, ifBranchRules, rn, nw);
+                    AddConditions(allRules, ic, ifBranchRules);
+                }
+                if (n.Branches.Count > 1)
+                {
+                    foreach (IfBranchConditions elseCond in brs.ElseConditions)
+                    {
+                        // FIXME: This is inefficient, cloning the rules would be quicker.
+                        HashSet<IMutateRule> elseRules = new();
+                        ProVerifTranslate(sentChannel, n.Branches[1], premises, elseRules, rn, nw);
+                        AddConditions(allRules, elseCond, elseRules);
+                    }
+                }
+                break;
+            case LetProcess lp:
+                LetValueSetFactory lvsFactory = new(lp, rn, nw, Enumerable.Empty<Socket>(), Enumerable.Empty<Socket>(), premises);
+                allRules.UnionWith(lvsFactory.GenerateSetRules());
+                HashSet<StatefulHorn.Event> guardedPremises = new(premises)
+                {
+                    StatefulHorn.Event.Know(lvsFactory.StoragePremiseMessage)
+                };
+                HashSet<IMutateRule> letGuardRules = new();
+                ProVerifTranslate(sentChannel, n.Branches[0], guardedPremises, letGuardRules, rn, nw);
+                allRules.UnionWith(letGuardRules);
+
+                if (n.Branches.Count > 1)
+                {
+                    IfBranchConditions elseConds = new(new(), new(lvsFactory.Variable, lvsFactory.StoragePremiseMessage));
+                    HashSet<StatefulHorn.Event> elsePremises = new(premises)
+                    {
+                        StatefulHorn.Event.Know(lvsFactory.EmptyStoragePremiseMessage)
+                    };
+                    HashSet<IMutateRule> letElseRules = new();
+                    ProVerifTranslate(sentChannel, n.Branches[1], elsePremises, letElseRules, rn, nw);
+                    AddConditions(allRules, elseConds, letElseRules);
+                }
+                break;
+            case ParallelCompositionProcess:
+                foreach (ProcessTree.Node b in n.Branches)
+                {
+                    ProVerifTranslate(sentChannel, b, new(premises), allRules, rn, nw);
+                }
+                break;
+            case ReplicateProcess:
+                ProVerifTranslate(sentChannel, n.Branches[0], premises, allRules, rn, nw);
+                break;
+        }
+    }
+
+    private static void AddConditions(HashSet<IMutateRule> newRules, IfBranchConditions cond, HashSet<IMutateRule> smallSet)
+    {
+        foreach (IMutateRule mr in smallSet)
+        {
+            mr.Conditions = mr.Conditions.And(cond);
+            newRules.Add(mr);
+        }
     }
 
 }

@@ -15,12 +15,21 @@ public class LetSetRule : IMutateRule
         string desig, 
         IEnumerable<StatefulHorn.Event> premises, 
         IEnumerable<Socket> shutSockets, 
+        IEnumerable<Socket> initSockets,
         IfBranchConditions triggerConditions, 
         StatefulHorn.Event setKnow)
     {
         Designation = desig;
         Premises = new HashSet<StatefulHorn.Event>(premises);
-        ShutSockets = new HashSet<Socket>(shutSockets);
+        SocketStates = new List<State>();
+        foreach (Socket s in shutSockets)
+        {
+            SocketStates.Add(s.ShutState());
+        }
+        foreach (Socket s in initSockets)
+        {
+            SocketStates.Add(s.InitialState());
+        }
         TriggerConditions = triggerConditions;
         SetKnow = setKnow;
     }
@@ -29,7 +38,7 @@ public class LetSetRule : IMutateRule
 
     public IReadOnlySet<StatefulHorn.Event> Premises { get; init; }
 
-    public IReadOnlySet<Socket> ShutSockets { get; init; }
+    public List<State> SocketStates { get; init; }
 
     public IfBranchConditions TriggerConditions { get; init; }
 
@@ -44,15 +53,15 @@ public class LetSetRule : IMutateRule
     public Rule GenerateRule(RuleFactory factory)
     {
         // Attach premises to the first state - though any state would be fine.
-        IEnumerator<Socket> sIter = ShutSockets.GetEnumerator();
+        IEnumerator<State> sIter = SocketStates.GetEnumerator();
         if (sIter.MoveNext())
         {
-            Socket firstSocket = sIter.Current;
-            Snapshot ss = factory.RegisterState(firstSocket.ShutState());
+            State firstSocket = sIter.Current;
+            Snapshot ss = factory.RegisterState(firstSocket);
             factory.RegisterPremises(ss, Premises);
             while (sIter.MoveNext())
             {
-                factory.RegisterState(sIter.Current.ShutState());
+                factory.RegisterState(sIter.Current);
             }
         }
         else
@@ -64,6 +73,8 @@ public class LetSetRule : IMutateRule
         return IfBranchConditions.ApplyReplacements(fullConditions, factory.CreateStateConsistentRule(SetKnow));
     }
 
+    public int RecommendedDepth => 0;
+
     #endregion
     #region Basic object override.
 
@@ -74,7 +85,7 @@ public class LetSetRule : IMutateRule
         return obj is LetSetRule r &&
             Designation.Equals(r.Designation) &&
             Premises.SetEquals(r.Premises) &&
-            ShutSockets.SetEquals(r.ShutSockets) &&
+            SocketStates.ToHashSet().SetEquals(r.SocketStates) &&
             TriggerConditions.Equals(r.TriggerConditions) &&
             SetKnow.Equals(r.SetKnow) &&
             Conditions.Equals(r.Conditions);
