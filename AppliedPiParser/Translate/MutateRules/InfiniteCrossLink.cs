@@ -65,6 +65,7 @@ public class InfiniteCrossLink : IMutateRule
     {
         Snapshot fromWait = factory.RegisterState(From.WaitingState());
         factory.RegisterPremises(fromWait, Premises);
+        factory.RegisterState(From.WaitingState());
         factory.RegisterState(To.WaitingState());
         factory.GuardStatements = Conditions?.CreateGuard();
         return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateConsistentRule(Result));

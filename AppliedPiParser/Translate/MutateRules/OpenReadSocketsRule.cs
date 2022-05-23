@@ -5,14 +5,14 @@ using StatefulHorn;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class OpenReadSocketsRule : IMutateRule
+public class OpenSocketsRule : IMutateRule
 {
 
-    public OpenReadSocketsRule(Socket open)
+    public OpenSocketsRule(Socket open)
       : this(new List<Socket>() { open }, new List<Socket>())
     { }
 
-    public OpenReadSocketsRule(IEnumerable<Socket> open, IEnumerable<Socket> shut)
+    public OpenSocketsRule(IEnumerable<Socket> open, IEnumerable<Socket> shut)
     {
         SocketsRequiredOpen = open.ToHashSet();
         SocketsRequiredShut = shut.ToHashSet();
@@ -52,7 +52,7 @@ public class OpenReadSocketsRule : IMutateRule
 
     public override bool Equals(object? obj)
     {
-        return obj is OpenReadSocketsRule r &&
+        return obj is OpenSocketsRule r &&
             SocketsRequiredOpen.SetEquals(r.SocketsRequiredOpen) &&
             SocketsRequiredShut.SetEquals(r.SocketsRequiredShut);
     }

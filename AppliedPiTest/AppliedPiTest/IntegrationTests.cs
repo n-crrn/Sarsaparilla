@@ -168,7 +168,7 @@ process
         // h(h(value)) but it must be run at least twice to do so. This is a test
         // of a channel being made public from its inner scope.
         string piSource1 =
-@"free publicChannel: channel.
+@"free pubC: channel.
 free value: bitstring.
 const holder: bitstring.
 
@@ -177,17 +177,15 @@ fun h(bitstring): bitstring [private].
 query attacker(h(h(value))).
 
 process
-  ( in(publicChannel, aChannel: channel) ) (* Read anything from public channel. *)
+  ( in(pubC, aChannel: channel) ) (* Read anything from public channel. *)
   | (! ( new c: channel;
-         out(publicChannel, c);
+         out(pubC, c);
          ( in(c, inRead: bitstring);
            out(c, h(inRead)) )
          | ( out(c, holder);
              in(c, v: bitstring) ) ) ).
 ";
         await DoTest(piSource1, false, true);
-
-        // FIXME: Get the test below working.
 
         // In this second example, the channel is again made public but the process
         // can only run once. Therefore, h(h(value)) cannot be generated.
@@ -210,7 +208,27 @@ process
           in(c, v: bitstring) ) ).
 ";
         await DoTest(piSource2, false, false);
+
+        // In this final example, the channel is made public and the process is replicated.
+        // However, the magic transformation occurs in its concurrent process.
+        string piSource3 =
+@"free pubC: channel.
+free value: bitstring.
+const holder: bitstring.
+
+fun h(bitstring): bitstring [private].
+
+query attacker(h(h(value))).
+
+process
+  in(pubC, aChannel: channel) (* Read anything from public channel. *)
+  | !( new c: channel;
+       ( out(pubC, c); out(c, holder); in(c, v: bitstring) )
+       | ( in(c, inRead: bitstring); out(c, h(inRead)) ) )
+";
+        await DoTest(piSource3, false, true);
     }
+
 
     /// <summary>
     /// Conducts a full integration test, where source code is used to construct a Network to

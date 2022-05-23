@@ -33,13 +33,19 @@ public abstract class Socket
 
     #region Standard socket states.
 
-    public State AnyState() => new(ToString(), new VariableMessage("@Any"));
+    public State AnyState() => new(ToString(), AnyVariable);
 
-    public State InitialState() => new(ToString(), new NameMessage("@Initial"));
+    public static readonly VariableMessage AnyVariable = new("@Any");
+
+    public State InitialState() => new(ToString(), InitialMessage);
+
+    public static readonly NameMessage InitialMessage = new("@Initial");
 
     public State ReadState(IMessage readValue) => new(ToString(), new FunctionMessage("@Read", new() { readValue }));
 
-    public State WriteState(IMessage writtenValue) => new(ToString(), new FunctionMessage("@Write", new() { writtenValue }));
+    public State WriteState(IMessage writtenValue) => new(ToString(), WriteMessage(writtenValue));
+
+    public static IMessage WriteMessage(IMessage w) => new FunctionMessage("@Write", new() { w });
 
     public State WaitingState() => new(ToString(), new NameMessage("@Waiting"));
 
