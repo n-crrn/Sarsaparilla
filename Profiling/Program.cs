@@ -36,6 +36,7 @@ let(v: bitstring, possK: key) = rec in
       out(c, bad)
   ) )";*/
 
+/*
 string piSource =
 @"free c: channel.
 free d: channel [private].
@@ -45,6 +46,26 @@ query attacker(s).
 
 process
   out(d, s) | ( in(d, v: bitstring); out(c, d) ).
+";
+*/
+
+string piSource =
+@"free publicChannel: channel.
+free value: bitstring.
+const holder: bitstring.
+
+fun h(bitstring): bitstring [private].
+
+query attacker(h(h(value))).
+
+process
+  ( in(publicChannel, aChannel: channel) ) (* Read anything from public channel. *)
+  | (! ( new c: channel;
+         out(publicChannel, c);
+         ( in(c, inRead: bitstring);
+           out(c, h(inRead)) )
+         | ( out(c, holder);
+             in(c, v: bitstring) ) ) ).
 ";
 
 Network nw = Network.CreateFromCode(piSource);
