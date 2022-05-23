@@ -141,19 +141,35 @@
         get => _QEDisplay;
         set
         {
-            // Disconnection completed callback.
+            if (_QEDisplay != null)
+            {
+                _QEDisplay.OnQueryCompleted -= QueryFinished;
+            }
             if (value != null)
             {
                 _QEDisplay = value;
+                _QEDisplay.OnQueryCompleted += QueryFinished;
             }
-            // Reconnect completed callback.
         }
     }
 
     public bool QueryDisabled => Engine == null;
 
+    public bool QueryRunning { get; set; }
+
     private void Query()
     {
-        QEDisplay!.ExecuteQuery();
+        if (!QueryRunning)
+        {
+            QEDisplay!.ExecuteQuery();
+            QueryRunning = true;
+        }
+        else
+        {
+            QEDisplay!.CancelQuery();
+            QueryRunning = false;
+        }
     }
+
+    private void QueryFinished() => QueryRunning = false;
 }
