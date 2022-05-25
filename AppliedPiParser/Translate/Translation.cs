@@ -142,6 +142,16 @@ public class Translation
         return (rootSummary.AllSockets(), allMutateRules);
     }
 
+    /// <summary>
+    /// The output data structure of the first phase of the translation algorithm, which maps out
+    /// which channels are in use and how they are used within each branch of the model.
+    /// </summary>
+    /// <param name="Readers">Read sockets used within this particular branch.</param>
+    /// <param name="ReadersCumulative">
+    /// Read sockets used within this branch and its child branches.
+    /// </param>
+    /// <param name="Writers">Write used used within this particular branch.</param>
+    /// <param name="Children">Summaries of branches that follow this one.</param>
     private record BranchSummary(
         Dictionary<Term, ReadSocket> Readers,
         Dictionary<Term, List<ReadSocket>> ReadersCumulative, 
@@ -248,14 +258,7 @@ public class Translation
                 Term channelTerm = new(icp.Channel);
                 if (!readers.TryGetValue(channelTerm, out ReadSocket? newReadSocket))
                 {
-                    if (infiniteChannels.Contains(channelTerm))
-                    {
-                        newReadSocket = new(icp.Channel);
-                    }
-                    else
-                    {
-                        newReadSocket = new(icp.Channel, socketSetId);
-                    }
+                    newReadSocket = new(icp.Channel, infiniteChannels.Contains(channelTerm) ? Socket.Infinite : socketSetId);
                     readers[channelTerm] = newReadSocket;
                 }
                 newReadSocket.ReceivePatterns.Add(icp.ReceivePattern);
@@ -265,14 +268,7 @@ public class Translation
                 Term channelTerm = new(ocp.Channel);
                 if (!writers.ContainsKey(channelTerm))
                 {
-                    if (infiniteChannels.Contains(channelTerm))
-                    {
-                        writers[channelTerm] = new(ocp.Channel);
-                    }
-                    else
-                    {
-                        writers[channelTerm] = new(ocp.Channel, socketSetId);
-                    }
+                    writers[channelTerm] = new(ocp.Channel, infiniteChannels.Contains(channelTerm) ? Socket.Infinite : socketSetId);
                 }
             }
 
@@ -282,6 +278,55 @@ public class Translation
         return (readers, writers);
     }
 
+    /// <summary>
+    /// Every branch has a translation frame describing its context. Using this record makes it 
+    /// easier to modify context parameters as the process tree is recursively parsed.
+    /// </summary>
+    /// <param name="Node">The specific process being translated.</param>
+    /// <param name="Summary">The pre-processed summary of socket usage in the branch.</param>
+    /// <param name="ParallelBranches">
+    ///   A list of the pre-processed summaries of sockets used in branches that may be run
+    ///   concurrently to this process.</param>
+    /// <param name="PreviousSockets">
+    ///   Sockets from the previous branch that need to be shut before the sockets in this
+    ///   branch can be opened.
+    /// </param>
+    /// <param name="InteractionCount">
+    ///   A dictionary noting the number of times reading or writing has occurred on the
+    ///   currently open sockets. This is important for ensuring the correct sequencing of
+    ///   rule applications.
+    /// </param>
+    /// <param name="Conditions">
+    ///   The conditions imposed upon all translations of a branch by virtue of previous if
+    ///   or let processes.
+    /// </param>
+    /// <param name="Premises">
+    ///   The list of events that have been encountered so far during the translation.
+    /// </param>
+    /// <param name="Replicated">
+    ///   Is this branch this finite, or has it gone through a replication event.
+    /// </param>
+    /// <param name="LeakedSockets">
+    ///   Dictionary used to track the special socket identifiers that have been transmitted.
+    ///   This object should be shared between all TranslateFrames of a model.
+    /// </param>
+    /// <param name="PreviousControlSplit">
+    ///   The TranslateFrame that lead directly to this TranslateFrame. It is used when there
+    ///   is a need to fall back to the ProVerif translation.
+    /// </param>
+    /// <param name="WhichChild">
+    ///   From the perspective of the PreviousControlSplit, this is the index of this 
+    ///   TranslateFrame amongst its Node.Branches. Required for the conduct of the
+    ///   ProVerif-style translation.
+    /// </param>
+    /// <param name="Rn">
+    ///   The fully resolved network being translated. This parameter allows terms to be 
+    ///   interrogated. This object should be shared between all TranslateFrames of a model.
+    /// </param>
+    /// <param name="Nw">
+    ///   The original parsed Network. This is provided to allow comparisons to be properly
+    ///   translated. This object should be shared between all TranslateFrames of a model.
+    /// </param>
     private record TranslateFrame
     (
         ProcessTree.Node Node,

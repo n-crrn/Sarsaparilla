@@ -143,7 +143,7 @@ public class QueryEngine
             }
         }
 
-        // Check nessions for a attacks.
+        // Check nessions for attacks.
         CurrentNessionManager = new(StateSet, SystemRules.ToList(), TransferringRules.ToList());
         int maxElab = maxDepth;
         if (maxElab == -1)
