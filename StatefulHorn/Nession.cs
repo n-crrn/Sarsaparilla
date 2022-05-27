@@ -14,7 +14,9 @@ public class Nession
 {
     public Nession(IEnumerable<State> initStates)
     {
-        History.Add(new(new(), new(initStates), new(), null, null));
+        List<State> states = new(initStates);
+        states.Sort();
+        History.Add(new(new(), states, new(), null, null));
     }
 
     private Nession(Rule? initRule, IEnumerable<Frame> frames, int lastVNumber)
@@ -47,7 +49,7 @@ public class Nession
     public class Frame
     {
         public Frame(HashSet<Event> premises,
-                     HashSet<State> stateSet,
+                     List<State> stateSet,
                      HashSet<StateConsistentRule> rules,
                      StateTransferringRule? transferRule,
                      Guard? guard)
@@ -71,7 +73,7 @@ public class Nession
 
         public StateTransferringRule? TransferRule { get; internal set; }
 
-        public HashSet<State> StateSet { get; init; }
+        public List<State> StateSet { get; init; }
 
         public HashSet<StateConsistentRule> Rules { get; init; }
 
@@ -93,7 +95,7 @@ public class Nession
         {
             HashSet<Event> newPremises = new(from p in StateChangePremises select p.PerformSubstitution(map));
             HashSet<Event> newMakes = new(from m in StateChangeMakes select m.PerformSubstitution(map));
-            HashSet<State> newStateSet = new(from s in StateSet select new State(s.Name, s.Value.PerformSubstitution(map)));
+            List<State> newStateSet = new(from s in StateSet select new State(s.Name, s.Value.PerformSubstitution(map)));
             HashSet<StateConsistentRule> newRules = new();
             foreach (StateConsistentRule r in Rules)
             {
@@ -146,7 +148,7 @@ public class Nession
         {
             return obj is Frame f &&
                 f.StateChangePremises.SetEquals(StateChangePremises) &&
-                f.StateSet.SetEquals(StateSet) &&
+                f.StateSet.SequenceEqual(StateSet) &&
                 RulesToIds(Rules).SetEquals(RulesToIds(f.Rules));
         }
 
@@ -207,11 +209,11 @@ public class Nession
             bool canRemoveThis = bwdMap.IsEmpty;
             Nession updated = Substitute(bwdMap);
             StateTransferringRule updatedRule = (StateTransferringRule)r.PerformSubstitution(fwdMap);
-            HashSet<State> newStateSet = updated.CreateStateSetOnTransfer(updatedRule);
+            List<State> newStateSet = updated.CreateStateSetOnTransfer(updatedRule);
             Guard gs = updated.History[^1].GuardStatements.Union(updatedRule.GuardStatements);
             // It is possible to have duplicate states pop up in a trace, especially if you have
             // some sort of reset rule. This logic prevents it.
-            if (!(updated.History.Count > 0 && newStateSet.SetEquals(updated.History[^1].StateSet)))
+            if (!(updated.History.Count > 0 && newStateSet.SequenceEqual(updated.History[^1].StateSet)))
             {
                 Frame newFrame = new(new(updatedRule.Premises), newStateSet, new(), null, gs);
                 updated.History.Add(newFrame);
@@ -225,10 +227,10 @@ public class Nession
         return (null, false);
     }
 
-    private HashSet<State> CreateStateSetOnTransfer(StateTransferringRule r)
+    private List<State> CreateStateSetOnTransfer(StateTransferringRule r)
     {
         Frame lastFrame = History[^1];
-        HashSet<State> stateSet = new(lastFrame.StateSet);
+        List<State> stateSet = new(lastFrame.StateSet);
         StateTransformationSet transformSet = r.Result;
         foreach ((Snapshot after, State newState) in transformSet.Transformations)
         {
@@ -236,6 +238,7 @@ public class Nession
             Debug.Assert(wasRemoved);
             stateSet.Add(newState);
         }
+        stateSet.Sort();
         return stateSet;
     }
 
