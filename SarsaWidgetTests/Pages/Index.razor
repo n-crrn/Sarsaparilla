@@ -47,24 +47,10 @@
     <ClauseCompileDisplay Compiler=TestCompiler/>
 </section>
 
-<section>
-    <h2>Rule Set Display</h2>
-    <RuleSetDisplay Universe=TestUniverse/>
-</section>
-
-<section>
-    <h2>Rule Change Display</h2>
-    <RuleChangeSetDisplay Entries=ChangeEntries/>
-</section>
-
 @code {
     private Rule DemonstrationRule1;
 
     private List<Rule> DemoRules;
-
-    private List<Universe.ChangeLogEntry> ChangeEntries;
-
-    private Universe TestUniverse;
 
     private TestCompiler TestCompiler;
 
@@ -83,16 +69,7 @@
             parser.Parse("k(bob_l[]), k(bob_r[]) -[ ]-> l(<bob_l[], bob_r[]>)")
         };
 
-        TestUniverse = new Universe(DemoRules);
-
         Rule otherRule1 = parser.Parse("k(x), k(y), k(z) -[ ]-> k(enc(enc(x, y), z))");
-
-        ChangeEntries = new()
-        {
-            new(DemonstrationRule1, Universe.AddDecision.IsNew, null),
-            new(DemonstrationRule1, Universe.AddDecision.IsImplied, new() { otherRule1 }),
-            new(DemonstrationRule1, Universe.AddDecision.ImpliesAnother, new() { otherRule1 })
-        };
 
         TestCompiler = new TestCompiler();
     }
