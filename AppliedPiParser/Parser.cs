@@ -434,8 +434,6 @@ public class Parser
                     return TableStatement.CreateFromStatement(this);
                 case "type":
                     return TypeStatement.CreateFromStatement(this);
-                case "state":
-                    return StateStatement.CreateFromStatement(this);
                 case "query":
                     return QueryStatement.CreateFromStatement(this);
                 case "not": // Fallthrough...

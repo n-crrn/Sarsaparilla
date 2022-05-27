@@ -93,21 +93,6 @@ else
                     }
                 </div>
             }
-
-            @if (Network.StateCells.Count > 0)
-            {
-                <div class='section'>
-                    <div class='section-header'>State Cells</div>
-                    @foreach (StateCell sc in Network.StateCells)
-                    {
-                        <div class='entry'>
-                            <span class='name'>@sc.Name</span>
-                            <span class='op'>:</span>
-                            <span class='type'>@sc.PiType</span>
-                        </div>
-                    }
-                </div>
-            }
         </div>
 
         <div class='section-grouping'>

@@ -53,12 +53,6 @@ public class TermResolver
                 Register(t, rec);
                 return true;
             }
-            // ... finally the state cells.
-            StateCell? cell = Network.GetStateCell(termName);
-            if (cell != null)
-            {
-                rec = new(TermSource.StateCell, new(cell.PiType) );
-            }
         }
         else
         {

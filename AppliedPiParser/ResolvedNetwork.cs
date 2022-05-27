@@ -21,7 +21,6 @@ public enum TermSource
     Table,
     Constructor,
     Tuple,
-    StateCell,
     MacroParameter
 }
 

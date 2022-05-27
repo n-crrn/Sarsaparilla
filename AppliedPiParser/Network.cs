@@ -53,9 +53,8 @@ public class Network
 
     public static readonly string ChannelType = "channel";
     public static readonly string BitstringType = "bitstring";
-    public static readonly string StateCellType = "state-cell";
 
-    internal HashSet<string> _PiTypes = new() { ChannelType, BitstringType, StateCellType };
+    internal HashSet<string> _PiTypes = new() { ChannelType, BitstringType };
 
     public IReadOnlySet<string> PiTypes { get => _PiTypes.ToImmutableHashSet(); }
 
@@ -115,27 +114,6 @@ public class Network
     public IReadOnlyDictionary<string, Constructor> Constructors => _Constructors;
 
     public IReadOnlySet<Destructor> Destructors => _Destructors;
-
-    #endregion
-    #region Statement initialisation declarations.
-
-    // FIXME: Consideration to be given to making this a dictionary.
-
-    internal HashSet<StateCell> _StateCells = new();
-
-    public IReadOnlySet<StateCell> StateCells => _StateCells;
-
-    public StateCell? GetStateCell(string cellName)
-    {
-        foreach (StateCell t in _StateCells)
-        {
-            if (t.Name == cellName)
-            {
-                return t;
-            }
-        }
-        return null;
-    }
 
     #endregion
     #region Processes (including let statements).
@@ -287,7 +265,6 @@ public class Network
             _Queries.SetEquals(nw._Queries) &&
             DictionariesMatch(_Constructors, nw._Constructors) &&
             _Destructors.SetEquals(nw._Destructors) &&
-            _StateCells.SetEquals(nw._StateCells) &&
             DictionariesMatch(_LetDefinitions, nw._LetDefinitions) &&
             ProcessGroup.Equals(MainProcess, nw.MainProcess);
     }

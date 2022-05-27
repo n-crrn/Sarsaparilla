@@ -37,7 +37,6 @@ public class ModelTests
             "fun sencrypt(bitstring,nonce): bitstring.\n" +
             "reduc forall x: bitstring, y: skey; decrypt(encrypt(x, y),y) = x.\n" +
             "table keys(host, pkey).\n" +
-            "state SD: kitten = D.\n" +
             "query attacker(c2).\n" +
             "const c1: tag [data].\n" +
             "const c2: kitten.\n";
@@ -45,7 +44,6 @@ public class ModelTests
         HashSet<string> expectedPiTypes = new() {
             Network.ChannelType,
             Network.BitstringType,
-            Network.StateCellType,
             "kitten",
             "dog",
             "host" };
@@ -76,10 +74,6 @@ public class ModelTests
         {
             { "keys", new("keys", new() { "host", "pkey" }) }
         };
-        HashSet<StateCell> expectedStates = new()
-        {
-            new("SD", new("D"), "kitten")
-        };
         HashSet<AttackerQuery> expectedQueries = new()
         {
             new(new("c2"))
@@ -98,7 +92,6 @@ public class ModelTests
         AssertDictionariesMatch(expectedConstructors, nw.Constructors, "Constructors");
         Assert.IsTrue(expectedDestructors.SetEquals(nw.Destructors), "Destructors");
         AssertDictionariesMatch(expectedTables, nw.Tables, "Tables");
-        Assert.IsTrue(expectedStates.SetEquals(nw.StateCells), "Init states don't match.");
         Assert.IsTrue(expectedQueries.SetEquals(nw.Queries), "Queries don't match.");
         Assert.IsTrue(expectedConstants.SetEquals(nw.Constants), "Constants don't match.");
     }
