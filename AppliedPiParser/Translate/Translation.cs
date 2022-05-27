@@ -339,7 +339,7 @@ public class Translation
         bool Replicated,
         Dictionary<string, int> LeakedSockets,
         TranslateFrame? PreviousControlSplit,
-        int WhichChild, // Which child is this after the control split?
+        int WhichChild,
         ResolvedNetwork Rn,
         Network Nw
     );
@@ -350,7 +350,8 @@ public class Translation
 
         // Open required reader and infinite write sockets.
         List<Socket> toOpen = new(tf.Summary.Readers.Values);
-        toOpen.AddRange(from s in tf.Summary.Writers.Values where s.IsInfinite select s);
+        //toOpen.AddRange(from s in tf.Summary.Writers.Values where s.IsInfinite select s);
+        toOpen.AddRange(tf.Summary.Writers.Values);
         if (toOpen.Count > 0)
         {
             rules.Add(new OpenSocketsRule(toOpen, tf.PreviousSockets)
@@ -407,7 +408,7 @@ public class Translation
                     {
                         Conditions = tf.Conditions
                     });
-                    foreach (IMutateRule imr in InfiniteReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
+                    foreach (IMutateRule imr in InfiniteReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern, tf.InteractionCount))
                     {
                         imr.Conditions = tf.Conditions;
                         rules.Add(imr);
@@ -465,7 +466,7 @@ public class Translation
                     {
                         // For every matching receive pattern, add an infinite cross link.
                         IEnumerable<IMutateRule> iclRules =
-                            InfiniteCrossLink.GenerateRulesForReadReceivePatterns(writer, rxSocket, tf.Premises, resultMessage);
+                            InfiniteCrossLink.GenerateRulesForReadReceivePatterns(writer, rxSocket, tf.InteractionCount, tf.Premises, resultMessage);
                         foreach (IMutateRule rxPatternRule in iclRules)
                         {
                             rxPatternRule.Conditions = tf.Conditions;
@@ -474,7 +475,7 @@ public class Translation
                     }
                     if (finReaders.TryGetValue(outChannelTerm, out List<ReadSocket>? rxSocketList) && rxSocketList!.Count > 0)
                     {
-                        rules.Add(new InfiniteWriteRule(writer, tf.Premises, resultMessage)
+                        rules.Add(new InfiniteWriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
                         {
                             Conditions = tf.Conditions
                         });

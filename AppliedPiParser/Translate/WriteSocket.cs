@@ -24,7 +24,7 @@ public class WriteSocket : Socket
     public Snapshot RegisterWriteSequence(RuleFactory factory, int writeCount, State? endWith = null)
     {
         Debug.Assert(Direction == SocketDirection.Out);
-        List<Snapshot> allSS = new() { factory.RegisterState(InitialState()) };
+        List<Snapshot> allSS = new() { factory.RegisterState(InitialState()), factory.RegisterState(WaitingState()) };
         for (int i = 0; i < writeCount; i++)
         {
             IMessage writeMsg = new VariableMessage($"@v{i}");

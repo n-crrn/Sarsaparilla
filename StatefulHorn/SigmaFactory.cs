@@ -27,6 +27,8 @@ public class SigmaFactory
 
     private readonly Dictionary<VariableMessage, IMessage> Backward;
 
+    public bool IsEmpty => Forward.Count == 0 && Backward.Count == 0;
+
     #region SigmaMap generation
 
     public SigmaMap CreateForwardMap()

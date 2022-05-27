@@ -28,6 +28,8 @@ public class NessionManager
         {
             SystemRules[idTag].IdTag = idTag;
         }
+
+        Knitter = KnitPattern.From(TransferringRules, SystemRules);
     }
 
     // FIXME: Include method to check that the query is sensible.
@@ -40,6 +42,8 @@ public class NessionManager
 
     public List<StateTransferringRule> TransferringRules { get; init; }
 
+    private readonly KnitPattern Knitter;
+
     #endregion
     #region Horn clause generation.
 
@@ -47,7 +51,7 @@ public class NessionManager
 
     public IEnumerable<Nession> GeneratedNessions()
     {
-        if (InitialNessions != null /*&& NonceNessions != null*/)
+        if (InitialNessions != null)
         {
             foreach (Nession n in InitialNessions)
             {
@@ -109,15 +113,28 @@ public class NessionManager
             {
                 Nession thisSeed = nextLevel[i];
                 bool prefixAccounted = false;
-                foreach (StateTransferringRule transferRule in TransferringRules)
+                List<(SigmaFactory, List<StateTransferringRule>)> matchingTR = Knitter.GetTransferGroups(thisSeed);
+                foreach ((SigmaFactory sf, List<StateTransferringRule> transferRules) in matchingTR)
                 {
-                    (Nession? n, bool doesExtend) = thisSeed.TryApplyTransfer(transferRule);
-                    if (n != null)
+                    Nession prevN = thisSeed;
+                    bool wasAdded = false;
+                    foreach (StateTransferringRule str in transferRules)
                     {
-                        nextLevelIter.Add(n);
-                        prefixAccounted |= doesExtend;
+                        (Nession? n, bool _) = prevN!.TryApplyTransfer(str);
+                        if (n != null) // Application may fail due to other checks done during transfer.
+                        {
+                            prevN = n;
+                            wasAdded = true;
+                            //prefixAccounted |= doesExtend;
+                        }
+                    }
+                    prefixAccounted |= wasAdded && sf.IsEmpty;
+                    if (wasAdded)
+                    {
+                        nextLevelIter.Add(prevN);
                     }
                 }
+
                 if (prefixAccounted)
                 {
                     nextLevel.RemoveAt(i);

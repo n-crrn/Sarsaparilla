@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 
 using StatefulHorn;
 using StatefulHorn.Messages;
@@ -9,10 +10,17 @@ namespace AppliedPi.Translate.MutateRules;
 public class InfiniteCrossLink : IMutateRule
 {
 
-    public InfiniteCrossLink(WriteSocket fromSocket, ReadSocket toSocket, HashSet<Event> premises, IMessage sent, string varName)
+    public InfiniteCrossLink(
+        WriteSocket fromSocket, 
+        ReadSocket toSocket, 
+        IDictionary<Socket, int> finActionCounts,
+        HashSet<Event> premises, 
+        IMessage sent,
+        string varName)
     {
         From = fromSocket;
         To = toSocket;
+        FiniteActionCounts = finActionCounts;
         Premises = premises;
         Result = Event.Know(new FunctionMessage($"{varName}@cell", new() { sent }));
         Debug.Assert(From.IsInfinite && To.IsInfinite);
@@ -22,6 +30,8 @@ public class InfiniteCrossLink : IMutateRule
 
     public ReadSocket To { get; init; }
 
+    public IDictionary<Socket, int> FiniteActionCounts { get; init; }
+
     public HashSet<Event> Premises { get; init; }
 
     public Event Result { get; init; }
@@ -29,6 +39,7 @@ public class InfiniteCrossLink : IMutateRule
     public static IEnumerable<IMutateRule> GenerateRulesForReadReceivePatterns(
         WriteSocket from,
         ReadSocket to,
+        IDictionary<Socket, int> finActionCounts,
         HashSet<Event> premises,
         IMessage written)
     {
@@ -41,7 +52,7 @@ public class InfiniteCrossLink : IMutateRule
                 {
                     foreach ((string varName, string _) in rxPattern)
                     {
-                        yield return new InfiniteCrossLink(from, to, premises, written, varName);
+                        yield return new InfiniteCrossLink(from, to, finActionCounts, premises, written, varName);
                     }
                 }
             }
@@ -49,7 +60,7 @@ public class InfiniteCrossLink : IMutateRule
             {
                 if (rxPattern.Count == 1)
                 {
-                    yield return new InfiniteCrossLink(from, to, premises, written, rxPattern[0].Item1);
+                    yield return new InfiniteCrossLink(from, to, finActionCounts, premises, written, rxPattern[0].Item1);
                 }
             }
         }
@@ -63,6 +74,17 @@ public class InfiniteCrossLink : IMutateRule
 
     public Rule GenerateRule(RuleFactory factory)
     {
+        foreach ((Socket s, int ic) in FiniteActionCounts)
+        {
+            if (s is ReadSocket rs)
+            {
+                rs.RegisterReadSequence(factory, ic, rs.WaitingState());
+            }
+            else
+            {
+                s.RegisterHistory(factory, ic);
+            }
+        }
         Snapshot fromWait = factory.RegisterState(From.WaitingState());
         factory.RegisterPremises(fromWait, Premises);
         factory.RegisterState(From.WaitingState());
@@ -83,6 +105,7 @@ public class InfiniteCrossLink : IMutateRule
         return obj is InfiniteCrossLink icl &&
             From.Equals(icl.From) &&
             To.Equals(icl.To) &&
+            FiniteActionCounts.ToHashSet().SetEquals(icl.FiniteActionCounts) &&
             Premises.SetEquals(icl.Premises) &&
             Result.Equals(icl.Result) &&
             Equals(Conditions, icl.Conditions);

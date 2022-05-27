@@ -207,7 +207,7 @@ process
       | ( out(c, holder);
           in(c, v: bitstring) ) ).
 ";
-        await DoTest(piSource2, false, false);
+        await DoTest(piSource2, false, false); 
 
         // In this final example, the channel is made public and the process is replicated.
         // However, the magic transformation occurs in its concurrent process.

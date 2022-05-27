@@ -10,17 +10,20 @@ namespace AppliedPi.Translate.MutateRules;
 public class InfiniteReadRule : IMutateRule
 {
 
-    public InfiniteReadRule(ReadSocket s, string varName)
-        : this(s, varName, new List<string>() { varName })
-    {
+    public InfiniteReadRule(ReadSocket s, string varName, IDictionary<Socket, int> finActionCounts)
+        : this(s, varName, new List<string>() { varName }, finActionCounts)
+    { }
 
-    }
-
-    public InfiniteReadRule(ReadSocket s, string varName, IReadOnlyList<string> rxPattern)
+    public InfiniteReadRule(
+        ReadSocket s,
+        string varName,
+        IReadOnlyList<string> rxPattern,
+        IDictionary<Socket, int> finActionCounts)
     {
         Socket = s;
         VariableName = varName;
         ReceivePattern = rxPattern;
+        FiniteActionCounts = new Dictionary<Socket, int>(finActionCounts);
     }
 
     public ReadSocket Socket { get; init; }
@@ -29,13 +32,17 @@ public class InfiniteReadRule : IMutateRule
 
     public string VariableName { get; init; }
 
+    public IDictionary<Socket, int> FiniteActionCounts { get; init; }
 
-    public static IEnumerable<IMutateRule> GenerateRulesForReceivePattern(ReadSocket rs, List<(string, string)> rxPattern)
+    public static IEnumerable<IMutateRule> GenerateRulesForReceivePattern(
+        ReadSocket rs,
+        List<(string, string)> rxPattern,
+        IDictionary<Socket, int> finActionCounts)
     {
         List<string> simplifiedRxPattern = new(from rx in rxPattern select rx.Item1);
         foreach (string varName in simplifiedRxPattern)
         {
-            yield return new InfiniteReadRule(rs, varName, simplifiedRxPattern);
+            yield return new InfiniteReadRule(rs, varName, simplifiedRxPattern, finActionCounts);
         }
     }
 
@@ -47,6 +54,16 @@ public class InfiniteReadRule : IMutateRule
 
     public Rule GenerateRule(RuleFactory factory)
     {
+        foreach ((Socket s, int ic) in FiniteActionCounts)
+        {
+            Snapshot finSS = s.RegisterHistory(factory, ic);
+            if (s is ReadSocket)
+            {
+                Snapshot nextSS = factory.RegisterState(s.WaitingState());
+                nextSS.SetModifiedOnceLaterThan(finSS);
+            }
+        }
+
         IMessage varMsg;
         if (ReceivePattern.Count == 1)
         {
@@ -75,6 +92,7 @@ public class InfiniteReadRule : IMutateRule
             Socket.Equals(r.Socket) &&
             VariableName == r.VariableName &&
             ReceivePattern.SequenceEqual(r.ReceivePattern) &&
+            FiniteActionCounts.ToHashSet().SetEquals(r.FiniteActionCounts) &&
             Equals(Conditions, r.Conditions);
     }
 
