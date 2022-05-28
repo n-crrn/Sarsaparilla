@@ -278,41 +278,6 @@ public class QueryEngine
 
         HashSet<HornClause> finishedRuleset = new(fullRuleset);
         finishedRuleset.UnionWith(newRuleset);
-        bool found = newRuleset.Count > 0;
-        while (found)
-        {
-            HashSet<HornClause> addedComplex = new(newRuleset.Count);
-            HashSet<HornClause> addedSimple = new(newRuleset.Count);
-            foreach (HornClause hc in newRuleset)
-            {
-                if (hc.ComplexResult)
-                {
-                    addedComplex.Add(hc);
-                }
-                else
-                {
-                    addedSimple.Add(hc);
-                }
-            }
-            complexResults.UnionWith(addedComplex);
-            simpleResults.UnionWith(addedSimple);
-
-            foreach (HornClause cr in complexResults)
-            {
-                foreach (HornClause sr in simpleResults)
-                {
-                    List<HornClause>? composed = cr.ComposeUpon(sr);
-                    if (composed != null)
-                    {
-                        newRuleset.UnionWith(composed);
-                    }
-                }
-            }
-
-            int fullCount = finishedRuleset.Count;
-            finishedRuleset.UnionWith(newRuleset);
-            found = fullCount != finishedRuleset.Count;
-        }
 
         // === Detuple remaining rules ===
         foreach (HornClause hc in finishedRuleset.ToList())
