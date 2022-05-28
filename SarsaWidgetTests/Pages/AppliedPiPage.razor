@@ -59,12 +59,15 @@ type key.
 fun encrypt(bitstring, key): bitstring.
 reduc forall x: bitstring, y: key; decrypt(encrypt(x, y),y) = x.
 event gotValue(bitstring).
+event anotherValue(bool).
 const Good: bitstring.
 
 (* Sub-processes *)
 let rx(k: key) = in(c, value: bitstring);
-                 let x: bitstring = decrypt(value, k) in event gotValue(x).
-let send(k: key) = out(c, encrypt(Good, k)).
+                 let x: bitstring = decrypt(value, k) in event gotValue(x) else event gotValue(Good).
+let send(k: key) = out(c, encrypt(Good, k));
+                   in(c, z: bool);
+                   if z then event anotherValue(z) else out(c, z).
 
 (* Main *)
 process

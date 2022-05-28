@@ -71,21 +71,77 @@ else
     private RenderFragment IfTemplate(IfProcess ip)
     {
         return
-            @<div class='if-process'>@ip</div>
+            @<div class='if-process'>
+                <div class='if-line'>
+                    <span class='op'>if</span>
+                    @ip.Comparison
+                    <span class='op'>then</span>
+                </div>
+                
+                <div class='inner-nest'>
+                    @Template(ip.GuardedProcess)
+                </div>
+                @if (ip.ElseProcess != null)
+                {
+                    <div class='op'>else</div>
+                    <div class='inner-nest'>
+                        @Template(ip.ElseProcess!)
+                    </div>
+                }
+            </div>
         ;
     }
 
     private RenderFragment InChannelTemplate(InChannelProcess icp)
     {
         return
-            @<div class='in-channel-process'>@icp</div>
+            @<div class='in-channel-process'>
+                @icp.Channel
+                <span class='op'>(</span>
+                @string.Join(", ", from rp in @icp.ReceivePattern select rp.Item1)
+                <span class='op'>)</span>
+            </div>
         ;
     }
 
     private RenderFragment LetTemplate(LetProcess ltp)
     {
         return
-            @<div class='let-process'>@ltp</div>
+            @<div class='let-process'>
+                <div class='let-line'>
+                    <span class='op'>let</span>
+                    @if (ltp.LeftHandSide.Elements.Count > 1)
+                    {
+                        <span class='op'>(</span>
+                    }
+                    @foreach (TuplePattern.Element e in ltp.LeftHandSide.Elements)
+                    {
+                        @if (e.IsMatcher)
+                        {
+                            <span class='op'>=</span>
+                        }
+                        <span class='let-term'>@e.Term</span>
+                    }
+                    @if (ltp.LeftHandSide.Elements.Count > 1)
+                    {
+                        <span class='op'>)</span>
+                    }
+                    <span class='op'>=</span>
+                    <span>@ltp.RightHandSide</span>
+                    <span class='op'>in</span>
+                </div>
+                
+                <div class='inner-nest'>
+                    @Template(ltp.GuardedProcess)
+                </div>
+                @if (ltp.ElseProcess != null)
+                {
+                    <div class='op'>else</div>
+                    <div class='inner-nest'>
+                        @Template(ltp.ElseProcess)
+                    </div>
+                }
+            </div>
         ;
     }
 
@@ -93,9 +149,7 @@ else
     {
         return
             @<div class='new-process'>
-                ν @np.Variable 
-                <span class='op'>:</span>
-                <span class='type'>@np.PiType</span>
+                <span class='new-op'>ν</span> @np.Variable
             </div>
             ;
     }
@@ -104,10 +158,10 @@ else
     {
         return
             @<div class='out-channel-process'>
-                @ocp.Channel
-                <span class='op'>(</span>
+                <span class='output-channel'>@ocp.Channel</span>
+                <span class='op'>&lt;</span>
                 @ocp.SentTerm
-                <span class='op'>)</span>
+                <span class='op'>&gt;</span>
             </div>
             ;
     }
