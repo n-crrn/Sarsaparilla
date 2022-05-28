@@ -39,7 +39,11 @@ public class LetProcess : IProcess
             ElseProcess?.ResolveTerms(subs));
     }
 
-    public IEnumerable<string> VariablesDefined() => LeftHandSide.AssignedVariables;
+    public IEnumerable<string> VariablesDefined()
+    {
+        IEnumerable<string> en = LeftHandSide.AssignedVariables.Concat(GuardedProcess.VariablesDefined());
+        return ElseProcess == null ? en : en.Concat(ElseProcess.VariablesDefined());
+    }
 
     public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher) => Enumerable.Empty<IProcess>();
 
