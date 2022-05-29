@@ -42,6 +42,19 @@
     flex-direction: row;
 }
 
+.state {
+    flex-grow: 1;
+    flex-basis: 10px;
+    writing-mode: vertical-rl;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.diff {
+    background-color: olive;
+}
+
 .rules-container {
     margin-top: 10px;
     margin-bottom: 10px;

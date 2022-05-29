@@ -7,8 +7,9 @@
 <div class='outer'> 
     @if (Nession != null)
     {
-        @foreach (Nession.Frame frame in Nession.History)
+        @for (int i = 0; i < Nession.History.Count; i++)
         {
+            Nession.Frame frame = Nession.History[i];
             <div class='frame-container'>
                 @if (frame.StateChangePremises.Count > 0)
                 {
@@ -20,9 +21,18 @@
                     </div>
                 }
                 <div class='state-container'>
-                    @foreach (State s in frame.StateSet)
+                    @for (int j = 0; j < frame.StateSet.Count; j++)
                     {
-                        <StateDisplay State=@s/>
+                        State s = frame.StateSet[j];
+                        string stateClass = i > 0 && !Nession.History[i - 1].StateSet[j].Equals(s) ? "state diff" : "state";
+                        <div class='@stateClass'>
+                            <div class='state-inner'>
+                                <span class='state-name'>@s.Name</span>
+                                <span class='op'>(</span>
+                                <span class='format-values'>@s.Value.ToString()</span>
+                                <span class='op'>)</span>
+                            </div>
+                        </div>
                     }
                 </div>
                 @if (frame.Rules.Count > 0)
