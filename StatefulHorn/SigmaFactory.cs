@@ -29,6 +29,8 @@ public class SigmaFactory
 
     public bool IsEmpty => Forward.Count == 0 && Backward.Count == 0;
 
+    public bool NotBackward => Backward.Count == 0;
+
     #region SigmaMap generation
 
     public SigmaMap CreateForwardMap()
@@ -234,6 +236,27 @@ public class SigmaFactory
         }
         return stateVariables;
     }
+
+    #endregion
+    #region Basic object overrides.
+
+    public override string ToString()
+    {
+        if (IsEmpty)
+        {
+            return "Factory <EMPTY>";
+        }
+        return "Factory Fwd: " + CreateForwardMap().ToString() + " Bwd: " + CreateBackwardMap();
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is SigmaFactory sf
+            && Forward.ToHashSet().SetEquals(sf.Forward) 
+            && Backward.ToHashSet().SetEquals(sf.Backward);
+    }
+
+    public override int GetHashCode() => Forward.Count * 7 + Backward.Count;
 
     #endregion
 

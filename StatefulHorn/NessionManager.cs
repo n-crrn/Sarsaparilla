@@ -113,25 +113,14 @@ public class NessionManager
             {
                 Nession thisSeed = nextLevel[i];
                 bool prefixAccounted = false;
-                List<(SigmaFactory, List<StateTransferringRule>)> matchingTR = Knitter.GetTransferGroups(thisSeed);
-                foreach ((SigmaFactory sf, List<StateTransferringRule> transferRules) in matchingTR)
+                List<List<StateTransferringRule>> matchingTR = Knitter.GetTransferGroups(thisSeed);
+                foreach (List<StateTransferringRule> transferRules in matchingTR)
                 {
-                    Nession prevN = thisSeed;
-                    bool wasAdded = false;
-                    foreach (StateTransferringRule str in transferRules)
+                    (Nession? updated, bool canKeep) = thisSeed.TryApplyMultipleTransfers(transferRules);
+                    prefixAccounted |= canKeep;
+                    if (updated != null)
                     {
-                        (Nession? n, bool _) = prevN!.TryApplyTransfer(str);
-                        if (n != null) // Application may fail due to other checks done during transfer.
-                        {
-                            prevN = n;
-                            wasAdded = true;
-                            //prefixAccounted |= doesExtend;
-                        }
-                    }
-                    prefixAccounted |= wasAdded && sf.IsEmpty;
-                    if (wasAdded)
-                    {
-                        nextLevelIter.Add(prevN);
+                        nextLevelIter.Add(updated);
                     }
                 }
 
@@ -142,6 +131,7 @@ public class NessionManager
                 }
             }
             processed.AddRange(nextLevel);
+
             if (nextLevelIter.Count == 0)
             {
                 // There were no new states found. In this case, we cease the elaboration here.
@@ -154,6 +144,7 @@ public class NessionManager
         processed.AddRange(nextLevel);
 
     finishElaborate:
+        
         InitialNessions = processed;
     }
 

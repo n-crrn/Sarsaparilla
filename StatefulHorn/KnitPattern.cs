@@ -184,21 +184,21 @@ public class KnitPattern
         return matches;
     }
 
-    public List<(SigmaFactory, List<StateTransferringRule>)> GetTransferGroups(Nession n)
+    public List<List<StateTransferringRule>> GetTransferGroups(Nession n)
     {
         List<(int, SigmaFactory)> matchingTR = GetMatchingTransferRules(n);
-        List<(SigmaFactory, List<StateTransferringRule>)> groups = new();
+        List<List<StateTransferringRule>> groups = new();
 
         List<int> emptyGroup = new();
         foreach ((int ruleId, SigmaFactory sf) in matchingTR)
         {
-            if (sf.IsEmpty)
+            if (sf.NotBackward)
             {
                 emptyGroup.Add(ruleId);
             }
             else
             {
-                groups.Add((sf, new() { LookupTable[ruleId].Rule }));
+                groups.Add(new() { LookupTable[ruleId].Rule });
             }
         }
 
@@ -242,7 +242,7 @@ public class KnitPattern
         foreach (HashSet<int> comb in combinations)
         {
             List<StateTransferringRule> rules = new(from c in comb select LookupTable[c].Rule);
-            groups.Add((new(), rules));
+            groups.Add(rules);
         }
         return groups;
     }

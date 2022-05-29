@@ -13,7 +13,7 @@
             <div class='frame-container'>
                 @if (frame.StateChangePremises.Count > 0)
                 {
-                    <div class='state-change-premises' title=@frame.TransferRule?.ToString()>
+                    <div class='state-change-premises' title=@frame.TransferRuleDescription>
                         @foreach (Event premise in frame.StateChangePremises)
                         {
                             <EventDisplay Event=@premise/>

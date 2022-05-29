@@ -16,7 +16,7 @@ public class Nession
     {
         List<State> states = new(initStates);
         states.Sort();
-        History.Add(new(new(), states, new(), null, null));
+        History.Add(new(new(), states, new(), new List<StateTransferringRule>(), null));
     }
 
     private Nession(Rule? initRule, IEnumerable<Frame> frames, int lastVNumber)
@@ -51,7 +51,7 @@ public class Nession
         public Frame(HashSet<Event> premises,
                      List<State> stateSet,
                      HashSet<StateConsistentRule> rules,
-                     StateTransferringRule? transferRule,
+                     IEnumerable<StateTransferringRule> transferRule,
                      Guard? guard)
         {
             StateChangePremises = premises;
@@ -71,7 +71,9 @@ public class Nession
 
         public IEnumerable<Event> StateChangeNews => from scp in StateChangePremises where scp.IsNew select scp;
 
-        public StateTransferringRule? TransferRule { get; internal set; }
+        public IEnumerable<StateTransferringRule> TransferRule { get; internal set; }
+
+        public string TransferRuleDescription => string.Join(", ", TransferRule);
 
         public List<State> StateSet { get; init; }
 
@@ -103,11 +105,12 @@ public class Nession
                 newR.IdTag = r.IdTag;
                 newRules.Add(newR);
             }
-            Frame nf = new(newPremises, newStateSet, newRules, null, GuardStatements.PerformSubstitution(map));
-            if (TransferRule != null)
-            {
-                nf.TransferRule = (StateTransferringRule)TransferRule.PerformSubstitution(map);
-            }
+            Frame nf = new(
+                newPremises,
+                newStateSet,
+                newRules,
+                new List<StateTransferringRule>(from tr in TransferRule select (StateTransferringRule)tr.PerformSubstitution(map)),
+                GuardStatements.PerformSubstitution(map));
             return nf;
         }
 
@@ -215,16 +218,66 @@ public class Nession
             // some sort of reset rule. This logic prevents it.
             if (!(updated.History.Count > 0 && newStateSet.SequenceEqual(updated.History[^1].StateSet)))
             {
-                Frame newFrame = new(new(updatedRule.Premises), newStateSet, new(), null, gs);
+                Frame newFrame = new(new(updatedRule.Premises), newStateSet, new(), new List<StateTransferringRule>() { str }, gs);
                 updated.History.Add(newFrame);
-                newFrame.TransferRule = updatedRule;
-                UpdateNonceDeclarations();
+                updated.UpdateNonceDeclarations();
 
                 return (updated, canRemoveThis);
             }
         }
         StepBackVNumber();
         return (null, false);
+    }
+
+    public (Nession?, bool) TryApplyMultipleTransfers(List<StateTransferringRule> transfers)
+    {
+        List<StateTransferringRule> subTransfers = new();
+        foreach (StateTransferringRule r in transfers)
+        {
+            subTransfers.Add((StateTransferringRule)r.SubscriptVariables(NextVNumber()));
+        }
+        
+        // Sort out the sigma maps.
+        SigmaFactory? sf = new();
+        foreach (StateTransferringRule str in subTransfers)
+        {
+            if (!CanApplyRule(str, out sf))
+            {
+                return (null, false);
+            }
+        }
+        SigmaMap fwdMap = sf.CreateForwardMap();
+        SigmaMap bwdMap = sf.CreateBackwardMap();
+
+        // Establish guard values.
+        Nession updated = Substitute(bwdMap);
+        Guard gs = updated.History[^1].GuardStatements;
+        foreach (StateTransferringRule str in subTransfers)
+        {
+            gs = gs.Union(str.GuardStatements.PerformSubstitution(fwdMap));
+        }
+
+        // Create the new Nession frame.
+        List<State> nextFrameStates = new(updated.History[^1].StateSet);
+        HashSet<Event> premises = new();
+        List<StateTransferringRule> updatedRules = new();
+        foreach (StateTransferringRule str in subTransfers)
+        {
+            StateTransferringRule updatedRule = (StateTransferringRule)str.PerformSubstitution(fwdMap);
+            premises.UnionWith(updatedRule.Premises);
+            foreach ((Snapshot after, State newState) in updatedRule.Result.Transformations)
+            {
+                nextFrameStates.Remove(after.Condition);
+                nextFrameStates.Add(newState);
+            }
+            updatedRules.Add(updatedRule);
+        }
+        nextFrameStates.Sort();
+
+        Frame newFrame = new(premises, nextFrameStates, new(), updatedRules, gs);
+        updated.History.Add(newFrame);
+        updated.UpdateNonceDeclarations();
+        return (updated, bwdMap.IsEmpty);
     }
 
     private List<State> CreateStateSetOnTransfer(StateTransferringRule r)
@@ -309,7 +362,7 @@ public class Nession
                 break;
             }
         }
-        
+
         return match;
     }
 
@@ -337,8 +390,8 @@ public class Nession
     {
         Debug.Assert(!scr.Snapshots.IsEmpty);
         List<Nession> generated = new() { this };
-        
-        // Do a check to ensure that we don't already have the same rule already added.
+
+        // Do a check to ensure that we don't have the same rule already added.
         foreach (StateConsistentRule existingRule in History[^1].Rules)
         {
             if (existingRule.MatchesTagOf(scr))
@@ -458,7 +511,8 @@ public class Nession
                     Rank = rank,
                     // Note that the Transfer rule for the nession *must* not be null for there to be
                     // a make event in the nession's premises.
-                    Source = new NessionRuleSource(this, rank, new(accumulator), f.TransferRule!),
+                    // FIXME: Following rule is temporary - need to actually sort out which transfer rules led to state.
+                    Source = new NessionRuleSource(this, rank, new(accumulator), f.TransferRule!.First()),
                     Guard = f.GuardStatements
                 };
                 clauses.Add(makeClause);
@@ -466,7 +520,7 @@ public class Nession
             // ... and add the state transfer rule to the accumulated rules.
             if (f.TransferRule != null)
             {
-                accumulator.Add(f.TransferRule);
+                accumulator.AddRange(f.TransferRule);
             }
 
             // For every rule...
@@ -523,6 +577,27 @@ public class Nession
     #region Basic object overrides.
 
     public override string ToString() => string.Join("\n", from f in History select f.ToString());
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is Nession n)
+        {
+            if (n.History.Count == History.Count)
+            {
+                for (int i = 0; i < History.Count; i++)
+                {
+                    if (!History[i].Equals(n.History[i]))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public override int GetHashCode() => History[^1].StateSet[0].GetHashCode();
 
     #endregion
 
