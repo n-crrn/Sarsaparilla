@@ -6,24 +6,21 @@ using StatefulHorn.Messages;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class FiniteReadRule : IMutateRule
+public class ReadRule : IMutateRule
 {
 
-    public FiniteReadRule(ReadSocket s, int prevReads, string varName)
-        : this(s, prevReads, varName, new List<string> { varName })
+    public ReadRule(ReadSocket s, string varName)
+        : this(s, varName, new List<string> { varName })
     { }
 
-    public FiniteReadRule(ReadSocket s, int prevReads, string varName, IReadOnlyList<string> rxPattern)
+    public ReadRule(ReadSocket s, string varName, IReadOnlyList<string> rxPattern)
     {
         Socket = s;
-        PreviousReadCount = prevReads;
         VariableName = varName;
         ReceivePattern = rxPattern;
     }
 
     public ReadSocket Socket { get; init; }
-
-    public int PreviousReadCount { get; init; }
 
     public IReadOnlyList<string> ReceivePattern { get; init; }
 
@@ -32,14 +29,13 @@ public class FiniteReadRule : IMutateRule
     #region Static convenience methods.
 
     public static IEnumerable<IMutateRule> GenerateRulesForReceivePattern(
-        ReadSocket readSocket, 
-        int prevReads, 
+        ReadSocket readSocket,
         List<(string, string)> rxPattern)
     {
         List<string> simplifiedRxPattern = new(from rx in rxPattern select rx.Item1);
         foreach (string varName in simplifiedRxPattern)
         {
-            yield return new FiniteReadRule(readSocket, prevReads, varName, simplifiedRxPattern);
+            yield return new ReadRule(readSocket, varName, simplifiedRxPattern);
         }
     }
 
@@ -67,15 +63,13 @@ public class FiniteReadRule : IMutateRule
         {
             varMsg = new TupleMessage(from rx in ReceivePattern select new VariableMessage(rx));
         }
-        Snapshot prevSS = Socket.RegisterReadSequence(factory, PreviousReadCount, Socket.WaitingState());
-        Snapshot latestSS = factory.RegisterState(Socket.ReadState(varMsg));
-        latestSS.SetModifiedOnceLaterThan(prevSS);
+        factory.RegisterState(Socket.ReadState(varMsg));
         factory.GuardStatements = Conditions?.CreateGuard();
         Rule r = factory.CreateStateConsistentRule(VariableCellAsPremise(VariableName));
         return IfBranchConditions.ApplyReplacements(Conditions, r);
     }
 
-    public int RecommendedDepth => 2;
+    public int RecommendedDepth => 1; // Account for the reset of the read state.
 
     #endregion
     #region Basic object overrides.
@@ -84,9 +78,8 @@ public class FiniteReadRule : IMutateRule
 
     public override bool Equals(object? obj)
     {
-        return obj is FiniteReadRule r &&
+        return obj is ReadRule r &&
             Socket.Equals(r.Socket) &&
-            PreviousReadCount == r.PreviousReadCount &&
             ReceivePattern.SequenceEqual(r.ReceivePattern) &&
             VariableName.Equals(r.VariableName) &&
             Equals(Conditions, r.Conditions);

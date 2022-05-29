@@ -33,7 +33,7 @@ public class AttackChannelRule : IMutateRule
     {
         factory.GuardStatements = Conditions?.CreateGuard();
         factory.RegisterPremise(Event.Know(new VariableMessage(VariableName)));
-        Rule r = factory.CreateStateConsistentRule(FiniteReadRule.VariableCellAsPremise(VariableName));
+        Rule r = factory.CreateStateConsistentRule(ReadRule.VariableCellAsPremise(VariableName));
         return IfBranchConditions.ApplyReplacements(Conditions, r);
     }
 

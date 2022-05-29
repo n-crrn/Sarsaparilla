@@ -37,7 +37,7 @@ process out(c, x) | in(c, y: bitstring).";
             new OpenSocketsRule(c3In),
             new FiniteWriteRule(c2Out, finiteWriteInteractions, new(), new NameMessage("x")),
             new FiniteCrossLinkRule(c2Out, c3In),
-            new FiniteReadRule(c3In, 0, "y"),
+            new ReadRule(c3In, "y"),
             new AttackChannelRule("y"),
             new ShutSocketsRule(new Dictionary<Socket, int>() { { c2Out, 1 } }),
             new ShutSocketsRule(new Dictionary<Socket, int>() { { c3In, 1 } })
@@ -94,7 +94,7 @@ process
             // Branch 1 is the parallel composition process - nothing.
             // Branch 2 (in(c, v)) rules.
             new OpenSocketsRule(new List<Socket>() { c2In }, new List<Socket>() { c1Out }),
-            new FiniteReadRule(c2In, 0, "v"),
+            new ReadRule(c2In, "v"),
             new AttackChannelRule("v"),
             new ShutSocketsRule(new Dictionary<Socket, int>() { { c2In, 1 } }),
             // Branch 3 (new f: channel; out(f, d)) rules.
@@ -109,7 +109,7 @@ process
             // Note that "@f@0" in the next rule is due to a channel being sent from a replicated process.
             new InfiniteWriteRule(cInfOut, new Dictionary<Socket, int>(), lastPremises, new NameMessage("@f@0")),
             new ReadResetRule(cInfIn),
-            new InfiniteReadRule(cInfIn, "x", new Dictionary<Socket, int>()),
+            new ReadRule(cInfIn, "x"),
             new AttackChannelRule("x"),
             new FiniteCrossLinkRule(cInfOut, c2In)
         };
@@ -137,7 +137,7 @@ process !( out(c, s) |  in(c, v: bitstring) ).";
             new InfiniteCrossLink(cOut, cIn, new Dictionary<Socket, int>(), new(), new NameMessage("s"), "v"),
             // Following rules should not be triggered during Nession construction.
             new ReadResetRule(cIn),
-            new InfiniteReadRule(cIn, "v", new Dictionary<Socket, int>()),
+            new ReadRule(cIn, "v"),
             new AttackChannelRule("v")
         };
         DoMutateTest(testSource, expectedSockets, expectedMutations);
@@ -173,7 +173,7 @@ process
             // Branch 0 (in(c, v)).           
             new OpenSocketsRule(new List<Socket>() { cIn, cOut }, new List<Socket>()),
             new KnowChannelContentRule(cOut),
-            new FiniteReadRule(cIn, 0, "v"),
+            new ReadRule(cIn, "v"),
             new AttackChannelRule("v"),
             // Branch 2 (out(c, v)) -> Note that the conditional is branch 1.
             new FiniteWriteRule(cOut, new Dictionary<Socket, int>() { { cOut, 0 }, { cIn, 1 } }, outputPremises, vMsg)
@@ -222,7 +222,7 @@ process
         {
             // in(c, v)
             new OpenSocketsRule(cIn),
-            new FiniteReadRule(cIn, 0, "v"),
+            new ReadRule(cIn, "v"),
             new AttackChannelRule("v"),
             new ShutSocketsRule(new Dictionary<Socket, int>() { { cIn, 1 } }),
             // let x: bitstring = hash(s) in...

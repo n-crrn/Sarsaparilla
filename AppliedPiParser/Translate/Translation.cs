@@ -408,7 +408,7 @@ public class Translation
                     {
                         Conditions = tf.Conditions
                     });
-                    foreach (IMutateRule imr in InfiniteReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern, tf.InteractionCount))
+                    foreach (IMutateRule imr in ReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
                     {
                         imr.Conditions = tf.Conditions;
                         rules.Add(imr);
@@ -424,7 +424,7 @@ public class Translation
                             Conditions = tf.Conditions
                         });
                     }
-                    foreach (IMutateRule mr in FiniteReadRule.GenerateRulesForReceivePattern(reader, rc, icp.ReceivePattern))
+                    foreach (IMutateRule mr in ReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
                     {
                         mr.Conditions = tf.Conditions;
                         rules.Add(mr);
@@ -435,7 +435,7 @@ public class Translation
 
                 foreach ((string varEntry, _) in icp.ReceivePattern)
                 {
-                    tf.Premises.Add(FiniteReadRule.VariableCellAsPremise(varEntry));
+                    tf.Premises.Add(ReadRule.VariableCellAsPremise(varEntry));
                 }
             }
             else if (n.Process is OutChannelProcess ocp)
