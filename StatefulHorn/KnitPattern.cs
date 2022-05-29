@@ -17,8 +17,8 @@ public class KnitPattern
         StateTransferringRule Rule,
         BitArray AffectedStates, // Used as BitVector32 is does not easily handle variable lengths.
         List<int> Exclusions,
-        List<int> Preceeds,
-        HashSet<int> AffectsSCRs,
+        HashSet<int> ConcurrentSCRs,
+        HashSet<int> ResultSCRs,
         bool Excluded
     );
 
@@ -57,7 +57,8 @@ public class KnitPattern
         BitArray working = new(rel1.AffectedStates);
         // Ensure don't affect same states, nor interfere with each other's applicable rules.
         return !(working.And(rel2.AffectedStates).Cast<bool>().Contains(true) ||
-                 rel1.AffectsSCRs.Except(rel2.AffectsSCRs).Any());
+                 rel1.ResultSCRs.Intersect(rel2.ConcurrentSCRs).Any() ||
+                 rel2.ResultSCRs.Intersect(rel1.ConcurrentSCRs).Any());
     }
 
     public static KnitPattern From(List<StateTransferringRule> strs, List<StateConsistentRule> scrs)
@@ -109,23 +110,19 @@ public class KnitPattern
                     {
                         thisR.Exclusions.Add(j);
                     }
-                    else
-                    {
-                        // Does this rule preceed the other?
-                        if (RuleProceeds(thisR.Rule, otherR.Rule))
-                        {
-                            thisR.Preceeds.Add(j);
-                        }
-                    }
                 }
             }
 
             // Are there state consistent rules that depend on this rule to be applied?
             for (int k = 0; k < scrs.Count; k++)
             {
-                if (RuleProceeds(thisR.Rule, scrs[k]))
+                if (RuleConcurrent(thisR.Rule, scrs[k]))
                 {
-                    thisR.AffectsSCRs.Add(k);
+                    thisR.ConcurrentSCRs.Add(k);
+                }
+                if (RulePreceeds(thisR.Rule, scrs[k]))
+                {
+                    thisR.ResultSCRs.Add(k);
                 }
             }
         }
@@ -133,7 +130,25 @@ public class KnitPattern
         return new(table);
     }
 
-    private static bool RuleProceeds(Rule r, Rule other)
+    private static bool RuleConcurrent(Rule r, Rule other)
+    {
+        List<State> reqStates = new(from s in r.Snapshots.Traces select s.Condition);
+        List<State> otherStates = new(from s in other.Snapshots.Traces select s.Condition);
+
+        foreach (State os in otherStates)
+        {
+            foreach (State rs in reqStates)
+            {
+                if (os.CanBeUnifiableWith(rs, other.GuardStatements, r.GuardStatements, new()))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static bool RulePreceeds(Rule r, Rule other)
     {
         // What is the result of this rule running?
         List<State> resultStates = new();
@@ -152,7 +167,7 @@ public class KnitPattern
         {
             foreach (State rs in resultStates)
             {
-                if (os.CanBeUnifiableWith(rs, Guard.Empty, Guard.Empty, new()))
+                if (os.CanBeUnifiableWith(rs, other.GuardStatements, r.GuardStatements, new()))
                 {
                     return true;
                 }
@@ -175,7 +190,8 @@ public class KnitPattern
             {
                 continue;
             }
-            if (n.CanApplyRule(r.Rule, out SigmaFactory? sf))
+            SigmaFactory sf = new();
+            if (n.CanApplyRule(r.Rule, sf))
             {
                 matches.Add((i, sf!));
             }

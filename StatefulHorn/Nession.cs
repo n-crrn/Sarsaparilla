@@ -203,9 +203,9 @@ public class Nession
     public (Nession?, bool) TryApplyTransfer(StateTransferringRule str)
     {
         StateTransferringRule r = (StateTransferringRule)str.SubscriptVariables(NextVNumber());
-        if (CanApplyRule(r, out SigmaFactory? sf))
+        SigmaFactory sf = new();
+        if (CanApplyRule(r, sf))
         {
-            Debug.Assert(sf != null);
             SigmaMap fwdMap = sf.CreateForwardMap();
             SigmaMap bwdMap = sf.CreateBackwardMap();
 
@@ -229,6 +229,21 @@ public class Nession
         return (null, false);
     }
 
+    private List<State> CreateStateSetOnTransfer(StateTransferringRule r)
+    {
+        Frame lastFrame = History[^1];
+        List<State> stateSet = new(lastFrame.StateSet);
+        StateTransformationSet transformSet = r.Result;
+        foreach ((Snapshot after, State newState) in transformSet.Transformations)
+        {
+            bool wasRemoved = stateSet.Remove(after.Condition);
+            Debug.Assert(wasRemoved);
+            stateSet.Add(newState);
+        }
+        stateSet.Sort();
+        return stateSet;
+    }
+
     public (Nession?, bool) TryApplyMultipleTransfers(List<StateTransferringRule> transfers)
     {
         List<StateTransferringRule> subTransfers = new();
@@ -238,10 +253,10 @@ public class Nession
         }
         
         // Sort out the sigma maps.
-        SigmaFactory? sf = new();
+        SigmaFactory sf = new();
         foreach (StateTransferringRule str in subTransfers)
         {
-            if (!CanApplyRule(str, out sf))
+            if (!CanApplyRule(str, sf))
             {
                 return (null, false);
             }
@@ -280,30 +295,13 @@ public class Nession
         return (updated, bwdMap.IsEmpty);
     }
 
-    private List<State> CreateStateSetOnTransfer(StateTransferringRule r)
-    {
-        Frame lastFrame = History[^1];
-        List<State> stateSet = new(lastFrame.StateSet);
-        StateTransformationSet transformSet = r.Result;
-        foreach ((Snapshot after, State newState) in transformSet.Transformations)
-        {
-            bool wasRemoved = stateSet.Remove(after.Condition);
-            Debug.Assert(wasRemoved);
-            stateSet.Add(newState);
-        }
-        stateSet.Sort();
-        return stateSet;
-    }
-
-    public bool CanApplyRule(Rule r, out SigmaFactory? sf)
+    public bool CanApplyRule(Rule r, SigmaFactory sf)
     {
         if (!RuleValidByNonces(r))
         {
-            sf = null;
             return false;
         }
 
-        sf = new();
         bool match = true;
         foreach (Snapshot ss in r.Snapshots.Traces)
         {
@@ -358,7 +356,6 @@ public class Nession
             // Escape if we have disproven the match.
             if (!match)
             {
-                sf = null;
                 break;
             }
         }
@@ -401,7 +398,8 @@ public class Nession
         }
 
         StateConsistentRule r = (StateConsistentRule)scr.SubscriptVariables(NextVNumber());
-        if (CanApplyRule(r, out SigmaFactory? sf))
+        SigmaFactory sf = new();
+        if (CanApplyRule(r, sf))
         {
             // Determine the final form of the rule.
             Debug.Assert(sf != null);
