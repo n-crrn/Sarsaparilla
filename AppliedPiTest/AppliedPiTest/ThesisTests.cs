@@ -1,13 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-
-using AppliedPi;
-using AppliedPi.Translate;
 
 namespace SarsaparillaTests.AppliedPiTest;
 
@@ -19,7 +12,7 @@ namespace SarsaparillaTests.AppliedPiTest;
 public class ThesisTests
 {
 
-    //[TestMethod]
+    [TestMethod]
     public async Task BobSDTest()
     {
         string piSource =
