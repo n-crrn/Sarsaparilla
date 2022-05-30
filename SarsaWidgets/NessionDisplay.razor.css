@@ -42,13 +42,43 @@
     flex-direction: row;
 }
 
+.state-upper {
+    flex-grow: 2;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    background-color: #001100;
+}
+
+.state-lower {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+}
+
+.state-inner {
+    flex-basis: 10px;
+    margin: 5px;
+    writing-mode: vertical-rl;
+    vertical-align: middle;
+}
+
+.state-premise {
+    background-color: #001100;
+    writing-mode: vertical-rl;
+    padding: 10px;
+}
+
+.event-element {
+    padding: 5px;
+}
+
 .state {
     flex-grow: 1;
     flex-basis: 10px;
-    writing-mode: vertical-rl;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: end;
 }
 
 .diff {

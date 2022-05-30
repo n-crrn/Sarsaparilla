@@ -11,30 +11,36 @@
         {
             Nession.Frame frame = Nession.History[i];
             <div class='frame-container'>
-                @if (frame.StateChangePremises.Count > 0)
-                {
-                    <div class='state-change-premises' title=@frame.TransferRuleDescription>
-                        @foreach (Event premise in frame.StateChangePremises)
-                        {
-                            <EventDisplay Event=@premise/>
-                        }
-                    </div>
-                }
                 <div class='state-container'>
-                    @for (int j = 0; j < frame.StateSet.Count; j++)
+                    @for (int j = 0; j < frame.Cells.Count; j++)
                     {
-                        State s = frame.StateSet[j];
-                        string stateClass = i > 0 && !Nession.History[i - 1].StateSet[j].Equals(s) ? "state diff" : "state";
+                        Nession.StateCell sc = frame.Cells[j];
+                        string stateClass = i > 0 && !Nession.History[i - 1].Cells[j].Condition.Equals(sc.Condition) ? "state diff" : "state";
                         <div class='@stateClass'>
-                            <div class='state-inner'>
-                                <span class='state-name'>@s.Name</span>
-                                <span class='op'>(</span>
-                                <span class='format-values'>@s.Value.ToString()</span>
-                                <span class='op'>)</span>
+                            @if (sc.TransferRule != null && sc.TransferRule.Premises.Count > 0)
+                            {
+                                <div class='state-upper'>
+                                    <div class='state-premise'>
+                                        @foreach (Event p in sc.TransferRule.Premises)
+                                        {
+                                            <span class='event-element'><EventDisplay Event=@p/></span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                            
+                            <div class='state-lower'>
+                                <div class='state-inner'>
+                                    <span class='state-name'>@sc.Condition.Name</span>
+                                    <span class='op'>(</span>
+                                    <span class='format-values'>@sc.Condition.Value.ToString()</span>
+                                    <span class='op'>)</span>
+                                </div>
                             </div>
                         </div>
                     }
                 </div>
+
                 @if (frame.Rules.Count > 0)
                 {
                     <div class='rules-container'>

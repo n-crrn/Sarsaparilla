@@ -154,31 +154,6 @@ public class NessionManager
     }
 
     #endregion
-    #region State querying.
-
-    public List<Nession> MessageFoundWhen(IMessage msg, State when)
-    {
-        Guard g = new();
-        List<Nession> matches = new();
-        foreach (Nession n in GeneratedNessions())
-        {
-            foreach (Nession.Frame frame in n.History)
-            {
-                foreach (State s in frame.StateSet)
-                {
-                    if (when.CanBeUnifiedTo(s, g, new()) && frame.ResultsContainMessage(msg))
-                    {
-                        matches.Add(n);
-                        goto breakoutPoint;
-                    }
-                }
-            }
-        breakoutPoint:;
-        }
-        return matches;
-    }
-
-    #endregion
     #region Debugging.
 
     public void DescribeAllNessions(TextWriter writer)

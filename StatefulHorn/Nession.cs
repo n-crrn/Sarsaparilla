@@ -16,7 +16,8 @@ public class Nession
     {
         List<State> states = new(initStates);
         states.Sort();
-        History.Add(new(new(), states, new(), new List<StateTransferringRule>(), null));
+        List<StateCell> cells = new(from s in initStates select new StateCell(s, null));
+        History.Add(new(cells, new(), null));
     }
 
     private Nession(Rule? initRule, IEnumerable<Frame> frames, int lastVNumber)
@@ -36,46 +37,78 @@ public class Nession
 
     private HashSet<Event> NonceDeclarations { get; } = new();
 
-    public Attack? FoundAttack { get; set; }
-
-    public bool AttackFound => FoundAttack != null;
-
     // Used to simplify identification by the user.
     public string Label { get; set; } = "";
 
     #endregion
-    #region Nested Frame Class
+    #region Nested Frame class and support classes.
+
+    public class StateCell : IComparable, IComparable<StateCell>
+    {
+
+        public StateCell(State c, StateTransferringRule? transfer = null)
+        {
+            Condition = c;
+            TransferRule = transfer;
+        }
+
+        public State Condition;
+
+        public StateTransferringRule? TransferRule;
+
+        public StateCell DeepCopy() => new(Condition, TransferRule);
+
+        public StateCell Substitute(SigmaMap sigmaMap)
+        {
+            return new(
+                Condition.CloneWithSubstitution(sigmaMap),
+                (StateTransferringRule?)TransferRule?.PerformSubstitution(sigmaMap));
+        }
+
+        public int CompareTo(object? obj) => obj is StateCell sc ? CompareTo(sc) : 1;
+
+        public int CompareTo(StateCell? sc) => sc == null ? 1 : Condition.CompareTo(sc.Condition);
+
+        public override bool Equals(object? obj)
+        {
+            return obj is StateCell sc
+                && Condition.Equals(sc.Condition)
+                && Equals(TransferRule, sc.TransferRule);
+        }
+
+        public override int GetHashCode() => Condition.GetHashCode();
+
+        public IEnumerable<Event> MakePremises()
+        {
+            if (TransferRule != null)
+            {
+                foreach (Event p in TransferRule.Premises)
+                {
+                    if (p.EventType == Event.Type.Make)
+                    {
+                        yield return p;
+                    }
+                }
+            }
+        }
+
+    }
 
     public class Frame
     {
-        public Frame(HashSet<Event> premises,
-                     List<State> stateSet,
+        public Frame(List<StateCell> cells,
                      HashSet<StateConsistentRule> rules,
-                     IEnumerable<StateTransferringRule> transferRule,
                      Guard? guard)
         {
-            StateChangePremises = premises;
-            StateSet = stateSet;
+            Cells = cells;
+            Cells.Sort();
             Rules = rules;
-            TransferRule = transferRule;
             GuardStatements = guard ?? Guard.Empty;
         }
 
-        public Frame Clone() => new(new(StateChangePremises), new(StateSet), new(Rules), TransferRule, GuardStatements);
+        public Frame Clone() => new(new(from c in Cells select c.DeepCopy()), new(Rules), GuardStatements);
 
-        public HashSet<Event> StateChangePremises { get; init; }
-
-        public IEnumerable<Event> StateChangeMakes => from scp in StateChangePremises where scp.EventType == Event.Type.Make select scp;
-
-        public IEnumerable<Event> StateChangeKnows => from scp in StateChangePremises where scp.IsKnow select scp;
-
-        public IEnumerable<Event> StateChangeNews => from scp in StateChangePremises where scp.IsNew select scp;
-
-        public IEnumerable<StateTransferringRule> TransferRule { get; internal set; }
-
-        public string TransferRuleDescription => string.Join(", ", TransferRule);
-
-        public List<State> StateSet { get; init; }
+        public List<StateCell> Cells { get; init; }
 
         public HashSet<StateConsistentRule> Rules { get; init; }
 
@@ -83,58 +116,93 @@ public class Nession
 
         public State? GetStateByName(string name)
         {
-            foreach (State s in StateSet)
+            foreach (StateCell s in Cells)
             {
-                if (s.Name == name)
+                if (s.Condition.Name == name)
                 {
-                    return s;
+                    return s.Condition;
                 }
             }
             return null;
         }
 
+        internal int GetCellOffsetByName(string name)
+        {
+            for (int i = 0; i < Cells.Count; i++)
+            {
+                if (Cells[i].Condition.Name == name)
+                {
+                    return i;
+                }
+            }
+            throw new ArgumentException($"No cell named '{name}' within Nession");
+        }
+
         public Frame Substitute(SigmaMap map)
         {
-            HashSet<Event> newPremises = new(from p in StateChangePremises select p.PerformSubstitution(map));
-            HashSet<Event> newMakes = new(from m in StateChangeMakes select m.PerformSubstitution(map));
-            List<State> newStateSet = new(from s in StateSet select new State(s.Name, s.Value.PerformSubstitution(map)));
-            HashSet<StateConsistentRule> newRules = new();
+            List<StateCell> updatedCells = new(from c in Cells select c.Substitute(map));
+            HashSet<StateConsistentRule> updatedRules = new();
             foreach (StateConsistentRule r in Rules)
             {
                 StateConsistentRule newR = (StateConsistentRule)r.PerformSubstitution(map);
                 newR.IdTag = r.IdTag;
-                newRules.Add(newR);
+                updatedRules.Add(newR);
             }
-            Frame nf = new(
-                newPremises,
-                newStateSet,
-                newRules,
-                new List<StateTransferringRule>(from tr in TransferRule select (StateTransferringRule)tr.PerformSubstitution(map)),
-                GuardStatements.PerformSubstitution(map));
-            return nf;
+            return new(updatedCells, updatedRules, GuardStatements.PerformSubstitution(map));
+        }
+
+        public Frame ApplyTransfers(List<StateTransferringRule> transfers)
+        {
+            // It is assumed that the required sigma map applications have been conducted on both
+            // this Nession and on the given rules.
+            Guard gs = GuardStatements;
+            List<StateCell> nextCells = new(Cells);
+            foreach (StateTransferringRule str in transfers)
+            {
+                // Update guard.
+                gs = gs.Union(str.GuardStatements);
+                // Find the cell, and replace it.
+                foreach ((Snapshot after, State newState) in str.Result.Transformations)
+                {
+                    bool found = false;
+                    for (int i = 0; i < nextCells.Count; i++)
+                    {
+                        if (nextCells[i].Condition.Equals(after.Condition))
+                        {
+                            nextCells[i] = new(newState, str);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        throw new ArgumentException($"Transformation rule not applicable to frame: {str} to {this}.");
+                    }
+                }
+            }
+            return new(nextCells, new(), gs);
         }
 
         public bool ResultsContainMessage(IMessage msg) => (from r in Rules where r.Result.ContainsMessage(msg) select r).Any();
 
-        public override string ToString()
+        public IEnumerable<Event> NewEventsInStateChangeRules()
         {
-            string premises = string.Join(", ", StateChangePremises);
-            if (premises != string.Empty)
+            foreach (StateCell sc in Cells)
             {
-                premises += "\n";
+                if (sc.TransferRule != null)
+                {
+                    foreach (Event ev in sc.TransferRule.Premises)
+                    {
+                        if (ev.IsNew)
+                        {
+                            yield return ev;
+                        }
+                    }
+                }
             }
-            else
-            {
-                premises = "<NO STATE CHANGE PREMISES>\n";
-            }
-            string states = string.Join(", ", StateSet);
-            string results = string.Join("\n\t", from r in Rules select r.ToString());
-            if (results == string.Empty)
-            {
-                results = "<NO RULES>";
-            }
-            return $"{premises}\tSTATES [ {states} ]->\n\t{results}";
         }
+
+        public override string ToString() => string.Join(", ", from c in Cells select c.Condition.ToString());
 
         private static HashSet<int> RulesToIds(IEnumerable<StateConsistentRule> rules)
         {
@@ -150,12 +218,12 @@ public class Nession
         public override bool Equals(object? obj)
         {
             return obj is Frame f &&
-                f.StateChangePremises.SetEquals(StateChangePremises) &&
-                f.StateSet.SequenceEqual(StateSet) &&
-                RulesToIds(Rules).SetEquals(RulesToIds(f.Rules));
+                Cells.SequenceEqual(f.Cells) &&
+                RulesToIds(Rules).SetEquals(RulesToIds(f.Rules)) &&
+                Equals(GuardStatements, f.GuardStatements);
         }
 
-        public override int GetHashCode() => StateSet.First().GetHashCode();
+        public override int GetHashCode() => Cells.First().GetHashCode(); // Lazy but deterministic.
     }
 
     #endregion
@@ -166,7 +234,7 @@ public class Nession
         NonceDeclarations.Clear();
         foreach (Frame f in History)
         {
-            NonceDeclarations.UnionWith(f.StateChangeNews);
+            NonceDeclarations.UnionWith(f.NewEventsInStateChangeRules());
             foreach (StateConsistentRule scr in f.Rules)
             {
                 NonceDeclarations.UnionWith(scr.NewEvents);
@@ -200,52 +268,9 @@ public class Nession
         return new(InitialRule, from f in History select f.Substitute(map), VNumber);
     }
 
-    public (Nession?, bool) TryApplyTransfer(StateTransferringRule str)
-    {
-        StateTransferringRule r = (StateTransferringRule)str.SubscriptVariables(NextVNumber());
-        SigmaFactory sf = new();
-        if (CanApplyRule(r, sf))
-        {
-            SigmaMap fwdMap = sf.CreateForwardMap();
-            SigmaMap bwdMap = sf.CreateBackwardMap();
-
-            bool canRemoveThis = bwdMap.IsEmpty;
-            Nession updated = Substitute(bwdMap);
-            StateTransferringRule updatedRule = (StateTransferringRule)r.PerformSubstitution(fwdMap);
-            List<State> newStateSet = updated.CreateStateSetOnTransfer(updatedRule);
-            Guard gs = updated.History[^1].GuardStatements.Union(updatedRule.GuardStatements);
-            // It is possible to have duplicate states pop up in a trace, especially if you have
-            // some sort of reset rule. This logic prevents it.
-            if (!(updated.History.Count > 0 && newStateSet.SequenceEqual(updated.History[^1].StateSet)))
-            {
-                Frame newFrame = new(new(updatedRule.Premises), newStateSet, new(), new List<StateTransferringRule>() { str }, gs);
-                updated.History.Add(newFrame);
-                updated.UpdateNonceDeclarations();
-
-                return (updated, canRemoveThis);
-            }
-        }
-        StepBackVNumber();
-        return (null, false);
-    }
-
-    private List<State> CreateStateSetOnTransfer(StateTransferringRule r)
-    {
-        Frame lastFrame = History[^1];
-        List<State> stateSet = new(lastFrame.StateSet);
-        StateTransformationSet transformSet = r.Result;
-        foreach ((Snapshot after, State newState) in transformSet.Transformations)
-        {
-            bool wasRemoved = stateSet.Remove(after.Condition);
-            Debug.Assert(wasRemoved);
-            stateSet.Add(newState);
-        }
-        stateSet.Sort();
-        return stateSet;
-    }
-
     public (Nession?, bool) TryApplyMultipleTransfers(List<StateTransferringRule> transfers)
     {
+        // Create tranfer rule working list, and make variables unique.
         List<StateTransferringRule> subTransfers = new();
         foreach (StateTransferringRule r in transfers)
         {
@@ -264,33 +289,16 @@ public class Nession
         SigmaMap fwdMap = sf.CreateForwardMap();
         SigmaMap bwdMap = sf.CreateBackwardMap();
 
-        // Establish guard values.
+        // Apply sigma maps.
         Nession updated = Substitute(bwdMap);
-        Guard gs = updated.History[^1].GuardStatements;
-        foreach (StateTransferringRule str in subTransfers)
+        for (int i = 0; i < subTransfers.Count; i++)
         {
-            gs = gs.Union(str.GuardStatements.PerformSubstitution(fwdMap));
+            subTransfers[i] = (StateTransferringRule)subTransfers[i].PerformSubstitution(fwdMap);
         }
 
-        // Create the new Nession frame.
-        List<State> nextFrameStates = new(updated.History[^1].StateSet);
-        HashSet<Event> premises = new();
-        List<StateTransferringRule> updatedRules = new();
-        foreach (StateTransferringRule str in subTransfers)
-        {
-            StateTransferringRule updatedRule = (StateTransferringRule)str.PerformSubstitution(fwdMap);
-            premises.UnionWith(updatedRule.Premises);
-            foreach ((Snapshot after, State newState) in updatedRule.Result.Transformations)
-            {
-                nextFrameStates.Remove(after.Condition);
-                nextFrameStates.Add(newState);
-            }
-            updatedRules.Add(updatedRule);
-        }
-        nextFrameStates.Sort();
-
-        Frame newFrame = new(premises, nextFrameStates, new(), updatedRules, gs);
-        updated.History.Add(newFrame);
+        // Create new frame.
+        Frame nextFrame = updated.History[^1].ApplyTransfers(subTransfers);
+        updated.History.Add(nextFrame);
         updated.UpdateNonceDeclarations();
         return (updated, bwdMap.IsEmpty);
     }
@@ -436,11 +444,11 @@ public class Nession
     public Nession? MatchingWhenAtEnd(State when)
     {
         // When has to match ONE of the states in the final frame.
-        foreach (State s in History[^1].StateSet)
+        foreach (StateCell c in History[^1].Cells)
         {
             SigmaFactory sf = new();
 
-            if (when.CanBeUnifiableWith(s, Guard.Empty, Guard.Empty, sf))
+            if (when.CanBeUnifiableWith(c.Condition, Guard.Empty, Guard.Empty, sf))
             {
                 // The forward map does not matter - the backward match does matter as it will
                 // propogate any required constants or nonces backwards in time.
@@ -458,100 +466,170 @@ public class Nession
         return null;
     }
 
-    public HashSet<IMessage> FinalStatePremises()
+    public HashSet<IMessage> FinalStateNonVariablePremises(string cellName)
     {
-        HashSet<IMessage> accumulator = new();
-        foreach (Frame f in History)
+        HashSet<IMessage> filtered = new();
+        foreach (Event ev in PremisesForState(cellName))
         {
-            accumulator.UnionWith(from fp in f.StateChangePremises where fp.IsKnow select fp.Messages.Single());
+            IMessage msg = ev.Messages[0];
+            if (msg is not VariableMessage)
+            {
+                filtered.Add(msg);
+            }
         }
-        return accumulator;
-    }
-
-    public HashSet<IMessage> FinalStateNonVariablePremises()
-    {
-        return new(from msg in FinalStatePremises() where msg is not VariableMessage select msg);
+        return filtered;
     }
 
     #endregion
     #region Nession object opererations.
 
-    public bool IsPrefixOf(Nession other)
+    public HashSet<Event> PremisesForState(string cell)
     {
-        if (other.History.Count < History.Count)
-        {
-            return false;
-        }
-        for (int i = 0; i < History.Count; i++)
-        {
-            if (!History[i].Equals(other.History[i]))
-            {
-                return false;
-            }
-        }
-        return true;
+        int cellOffset = History[^1].GetCellOffsetByName(cell);
+        return new(InnerPremisesForState(History.Count - 1, cellOffset));
     }
 
-    public void CollectHornClauses(HashSet<HornClause> clauses, HashSet<IMessage> proceeding)
+    private IEnumerable<Event> InnerPremisesForState(int historyIndex, int cellOffset)
     {
-        HashSet<IMessage> premises = new(proceeding);
-        List<StateTransferringRule> accumulator = new();
-        int rank = 0;
-        foreach (Frame f in History)
+        Frame f = History[historyIndex];
+        StateCell c = f.Cells[cellOffset];
+
+        // Deal with the immediate transfer rule at this level.
+        if (c.TransferRule != null)
         {
-            // Work out the premises required to get to this state ...
-            premises.UnionWith(from fp in f.StateChangeKnows select fp.Messages.Single());
-            // ... and create clauses for the makes ...
-            foreach (Event mk in f.StateChangeMakes)
+            foreach (Event premise in c.TransferRule.Premises)
             {
-                HornClause makeClause = new(mk.Messages.Single(), from p in f.StateChangePremises where p.IsKnow select p.Messages.Single())
-                {
-                    Rank = rank,
-                    // Note that the Transfer rule for the nession *must* not be null for there to be
-                    // a make event in the nession's premises.
-                    // FIXME: Following rule is temporary - need to actually sort out which transfer rules led to state.
-                    Source = new NessionRuleSource(this, rank, new(accumulator), f.TransferRule!.First()),
-                    Guard = f.GuardStatements
-                };
-                clauses.Add(makeClause);
+                yield return premise;
             }
-            // ... and add the state transfer rule to the accumulated rules.
-            if (f.TransferRule != null)
+        }
+        
+        // Collect prior transfer rules that would have affected this cell.
+        if (historyIndex > 0)
+        {
+            IEnumerable<Event> priors = InnerPremisesForState(historyIndex - 1, cellOffset);
+
+            if (c.TransferRule != null)
             {
-                accumulator.AddRange(f.TransferRule);
+                foreach (Snapshot ss in c.TransferRule.Snapshots.Traces)
+                {
+                    int innerCellOffset = History[historyIndex - 1].GetCellOffsetByName(ss.Condition.Name);
+                    if (innerCellOffset != cellOffset)
+                    {
+                        priors = priors.Concat(InnerPremisesForState(historyIndex - 1, innerCellOffset));
+                    }
+                }
             }
 
-            // For every rule...
+            if (priors != null)
+            {
+                foreach (Event e in priors)
+                {
+                    yield return e;
+                }
+            }
+        }
+    }
+
+    private IEnumerable<IMessage> InnerKnowsForState(int historyIndex, int cellOffset)
+    {
+        return from ev in InnerPremisesForState(historyIndex, cellOffset) where ev.IsKnow select ev.Messages[0];
+    }
+
+    private HashSet<StateTransferringRule> TransferringRulesForState(int historyIndex, int cellOffset, bool skipImmediate = false)
+    {
+        HashSet<StateTransferringRule> rules = new();
+        Frame f = History[historyIndex];
+        StateCell c = f.Cells[cellOffset];
+        if (c.TransferRule != null && !skipImmediate)
+        {
+            rules.Add(c.TransferRule);
+        }
+        if (historyIndex > 0)
+        {
+            rules.UnionWith(TransferringRulesForState(historyIndex - 1, cellOffset));
+            if (c.TransferRule != null)
+            {
+                foreach (Snapshot ss in c.TransferRule.Snapshots.Traces)
+                {
+                    int innerCellOffset = f.GetCellOffsetByName(ss.Condition.Name);
+                    if (innerCellOffset != cellOffset)
+                    {
+                        rules.UnionWith(TransferringRulesForState(historyIndex - 1, innerCellOffset, false));
+                    }
+                }
+            }
+        }
+        return rules;
+    }
+
+    public void CollectHornClauses(HashSet<HornClause> clauses)
+    {
+        List<StateTransferringRule> accumulator = new();
+        for (int rank = 0; rank < History.Count; rank++)
+        {
+            Frame f = History[rank];
+
+            // Collect make statements - go through each cell rule.
+            for (int stateI = 0; stateI < f.Cells.Count; stateI++)
+            {
+                StateCell sc = f.Cells[stateI];
+                // Note that nothing is returned from sc.MakePremises if TransferRule == null.
+                IEnumerable<IMessage>? kPremises = null;
+                foreach (Event mkPremise in sc.MakePremises())
+                {
+                    if (kPremises == null)
+                    {
+                        kPremises = from p in InnerPremisesForState(rank, stateI)
+                                    where p.IsKnow
+                                    select p.Messages.Single();
+                    }
+                    HornClause mkClause = new(mkPremise.Messages.Single(), kPremises)
+                    {
+                        Rank = rank,
+                        Source = new NessionRuleSource(this, rank, TransferringRulesForState(rank, stateI, true).ToList(), sc.TransferRule!),
+                        Guard = f.GuardStatements
+                    };
+                    clauses.Add(mkClause);
+                }
+            }
+
+            // Collect rules - note that make events also need to be made if they are in the
+            // premise of the rules.
             foreach (StateConsistentRule r in f.Rules)
             {
-                // ... add know events ...
-                HashSet<IMessage> thisRulePremises = new(premises);
-                thisRulePremises.UnionWith(from rp in r.Premises where rp.IsKnow select rp.Messages.Single());
+                // Add know events.
+                HashSet<IMessage> premises = new(from p in r.Premises where p.IsKnow select p.Messages.Single());
                 Guard g = f.GuardStatements.Union(r.GuardStatements);
-                HornClause hc = new(r.Result.Messages.Single(), thisRulePremises)
+                List<StateTransferringRule> transferRules = new();
+                foreach (Snapshot rSS in r.Snapshots.Traces)
+                {
+                    int cellOffset = f.GetCellOffsetByName(rSS.Condition.Name);
+                    premises.UnionWith(InnerKnowsForState(rank, cellOffset));
+                    transferRules.AddRange(TransferringRulesForState(rank, cellOffset));
+                }
+                HornClause rClause = new(r.Result.Messages.Single(), premises)
                 {
                     Rank = rank,
-                    Source = new NessionRuleSource(this, rank, new(accumulator), r),
+                    Source = new NessionRuleSource(this, rank, transferRules, r),
                     Guard = g
                 };
-                clauses.Add(hc);
+                clauses.Add(rClause);
 
-                // ... and add make events.
+                // Add make events.
                 foreach (Event ep in r.Premises)
                 {
                     if (ep.EventType == Event.Type.Make)
                     {
-                        HornClause makeClause = new(ep.Messages.Single(), premises)
+                        HornClause mkClause = new(ep.Messages.Single(), premises)
                         {
                             Rank = rank,
-                            Source = new NessionRuleSource(this, rank, new(accumulator), r),
+                            Source = new NessionRuleSource(this, rank, transferRules, r),
                             Guard = g
                         };
-                        clauses.Add(makeClause);
+                        clauses.Add(mkClause);
                     }
                 }
             }
-            rank++;
         }
     }
 
@@ -563,9 +641,9 @@ public class Nession
         HashSet<IMessage> varSet = new();
         foreach (Frame f in History)
         {
-            foreach (State s in f.StateSet)
+            foreach (StateCell c in f.Cells)
             {
-                varSet.UnionWith(s.Variables);
+                varSet.UnionWith(c.Condition.Variables);
             }
         }
         return varSet;
@@ -595,7 +673,7 @@ public class Nession
         return false;
     }
 
-    public override int GetHashCode() => History[^1].StateSet[0].GetHashCode();
+    public override int GetHashCode() => History[^1].Cells.First().GetHashCode();
 
     #endregion
 

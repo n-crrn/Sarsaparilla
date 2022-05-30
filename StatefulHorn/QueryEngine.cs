@@ -154,8 +154,6 @@ public class QueryEngine
             {
                 onStartNextLevel?.Invoke();
 
-                HashSet<IMessage> premises = new();
-                
                 foreach (IMessage q in Queries)
                 {
                     bool atLeastOneAttack = false;
@@ -170,7 +168,7 @@ public class QueryEngine
                             {
                                 continue;
                             }
-                            HashSet<IMessage> updatedPremises = validN.FinalStateNonVariablePremises();
+                            HashSet<IMessage> updatedPremises = validN.FinalStateNonVariablePremises(When.Name);
                             updatedPremises.Add(q);
                             fullQuery = new TupleMessage(updatedPremises);
                         }
@@ -180,7 +178,7 @@ public class QueryEngine
                         }
 
                         HashSet<HornClause> thisNessionClauses = new();
-                        validN.CollectHornClauses(thisNessionClauses, premises);
+                        validN.CollectHornClauses(thisNessionClauses);
 
                         HashSet<HornClause> fullNessionSet = new(KnowledgeRules);
                         fullNessionSet.UnionWith(thisNessionClauses);
