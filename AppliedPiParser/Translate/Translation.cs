@@ -813,8 +813,11 @@ public class Translation
                     ProVerifTranslate(sentChannel, b, new(premises), allRules, rn, nw);
                 }
                 break;
-            case ReplicateProcess:
-                ProVerifTranslate(sentChannel, n.Branches[0], premises, allRules, rn, nw);
+            default: // ReplicateProcess and NewProcess.
+                if (n.Branches.Count > 0)
+                {
+                    ProVerifTranslate(sentChannel, n.Branches[0], premises, allRules, rn, nw);
+                }
                 break;
         }
     }
