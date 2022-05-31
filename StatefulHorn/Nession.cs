@@ -56,6 +56,10 @@ public class Nession
 
         public StateTransferringRule? TransferRule;
 
+        internal HashSet<Event>? CachedPremises;
+
+        internal HashSet<StateTransferringRule>? CachedLeadupRules;
+
         public StateCell DeepCopy() => new(Condition, TransferRule);
 
         public StateCell Substitute(SigmaMap sigmaMap)
@@ -491,22 +495,25 @@ public class Nession
 
     private IEnumerable<Event> InnerPremisesForState(int historyIndex, int cellOffset)
     {
+        // See if this has already been determined.
         Frame f = History[historyIndex];
         StateCell c = f.Cells[cellOffset];
+        if (c.CachedPremises != null)
+        {
+            return c.CachedPremises;
+        }
+        HashSet<Event> allPremises = new();
 
         // Deal with the immediate transfer rule at this level.
         if (c.TransferRule != null)
         {
-            foreach (Event premise in c.TransferRule.Premises)
-            {
-                yield return premise;
-            }
+            allPremises.UnionWith(c.TransferRule.Premises);
         }
         
         // Collect prior transfer rules that would have affected this cell.
         if (historyIndex > 0)
         {
-            IEnumerable<Event> priors = InnerPremisesForState(historyIndex - 1, cellOffset);
+            allPremises.UnionWith(InnerPremisesForState(historyIndex - 1, cellOffset));
 
             if (c.TransferRule != null)
             {
@@ -515,19 +522,15 @@ public class Nession
                     int innerCellOffset = History[historyIndex - 1].GetCellOffsetByName(ss.Condition.Name);
                     if (innerCellOffset != cellOffset)
                     {
-                        priors = priors.Concat(InnerPremisesForState(historyIndex - 1, innerCellOffset));
+                        allPremises.UnionWith(InnerPremisesForState(historyIndex - 1, innerCellOffset));
                     }
                 }
             }
-
-            if (priors != null)
-            {
-                foreach (Event e in priors)
-                {
-                    yield return e;
-                }
-            }
         }
+
+        // Cache result and return.
+        c.CachedPremises = allPremises;
+        return allPremises;
     }
 
     private IEnumerable<IMessage> InnerKnowsForState(int historyIndex, int cellOffset)
@@ -537,9 +540,16 @@ public class Nession
 
     private HashSet<StateTransferringRule> TransferringRulesForState(int historyIndex, int cellOffset, bool skipImmediate = false)
     {
-        HashSet<StateTransferringRule> rules = new();
+        // Check if this has already been determined.
         Frame f = History[historyIndex];
         StateCell c = f.Cells[cellOffset];
+        if (c.CachedLeadupRules != null)
+        {
+            return c.CachedLeadupRules;
+        }
+
+        // Determine the rules.
+        HashSet<StateTransferringRule> rules = new();
         if (c.TransferRule != null && !skipImmediate)
         {
             rules.Add(c.TransferRule);
@@ -559,6 +569,9 @@ public class Nession
                 }
             }
         }
+
+        // Cache for reuse.
+        c.CachedLeadupRules = rules;
         return rules;
     }
 
