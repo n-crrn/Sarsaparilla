@@ -342,7 +342,7 @@ public class QueryEngine
         }
         else
         {
-            qr = CheckBasicQuery(queryToFind, basicFacts, basicRules, compRules, status, guard, stateVarReplacements, rank);
+            qr = CheckBasicQuery((NameMessage)queryToFind, basicFacts, basicRules, compRules, status, guard, stateVarReplacements, rank);
         }
         status.NowProving.Remove(queryToFind);
         return qr;
@@ -363,7 +363,7 @@ public class QueryEngine
     }
 
     private QueryResult CheckBasicQuery(
-        IMessage queryToFind, 
+        NameMessage queryToFind, 
         HashSet<IMessage> facts, 
         List<HornClause> basicRules, 
         List<HornClause> compRules,
@@ -372,8 +372,15 @@ public class QueryEngine
         Dictionary<IMessage, IMessage?> stateRepl,
         int rank)
     {
-        List<HornClause> candidates = new(from r in basicRules where queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank) select r);
+        List<HornClause> candidates = new(from r in basicRules
+                                          where (queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank)) 
+                                                && !r.Premises.Contains(queryToFind)
+                                          select r);
         candidates.Sort(SortRules);
+
+        Dictionary<IMessage, QueryResult> foundPremiseCache = new();
+        HashSet<IMessage> failedPremiseCache = new();
+
         foreach (HornClause checkRule in candidates)
         {
             SigmaFactory sf = new();
@@ -392,11 +399,17 @@ public class QueryEngine
                 bool found = true;
                 foreach (IMessage premise in updated.Premises)
                 {
-                    if (queryToFind is VariableMessage && premise is VariableMessage)
+                    if (failedPremiseCache.Contains(premise))
                     {
                         found = false;
                         break;
                     }
+                    if (foundPremiseCache.TryGetValue(premise, out QueryResult? cachedQR))
+                    {
+                        qrParts.Add(cachedQR!);
+                        continue;
+                    }
+
                     QueryResult innerResult = CheckQuery(
                         premise, 
                         facts, 
@@ -409,9 +422,11 @@ public class QueryEngine
                     if (innerResult.Found)
                     {
                         qrParts.Add(innerResult);
+                        foundPremiseCache[premise] = innerResult;
                     }
                     else
                     {
+                        failedPremiseCache.Add(premise);
                         found = false;
                         break;
                     }
@@ -547,12 +562,23 @@ public class QueryEngine
 
     private static int SortRules(HornClause hc1, HornClause hc2)
     {
-        int cmp = hc1.Variables.Count.CompareTo(hc2.Variables.Count);
-        if (cmp == 0)
+        if (hc1.BeforeRank(hc2.Rank))
         {
-            cmp = hc1.Complexity.CompareTo(hc2.Complexity);
+            return 1;
         }
-        return cmp;
+        else if (hc2.BeforeRank(hc1.Rank))
+        {
+            return -1;
+        }
+        else
+        {
+            int cmp = hc1.Variables.Count.CompareTo(hc2.Variables.Count);
+            if (cmp == 0)
+            {
+                cmp = hc1.Complexity.CompareTo(hc2.Complexity);
+            }
+            return cmp;
+        }
     }
 
     /*private static void DescribeExecutionState(
