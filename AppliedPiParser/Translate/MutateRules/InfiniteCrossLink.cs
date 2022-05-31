@@ -76,14 +76,7 @@ public class InfiniteCrossLink : IMutateRule
     {
         foreach ((Socket s, int ic) in FiniteActionCounts)
         {
-            if (s is ReadSocket rs)
-            {
-                rs.RegisterReadSequence(factory, ic, rs.WaitingState());
-            }
-            else
-            {
-                s.RegisterHistory(factory, ic);
-            }
+            s.RegisterHistory(factory, ic);
         }
         Snapshot fromWait = factory.RegisterState(From.WaitingState());
         factory.RegisterPremises(fromWait, Premises);

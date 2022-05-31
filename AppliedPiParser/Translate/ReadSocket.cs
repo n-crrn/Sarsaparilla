@@ -14,7 +14,9 @@ public class ReadSocket : Socket
 
     public override Snapshot RegisterHistory(RuleFactory factory, int interactions)
     {
-        return RegisterReadSequence(factory, interactions);
+        // Need to ensure that the socket is - at least - open.
+        State? finalState = interactions == 0 ? WaitingState() : null;
+        return RegisterReadSequence(factory, interactions, finalState);
     }
 
     public Snapshot RegisterReadSequence(RuleFactory factory, int readCount, State? endWith = null)

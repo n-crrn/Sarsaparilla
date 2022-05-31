@@ -38,12 +38,7 @@ public class InfiniteWriteRule : IMutateRule
     {
         foreach ((Socket s, int ic) in FiniteActionCounts)
         {
-            Snapshot ss = s.RegisterHistory(factory, ic);
-            if (s is ReadSocket)
-            {
-                Snapshot nextSS = factory.RegisterState(s.WaitingState());
-                nextSS.SetModifiedOnceLaterThan(ss);
-            }
+            s.RegisterHistory(factory, ic);
         }
         Snapshot latest = factory.RegisterState(From.WaitingState());
         factory.RegisterPremises(latest, Premises);
