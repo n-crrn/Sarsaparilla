@@ -13,7 +13,7 @@ public class ThesisTests
 {
 
     [TestMethod]
-    public async Task BobSDTest()
+    public async Task BobSDTestNoAttack()
     {
         string piSource =
 @"type key.
@@ -21,8 +21,10 @@ public class ThesisTests
 const left: bitstring.
 const right: bitstring.
 
-fun h(bitstring):bitstring.
-fun pk(key):key.
+fun h(bitstring): bitstring.
+fun pk(key): key.
+fun enc(bitstring, key): bitstring.
+reduc forall x: bitstring, y: key; dec(enc(x, pk(y)), y) = x.
 
 query attacker((bobl, bobr)).
 
@@ -36,7 +38,7 @@ let SD(b: channel, sk: key) =
   out(b, mStart);
   let mUpdated: bitstring = h(mStart, x) in
   in(b, enc_rx: bitstring);
-  let (mf: bitstring, sl: bitstring, sr: bitstring, =pk(sk)) = enc_rx in
+  let (mf: bitstring, sl: bitstring, sr: bitstring) = dec(enc_rx, sk) in
     if mUpdated = h(mStart, left) then
       out(b, sl)
     else
@@ -49,7 +51,7 @@ let Bob(b: channel, sk: key) =
   new bobr: bitstring;
   (* Read from SD. *)
   in(b, mf: bitstring); 
-  out(b, (mf, bobl, bobr, pk(sk)));
+  out(b, enc((mf, bobl, bobr), pk(sk)));
   in(b, result: bitstring).
 
 let BobSDSet(which: bitstring) =

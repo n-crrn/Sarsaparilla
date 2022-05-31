@@ -278,15 +278,8 @@ public class ProcessGroup : IProcess
         p.ReadExpectedToken("(", stmtType);
         string channelName = p.ReadNameToken(stmtType);
         p.ReadExpectedToken(",", stmtType);
-        (Term sentTerm, string? maybeToken) = Term.ReadTermAndNextToken(p, stmtType);
-        if (maybeToken == null)
-        {
-            p.ReadExpectedToken(")", stmtType);
-        }
-        else
-        {
-            UnexpectedTokenException.Check(")", maybeToken, stmtType);
-        }
+        Term sentTerm = Term.ReadTerm(p, stmtType);
+        p.ReadExpectedToken(")", stmtType);
         return new OutChannelProcess(channelName, sentTerm);
     }
 

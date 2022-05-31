@@ -312,7 +312,7 @@ public class Term : ITermGenerator
         Term subTerm;
         do
         {
-            subTerm = ReadNamedTerm(p, stmtType);
+            subTerm = ReadTerm(p, stmtType);
             parameters.Add(subTerm);
             token = p.ReadNextToken();
         } while (token == ",");
