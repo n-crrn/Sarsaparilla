@@ -462,16 +462,16 @@ public class Translation
                 // result are.
                 if (writer.IsInfinite)
                 {
+                    bool foundDestination = false;
                     if (infReaders.TryGetValue(outChannelTerm, out ReadSocket? rxSocket))
                     {
                         // For every matching receive pattern, add an infinite cross link.
-                        IEnumerable<IMutateRule> iclRules =
-                            InfiniteCrossLink.GenerateRulesForReadReceivePatterns(writer, rxSocket, tf.InteractionCount, tf.Premises, resultMessage);
-                        foreach (IMutateRule rxPatternRule in iclRules)
+                        InfiniteCrossLink iclRule = new(writer, rxSocket, tf.InteractionCount, tf.Premises, resultMessage)
                         {
-                            rxPatternRule.Conditions = tf.Conditions;
-                            rules.Add(rxPatternRule);
-                        }
+                            Conditions = tf.Conditions
+                        };
+                        rules.Add(iclRule);
+                        foundDestination = true;
                     }
                     if (finReaders.TryGetValue(outChannelTerm, out List<ReadSocket>? rxSocketList) && rxSocketList!.Count > 0)
                     {
@@ -479,6 +479,11 @@ public class Translation
                         {
                             Conditions = tf.Conditions
                         });
+                        foundDestination = true;
+                    }
+                    if (!foundDestination)
+                    {
+                        throw new ArgumentException($"Write to channel {writer.ChannelName} is missing a corresponding concurrent read.");
                     }
                 }
                 else
@@ -745,9 +750,7 @@ public class Translation
             case InChannelProcess icp:
                 foreach ((string varEntry, _) in icp.ReceivePattern)
                 {
-                    //premises.Add(FiniteReadRule.VariableCellAsPremise(varEntry));
-                    // No need for read-cell tag.
-                    premises.Add(StatefulHorn.Event.Know(new VariableMessage(varEntry)));
+                    premises.Add(ReadRule.VariableCellAsPremise(varEntry));
                 }
                 if (n.Branches.Count > 0)
                 {

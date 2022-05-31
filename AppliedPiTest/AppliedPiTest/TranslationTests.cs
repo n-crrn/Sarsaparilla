@@ -134,7 +134,7 @@ process !( out(c, s) |  in(c, v: bitstring) ).";
             new KnowChannelContentRule(cOut),
             new OpenSocketsRule(cIn),
             new OpenSocketsRule(cOut),
-            new InfiniteCrossLink(cOut, cIn, new Dictionary<Socket, int>(), new(), new NameMessage("s"), "v"),
+            new InfiniteCrossLink(cOut, cIn, new Dictionary<Socket, int>(), new(), new NameMessage("s")),
             // Following rules should not be triggered during Nession construction.
             new ReadResetRule(cIn),
             new ReadRule(cIn, "v"),

@@ -15,14 +15,13 @@ public class InfiniteCrossLink : IMutateRule
         ReadSocket toSocket, 
         IDictionary<Socket, int> finActionCounts,
         HashSet<Event> premises, 
-        IMessage sent,
-        string varName)
+        IMessage sent)
     {
         From = fromSocket;
         To = toSocket;
         FiniteActionCounts = finActionCounts;
         Premises = premises;
-        Result = Event.Know(new FunctionMessage($"{varName}@cell", new() { sent }));
+        Result = Event.Know(sent);
         Debug.Assert(From.IsInfinite && To.IsInfinite);
     }
 
@@ -35,36 +34,6 @@ public class InfiniteCrossLink : IMutateRule
     public HashSet<Event> Premises { get; init; }
 
     public Event Result { get; init; }
-
-    public static IEnumerable<IMutateRule> GenerateRulesForReadReceivePatterns(
-        WriteSocket from,
-        ReadSocket to,
-        IDictionary<Socket, int> finActionCounts,
-        HashSet<Event> premises,
-        IMessage written)
-    {
-        foreach (List<(string, string)> rxPattern in to.ReceivePatterns)
-        {
-            // Does the pattern match the given term?
-            if (written is TupleMessage tm)
-            {
-                if (tm.Members.Count == rxPattern.Count)
-                {
-                    foreach ((string varName, string _) in rxPattern)
-                    {
-                        yield return new InfiniteCrossLink(from, to, finActionCounts, premises, written, varName);
-                    }
-                }
-            }
-            else
-            {
-                if (rxPattern.Count == 1)
-                {
-                    yield return new InfiniteCrossLink(from, to, finActionCounts, premises, written, rxPattern[0].Item1);
-                }
-            }
-        }
-    }
 
     #region IMutateRule implementation.
 
