@@ -26,7 +26,7 @@ public class QueryTests
         bool completedDone = false;
 
         void onGlobalAttackFound(Attack a) => globalAttackFound = true;
-        void onAttackAssessedFound(Nession n, HashSet<HornClause> _, Attack? a) => attackAssessedFound |= a != null;
+        void onAttackAssessedFound(Nession n, IReadOnlySet<HornClause> _, Attack? a) => attackAssessedFound |= a != null;
         void onCompletion() => completedDone = true;
 
         await qe.Execute(null, onGlobalAttackFound, onAttackAssessedFound, onCompletion);

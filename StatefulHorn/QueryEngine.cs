@@ -107,7 +107,7 @@ public class QueryEngine
     public async Task Execute(
         Action? onStartNextLevel,
         Action<Attack>? onGlobalAttackFound,
-        Action<Nession, HashSet<HornClause>, Attack?>? onAttackAssessed,
+        Action<Nession, IReadOnlySet<HornClause>, Attack?>? onAttackAssessed,
         Action? onCompletion,
         int maxDepth = -1)
     {
@@ -152,8 +152,6 @@ public class QueryEngine
         }
         await CurrentNessionManager.Elaborate((List<Nession> nextLevelNessions) =>
             {
-                onStartNextLevel?.Invoke();
-
                 foreach (IMessage q in Queries)
                 {
                     bool atLeastOneAttack = false;
@@ -195,7 +193,8 @@ public class QueryEngine
                             Guard.Empty, 
                             StateVarsReplacementSpec(validN));
                         Attack? foundAttack = qr.Found ? new(qr.Facts!, qr.Knowledge!) : null;
-                        onAttackAssessed?.Invoke(validN, fullNessionSet, foundAttack);
+                        validN.FoundAttack = foundAttack;
+                        validN.FoundSystemClauses = fullNessionSet;
                         atLeastOneAttack |= foundAttack != null;
                     }
                     if (atLeastOneAttack)
@@ -205,6 +204,13 @@ public class QueryEngine
                 }
                 return false;
             }, maxElab);
+
+        // Update the user interface.
+        onStartNextLevel?.Invoke();
+        foreach (Nession finalN in CurrentNessionManager.FoundNessions!)
+        {
+            onAttackAssessed?.Invoke(finalN, finalN.FoundSystemClauses!, finalN.FoundAttack);
+        }
 
         onCompletion?.Invoke();
         await Task.Delay(1);

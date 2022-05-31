@@ -40,6 +40,18 @@ public class Nession
     // Used to simplify identification by the user.
     public string Label { get; set; } = "";
 
+    /// <summary>
+    /// A property that can be set if the QueryEngine determines that there is an attack on this
+    /// Nession.
+    /// </summary>
+    public Attack? FoundAttack { get; set; }
+
+    /// <summary>
+    /// A property set by the QueryEngine to provide quick access to the FULL set of HornClauses
+    /// in a model, including those that are not directly derived from this Nession.
+    /// </summary>
+    public IReadOnlySet<HornClause>? FoundSystemClauses { get; set; }
+
     #endregion
     #region Nested Frame class and support classes.
 

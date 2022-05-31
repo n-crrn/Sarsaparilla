@@ -255,7 +255,7 @@ process
             bool globalAttackFound = false;
             void onGlobalAttackFound(Attack a) => globalAttackFound = true;
             bool nessionAttackFound = false;
-            void onAttackAssessedFound(Nession n, HashSet<HornClause> hs, Attack? a) => nessionAttackFound |= a != null;
+            void onAttackAssessedFound(Nession n, IReadOnlySet<HornClause> hs, Attack? a) => nessionAttackFound |= a != null;
 
             foreach (QueryEngine qe in t.QueryEngines())
             {

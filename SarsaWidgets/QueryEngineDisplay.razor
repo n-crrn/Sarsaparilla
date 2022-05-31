@@ -146,16 +146,7 @@
             }
             else if (Status == ExecutionStatus.Executing)
             {
-                // Note that finding a global attack will quickly result in the conclusion of the
-                // query. Therefore, it is not displayed during execution.
-                if (FoundAttackCount == 0)
-                {
-                    return $"Executing, no attacks found as yet with {AssessedNessions.Count} nessions assessed.";
-                }
-                else
-                {
-                    return $"Executing, {FoundAttackCount} attacks found with {AssessedNessions.Count} nessions assessed.";
-                }
+                return "Executing query…";
             }
             else
             {
@@ -215,6 +206,7 @@
 
     private void OnStartNextLevel()
     {
+        FoundAttackCount = 0;
         Unselect();
         AssessedNessions.Clear();
     }
@@ -225,9 +217,9 @@
         // No need to force refresh, as the query is about to end.
     }
 
-    private List<(Nession, HashSet<HornClause>, Attack?)> AssessedNessions { get; set; } = new();
+    private List<(Nession, IReadOnlySet<HornClause>, Attack?)> AssessedNessions { get; set; } = new();
 
-    private void OnAttackAssessed(Nession n, HashSet<HornClause> clauses, Attack? a)
+    private void OnAttackAssessed(Nession n, IReadOnlySet<HornClause> clauses, Attack? a)
     {
         int nessionId = AssessedNessions.Count + 1;
         n.Label = $"Nession {nessionId}";
@@ -263,9 +255,9 @@
 
     public Attack? CurrentAttack { get; set; }
 
-    private HashSet<HornClause>? _CurrentHornClauses = null;
+    private IReadOnlySet<HornClause>? _CurrentHornClauses = null;
 
-    public HashSet<HornClause>? CurrentHornClauses
+    public IReadOnlySet<HornClause>? CurrentHornClauses
     {
         get => _CurrentHornClauses;
         set
@@ -302,7 +294,7 @@
         }
     }
 
-    private void OnSelect((Nession, HashSet<HornClause>, Attack?) selTuple)
+    private void OnSelect((Nession, IReadOnlySet<HornClause>, Attack?) selTuple)
     {
         CurrentNession = selTuple.Item1;
         CurrentHornClauses = selTuple.Item2;

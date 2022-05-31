@@ -44,21 +44,10 @@ public class NessionManager
 
     private readonly KnitPattern Knitter;
 
+    public IReadOnlyList<Nession>? FoundNessions;
+
     #endregion
     #region Horn clause generation.
-
-    private List<Nession>? InitialNessions;
-
-    public IEnumerable<Nession> GeneratedNessions()
-    {
-        if (InitialNessions != null)
-        {
-            foreach (Nession n in InitialNessions)
-            {
-                yield return n;
-            }
-        }
-    }
 
     private bool CancelElaborate = false;
 
@@ -77,7 +66,7 @@ public class NessionManager
         List<Nession> nextLevel = new() { initSeed };
         List<Nession> nextLevelIter = new();
         List<Nession> processed = new();
-        for (int elabCounter = 0; elabCounter < numberOfSubElaborations; elabCounter++)
+        for (int elabCounter = 0; true; elabCounter++)
         {
             foreach (StateConsistentRule scr in SystemRules)
             {
@@ -93,20 +82,9 @@ public class NessionManager
 
             // Provide check for cancellation.
             await Task.Delay(15);
-            if (CancelElaborate)
+            if (CancelElaborate || finishedFunc(nextLevel) || elabCounter == (numberOfSubElaborations - 1))
             {
                 goto finishElaborate;
-            }
-            if (finishedFunc(nextLevel))
-            {
-                goto finishElaborate;
-            }
-
-            // Skip the last transfer elaboration - does not add value as system rules will not
-            // be considered for the new states, while the number of nessions increases.
-            if (elabCounter == (numberOfSubElaborations - 1))
-            {
-                break;
             }
 
             for (int i = 0; i < nextLevel.Count; i++)
@@ -130,22 +108,20 @@ public class NessionManager
                     i--;
                 }
             }
-            processed.AddRange(nextLevel);
-
+            
             if (nextLevelIter.Count == 0)
             {
                 // There were no new states found. In this case, we cease the elaboration here.
                 break;
             }
+            processed.AddRange(nextLevel);
             (nextLevel, nextLevelIter) = (nextLevelIter, nextLevel);
             nextLevelIter.Clear();
         }
 
-        processed.AddRange(nextLevel);
-
     finishElaborate:
-        
-        InitialNessions = processed;
+        processed.AddRange(nextLevel);
+        FoundNessions = processed;
     }
 
     public void CancelElaboration()
@@ -158,17 +134,17 @@ public class NessionManager
 
     public void DescribeAllNessions(TextWriter writer)
     {
-        if (InitialNessions == null)
+        if (FoundNessions == null)
         {
-            writer.WriteLine("=== No initial nessions set ===");
+            writer.WriteLine("=== No nessions ===");
         }
         else
         {
-            writer.WriteLine($"=== Initial ({InitialNessions.Count} nessions) ===");
-            for (int i = 0; i < InitialNessions.Count; i++)
+            writer.WriteLine($"=== {FoundNessions.Count} ===");
+            for (int i = 0; i < FoundNessions.Count; i++)
             {
                 writer.WriteLine($"--- Nession ID {i} ---");
-                writer.WriteLine(InitialNessions[i].ToString());
+                writer.WriteLine(FoundNessions[i].ToString());
             }
         }
     }
