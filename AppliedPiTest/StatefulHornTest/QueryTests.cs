@@ -158,4 +158,21 @@ public class QueryTests
         await DoTest(ruleSet, "something[]", initState, false, true);
     }
 
+    [TestMethod]
+    public async Task EnclosedDestructorCheck()
+    {
+        string initState = "SD(init[])";
+        List<string> ruleSet = new()
+        {
+            "k(enc(x, pk(y))), k(y) -[ ]-> k(dec(enc(x, pk(y)), y))",
+            "k(dec(enc(x, pk(y)), y)) -[ ]-> k(x)",
+            "k(cell1(x)) -[ ]-> k(cell2(x))",
+            "k(cell2(dec(enc(x, pk(y)), y))) -[ ]-> k(cell2(x))",
+            "-[ ]-> k(cell1(dec(enc(something[], pk(unkKey[])), key[])))",
+            "-[ ]-> k(cell1(dec(enc(something[], pk(key[])), key[])))",
+            "-[ ]-> k(key[])"
+        };
+        await DoTest(ruleSet, "cell2(something[])", initState, false, true);
+    }
+
 }

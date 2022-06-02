@@ -32,7 +32,17 @@ public class FunctionMessage : IMessage
     private readonly List<IMessage> _Parameters;
     public IReadOnlyList<IMessage> Parameters => _Parameters;
 
-    public int FindMaximumDepth() => (from p in _Parameters select p.FindMaximumDepth()).Max();
+    private int MaxDepth = -1;
+
+    public int FindMaximumDepth()
+    {
+        if (MaxDepth == -1)
+        {
+            MaxDepth = (from p in _Parameters select p.FindMaximumDepth()).Max() + 1;
+        }
+        return MaxDepth;
+    }
+
 
     #region IMessage implementation.
 

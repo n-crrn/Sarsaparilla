@@ -322,7 +322,8 @@ public class QueryEngine
             stateVarReplacements,
             new(),
             rank,
-            new()));
+            new(), 
+            (from hc in basicRules.Concat(compRules) select hc.Complexity).Sum() + queryToFind.FindMaximumDepth()));
         if (options.Count == 0)
         {
             return QueryResult.Failed(queryToFind, When);
@@ -339,7 +340,8 @@ public class QueryEngine
         Dictionary<IMessage, IMessage?> StateVariableReplacements,
         SigmaFactory AllReplacements,
         int Rank,
-        Dictionary<IMessage, List<(int, List<QueryResult>)>> NonVariableCache
+        Dictionary<IMessage, List<(int, List<QueryResult>)>> NonVariableCache,
+        int MaxDepth
         )
     {
 
@@ -405,6 +407,11 @@ public class QueryEngine
 
     private List<QueryResult> InnerCheckQuery(IMessage queryToFind, QueryFrame qf)
     {
+        if (queryToFind.FindMaximumDepth() > qf.MaxDepth)
+        {
+            return new(); // Hit the depth boundary - failed.
+        }
+
         List<QueryResult> options = new();
         if (!qf.NowProving.Contains(queryToFind))
         {

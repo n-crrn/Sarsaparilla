@@ -57,7 +57,16 @@ public class TupleMessage : IMessage
 
     #region IMessage implementation.
 
-    public int FindMaximumDepth() => (from m in _Members select m.FindMaximumDepth()).Max();
+    private int MaxDepth = -1;
+
+    public int FindMaximumDepth()
+    {
+        if (MaxDepth == -1)
+        {
+            MaxDepth = (from m in _Members select m.FindMaximumDepth()).Max() + 1;
+        }
+        return MaxDepth;
+    }
 
     public bool ContainsVariables { get; init; }
 
