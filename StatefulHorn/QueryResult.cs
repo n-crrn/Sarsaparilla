@@ -10,37 +10,43 @@ namespace StatefulHorn;
 /// </summary>
 internal class QueryResult
 {
-    internal QueryResult(IMessage query, State? when)
+    internal QueryResult(IMessage query, IMessage? actual, State? when)
     {
         Query = query;
+        Actual = actual;
         When = when;
+        Transformation = new();
     }
 
     public QueryResult(
         IMessage query,
+        IMessage? actual,
         State? when,
+        SigmaFactory transformation,
         IEnumerable<IMessage> facts,
         IEnumerable<HornClause> knowledge,
         IEnumerable<Nession> foundNessions)
     {
         Query = query;
         When = when;
+        Actual = actual;
+        Transformation = transformation;
         Facts = new(facts);
         Knowledge = new(knowledge);
         FoundSessions = new(foundNessions);
     }
 
-    public static QueryResult BasicFact(IMessage query, State? when = null)
+    public static QueryResult BasicFact(IMessage query, IMessage actual, SigmaFactory transformation, State? when = null)
     {
-        return new(query, when, new List<IMessage>() { query }, new List<HornClause>(), new List<Nession>());
+        return new(query, actual, when, transformation, new List<IMessage>() { query }, new List<HornClause>(), new List<Nession>());
     }
 
-    public static QueryResult ResolvedKnowledge(IMessage query, HornClause kRule)
+    public static QueryResult ResolvedKnowledge(IMessage query, IMessage actual, HornClause kRule, SigmaFactory transformation)
     {
-        return new(query, null, new List<IMessage>(), new List<HornClause>() { kRule }, new List<Nession>());
+        return new(query, actual, null, transformation, new List<IMessage>(), new List<HornClause>() { kRule }, new List<Nession>());
     }
 
-    public static QueryResult Failed(IMessage query, State? when) => new(query, when);
+    public static QueryResult Failed(IMessage query, State? when) => new(query, null, when);
 
     public static QueryResult Compose(IMessage query, State? when, IEnumerable<QueryResult> combinedResults)
     {
@@ -60,12 +66,16 @@ internal class QueryResult
             nessions.AddRange(qr.FoundSessions ?? emptyNession);
         }
 
-        return new(query, when, fullFactList, knowledgeList, nessions);
+        return new(query, query, when, new(), fullFactList, knowledgeList, nessions);
     }
      
     #region Properties.
 
     public IMessage Query { get; init; }
+
+    public IMessage? Actual { get; init; }
+
+    public SigmaFactory Transformation { get; init; }
 
     public State? When { get; init; }
 

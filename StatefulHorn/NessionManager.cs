@@ -32,8 +32,6 @@ public class NessionManager
         Knitter = KnitPattern.From(TransferringRules, SystemRules);
     }
 
-    // FIXME: Include method to check that the query is sensible.
-
     #region Properties.
 
     public HashSet<State> InitialConditions { get; init; }
@@ -51,7 +49,7 @@ public class NessionManager
 
     private bool CancelElaborate = false;
 
-    public async Task Elaborate(Func<List<Nession>, bool> finishedFunc, int maxDepth = -1)
+    public async Task Elaborate(Func<List<Nession>, bool> finishedFunc, int maxDepth = -1, bool checkFinishIteratively = false)
     {
         if (CancelElaborate)
         {
@@ -82,7 +80,9 @@ public class NessionManager
 
             // Provide check for cancellation.
             await Task.Delay(15);
-            if (CancelElaborate || finishedFunc(nextLevel) || elabCounter == (numberOfSubElaborations - 1))
+            if (CancelElaborate ||
+                (checkFinishIteratively && finishedFunc(nextLevel)) || 
+                elabCounter == (numberOfSubElaborations - 1))
             {
                 goto finishElaborate;
             }
@@ -122,6 +122,11 @@ public class NessionManager
     finishElaborate:
         processed.AddRange(nextLevel);
         FoundNessions = processed;
+
+        if (!checkFinishIteratively)
+        {
+            finishedFunc(processed);
+        }
     }
 
     public void CancelElaboration()

@@ -21,6 +21,13 @@ public class SigmaFactory
         BothWays = bothDirection;
     }
 
+    public SigmaFactory(SigmaFactory toCopy)
+    {
+        Forward = new(toCopy.Forward);
+        Backward = new(toCopy.Backward);
+        BothWays = toCopy.BothWays;
+    }
+
     private readonly bool BothWays;
 
     private readonly Dictionary<VariableMessage, IMessage> Forward;

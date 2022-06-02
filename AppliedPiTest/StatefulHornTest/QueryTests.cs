@@ -14,7 +14,12 @@ public class QueryTests
 
     private readonly RuleParser Parser = new();
 
-    private async Task DoTest(IEnumerable<string> ruleSrcs, string querySrc, string stateInitSrc, bool shouldFindNession, bool shouldFindGlobal = false)
+    private async Task DoTest(
+        IEnumerable<string> ruleSrcs, 
+        string querySrc, 
+        string stateInitSrc, 
+        bool shouldFindNession, 
+        bool shouldFindGlobal = false)
     {
         List<Rule> rules = new(from r in ruleSrcs select Parser.Parse(r));
         IMessage query = MessageParser.ParseMessage(querySrc);
@@ -29,7 +34,8 @@ public class QueryTests
         void onAttackAssessedFound(Nession n, IReadOnlySet<HornClause> _, Attack? a) => attackAssessedFound |= a != null;
         void onCompletion() => completedDone = true;
 
-        await qe.Execute(null, onGlobalAttackFound, onAttackAssessedFound, onCompletion);
+        // Note that the finish check is done iteratively to speed up the test.
+        await qe.Execute(null, onGlobalAttackFound, onAttackAssessedFound, onCompletion, QueryEngine.UseDefaultDepth, true);
 
         Assert.AreEqual(shouldFindGlobal, globalAttackFound);
         Assert.AreEqual(shouldFindNession, attackAssessedFound);
@@ -136,4 +142,20 @@ public class QueryTests
         await DoTest(ruleSet2, "h(test1[])", initState, false, false);
         await DoTest(ruleSet2, "h(test2[])", initState, true, false);
     }
+
+    [TestMethod]
+    public async Task DestructorCheck()
+    {
+        string initState = "SD(init[])";
+        List<string> ruleSet = new()
+        {
+            "k(enc(x, pk(y))), k(y) -[ ]-> k(dec(enc(x, pk(y)), y))",
+            "k(dec(enc(x, pk(y)), y)) -[ ]-> k(x)",
+            "-[ ]-> k(enc(something[], pk(unknownKey[])))",
+            "-[ ]-> k(enc(something[], pk(key[])))",
+            "-[ ]-> k(key[])"
+        };
+        await DoTest(ruleSet, "something[]", initState, false, true);
+    }
+
 }

@@ -104,12 +104,15 @@ public class QueryEngine
 
     private bool CancelQuery = false;
 
+    public const int UseDefaultDepth = -1;
+
     public async Task Execute(
         Action? onStartNextLevel,
         Action<Attack>? onGlobalAttackFound,
         Action<Nession, IReadOnlySet<HornClause>, Attack?>? onAttackAssessed,
         Action? onCompletion,
-        int maxDepth = -1)
+        int maxDepth = UseDefaultDepth,
+        bool checkIteratively = false)
     {
         if (CancelQuery)
         {
@@ -203,7 +206,7 @@ public class QueryEngine
                     }
                 }
                 return false;
-            }, maxElab);
+            }, maxElab, checkIteratively);
 
         // Update the user interface.
         onStartNextLevel?.Invoke();
@@ -310,145 +313,295 @@ public class QueryEngine
         Dictionary<IMessage, IMessage?> stateVarReplacements,
         int rank = int.MaxValue)
     {
-        if (status.NowProving.Contains(queryToFind))
+        List<QueryResult> options = InnerCheckQuery(queryToFind, new(
+            basicFacts,
+            basicRules,
+            compRules,
+            status.NowProving,
+            guard,
+            stateVarReplacements,
+            new(),
+            rank,
+            new()));
+        if (options.Count == 0)
         {
             return QueryResult.Failed(queryToFind, When);
         }
+        return options[0]; // At this level, does not matter if there are many.
+    }
 
-        if (queryToFind is VariableMessage)
+    private record QueryFrame(
+        HashSet<IMessage> BasicFacts,
+        List<HornClause> BasicRules,
+        List<HornClause> CompositeRules,
+        HashSet<IMessage> NowProving,
+        Guard Guard,
+        Dictionary<IMessage, IMessage?> StateVariableReplacements,
+        SigmaFactory AllReplacements,
+        int Rank,
+        Dictionary<IMessage, List<(int, List<QueryResult>)>> NonVariableCache
+        )
+    {
+
+        public QueryFrame Next(
+            Guard guard,
+            Dictionary<IMessage, IMessage?> statVar, 
+            SigmaFactory updatedAllReplacements,
+            int rank)
         {
-            // This will match anything except what is in the guard. The guard never bans 
-            // everything.
-            return QueryResult.BasicFact(NameMessage.Any);
+            return this with
+            {
+                Guard = guard,
+                StateVariableReplacements = statVar,
+                AllReplacements = updatedAllReplacements,
+                Rank = rank
+            };
         }
 
-        status.NowProving.Add(queryToFind);
-        QueryResult qr;
-        if (BasicFacts.Contains(queryToFind))
+        public QueryFrame CloneSubstitutions()
         {
-            qr = QueryResult.BasicFact(queryToFind, When);
+            return this with
+            {
+                StateVariableReplacements = new(StateVariableReplacements),
+                AllReplacements = new(AllReplacements)
+            };
         }
-        else if (queryToFind is TupleMessage tMsg)
+
+        public void CacheValue(IMessage value, List<QueryResult> options)
         {
-            qr = CheckTupleQuery(tMsg, basicFacts, basicRules, compRules, status, guard, stateVarReplacements, rank);
+            if (!NonVariableCache.ContainsKey(value))
+            {
+                NonVariableCache[value] = new List<(int, List<QueryResult>)>() { (Rank, options) };
+            }
+            else
+            {
+                List<(int, List<QueryResult>)> stored = NonVariableCache[value];
+                stored.Add((Rank, options));
+                stored.Sort(ReverseCacheEntries);
+            }
         }
-        else if (queryToFind is FunctionMessage fMsg)
+
+        public List<QueryResult>? GetCacheValue(IMessage value)
         {
-            qr = CheckFunctionQuery(fMsg, basicFacts, basicRules, compRules, status, guard, stateVarReplacements, rank);
+            if (NonVariableCache.TryGetValue(value, out List<(int, List<QueryResult>)>? options))
+            {
+                foreach ((int, List<QueryResult>) line in options)
+                {
+                    if (line.Item1 <= Rank)
+                    {
+                        return line.Item2;
+                    }
+                }
+            }
+            return null;
         }
-        else if (queryToFind is NonceMessage nMsg)
+
+    }
+
+    private static int ReverseCacheEntries((int, List<QueryResult>) v1, (int, List<QueryResult>) v2)
+    {
+        return v1.Item1.CompareTo(v2.Item1);
+    }
+
+    private List<QueryResult> InnerCheckQuery(IMessage queryToFind, QueryFrame qf)
+    {
+        List<QueryResult> options = new();
+        if (!qf.NowProving.Contains(queryToFind))
         {
-            qr = CheckNonceQuery(nMsg, basicFacts, basicRules, rank);
+            if (queryToFind is VariableMessage)
+            {
+                // This will match anything except what is in the guard. The guard never bans 
+                // everything.
+                SigmaFactory sf = new();
+                NameMessage.Any.DetermineUnifiableSubstitution(queryToFind, sf);
+                options.Add(QueryResult.BasicFact(queryToFind, NameMessage.Any, sf, When));
+            }
+            else
+            {
+                qf.NowProving.Add(queryToFind);
+
+                // Check the facts, see what matches.
+                if (BasicFacts.Contains(queryToFind))
+                {
+                    options.Add(QueryResult.BasicFact(queryToFind, queryToFind, new(), When));
+                }
+                else
+                {
+                    if (CanMatchBasicFacts(qf.BasicFacts, queryToFind, qf.Guard, out List<(IMessage, SigmaFactory)> matchList))
+                    {
+                        options.AddRange(from ml in matchList select QueryResult.BasicFact(queryToFind, ml.Item1, ml.Item2, When));
+                    }
+
+                    // Also have a look at other rule-derived possibilities.
+                    if (queryToFind is TupleMessage tMsg)
+                    {
+                        options.AddRange(CheckTupleQuery(tMsg, qf));
+                    }
+                    else if (queryToFind is FunctionMessage fMsg)
+                    {
+                        options.AddRange(CheckFunctionQuery(fMsg, qf));
+                    }
+                    else if (queryToFind is NonceMessage nMsg)
+                    {
+                        QueryResult nonceQr = CheckNonceQuery(nMsg, qf);
+                        if (nonceQr.Found)
+                        {
+                            options.Add(nonceQr);
+                        }
+                    }
+                    else
+                    {
+                        options.AddRange(CheckBasicQuery(queryToFind, qf));
+                    }
+                }
+
+                qf.NowProving.Remove(queryToFind);
+            }
+        }
+        return options;
+    }
+
+    private static bool CanMatchBasicFacts(
+        HashSet<IMessage> basicFacts, 
+        IMessage queryToFind, 
+        Guard g, 
+        out List<(IMessage, SigmaFactory)> options)
+    {
+        options = new();
+        foreach (IMessage fact in basicFacts)
+        {
+            SigmaFactory sf = new();
+            if (fact.DetermineUnifiableSubstitution(queryToFind, Guard.Empty, g, sf))
+            {
+                options.Add((fact, sf));
+            }
+        }
+        return options.Count > 0;
+    }
+
+    private List<List<QueryResult>> AttemptSatisfyPremises(QueryFrame qf, IReadOnlyList<IMessage> premiseSet)
+    {
+        if (premiseSet.Count == 0)
+        {
+            return new();
+        }
+
+        IMessage premise = premiseSet[0];
+
+        List<QueryResult> options;
+        if (!premise.ContainsVariables)
+        {
+            List<QueryResult>? possOptions = qf.GetCacheValue(premise);
+            if (possOptions == null)
+            {
+                possOptions = InnerCheckQuery(premise, qf);
+                qf.CacheValue(premise, possOptions);
+            }
+            options = possOptions;
         }
         else
         {
-            qr = CheckBasicQuery((NameMessage)queryToFind, basicFacts, basicRules, compRules, status, guard, stateVarReplacements, rank);
+            options = InnerCheckQuery(premise, qf);
         }
-        status.NowProving.Remove(queryToFind);
-        return qr;
-    }
-
-    private static Dictionary<IMessage, IMessage?> TransferStateReplacements(
-        Dictionary<IMessage, IMessage?> whole, 
-        Dictionary<IMessage, IMessage?> part)
-    {
-        foreach ((IMessage fromMsg, IMessage? toMsg) in part)
+        if (premiseSet.Count > 1)
         {
-            if (whole.ContainsKey(fromMsg))
+            List<List<QueryResult>> composedResult = new();
+
+            foreach (QueryResult qr in options)
             {
-                whole[fromMsg] = toMsg;
+                SigmaMap fwdMap = qr.Transformation.CreateForwardMap();
+                List<IMessage> remainingPremises = new(premiseSet.Count);
+                for (int i = 1; i < premiseSet.Count; i++)
+                {
+                    remainingPremises.Add(premiseSet[i].PerformSubstitution(fwdMap));
+                }
+                List<List<QueryResult>> furtherOptions = AttemptSatisfyPremises(qf.CloneSubstitutions(), remainingPremises);
+                for (int i = 0; i < furtherOptions.Count; i++)
+                {
+                    furtherOptions[i].Add(qr);
+                }
+                composedResult.AddRange(furtherOptions);
             }
+
+            return composedResult;
         }
-        return whole;
+        else
+        {
+            return new(from o in options select new List<QueryResult>() { o });
+        }
     }
 
-    private QueryResult CheckBasicQuery(
-        NameMessage queryToFind, 
-        HashSet<IMessage> facts, 
-        List<HornClause> basicRules, 
-        List<HornClause> compRules,
-        QueryStatus status, 
-        Guard guard,
-        Dictionary<IMessage, IMessage?> stateRepl,
-        int rank)
+    private List<QueryResult> CheckQuery(IMessage queryToFind, QueryFrame qf, List<HornClause> candidates)
     {
-        List<HornClause> candidates = new(from r in basicRules
-                                          where (queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(rank)) 
-                                                && !r.Premises.Contains(queryToFind)
-                                          select r);
         candidates.Sort(SortRules);
 
-        Dictionary<IMessage, QueryResult> foundPremiseCache = new();
-        HashSet<IMessage> failedPremiseCache = new();
-
+        List<QueryResult> options = new();
         foreach (HornClause checkRule in candidates)
         {
             SigmaFactory sf = new();
             List<QueryResult> qrParts = new();
-            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, guard, sf))
+            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, qf.Guard, sf) && 
+                !sf.AnyContradictionsWithState(qf.StateVariableReplacements))
             {
-                if (sf.AnyContradictionsWithState(stateRepl))
-                {
-                    continue;
-                }
-
                 HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
-                Guard nextGuard = guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);
-                Dictionary<IMessage, IMessage?> updatedStateRepl = sf.UpdateStateReplacements(stateRepl);
+                Guard nextGuard = qf.Guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);
+                Dictionary<IMessage, IMessage?> updatedStateRepl = sf.UpdateStateReplacements(qf.StateVariableReplacements);
 
-                bool found = true;
-                foreach (IMessage premise in updated.Premises)
-                {
-                    if (failedPremiseCache.Contains(premise))
+                if (updated.Premises.Count > 0) 
+                { 
+                    List<IMessage> prioritisedPremises = new(updated.Premises);
+                    prioritisedPremises.Sort(PrioritisePremises);
+                    QueryFrame innerQF = qf.Next(nextGuard, updatedStateRepl, sf, RatchetRank(checkRule, qf.Rank));
+                    List<List<QueryResult>> optionsFound = AttemptSatisfyPremises(innerQF, prioritisedPremises);
+                
+                    foreach (List<QueryResult> option in optionsFound)
                     {
-                        found = false;
-                        break;
-                    }
-                    if (foundPremiseCache.TryGetValue(premise, out QueryResult? cachedQR))
-                    {
-                        qrParts.Add(cachedQR!);
-                        continue;
-                    }
-
-                    QueryResult innerResult = CheckQuery(
-                        premise, 
-                        facts, 
-                        basicRules, 
-                        compRules, 
-                        status, 
-                        nextGuard, 
-                        updatedStateRepl, 
-                        RatchetRank(checkRule, rank));
-                    if (innerResult.Found)
-                    {
-                        qrParts.Add(innerResult);
-                        foundPremiseCache[premise] = innerResult;
-                    }
-                    else
-                    {
-                        failedPremiseCache.Add(premise);
-                        found = false;
-                        break;
+                        options.Add(QueryResult.Compose(queryToFind, When, option));
                     }
                 }
-                if (found)
+                else
                 {
-                    TransferStateReplacements(stateRepl, updatedStateRepl);
-                    qrParts.Add(QueryResult.ResolvedKnowledge(queryToFind, updated));
-                    return QueryResult.Compose(queryToFind, When, qrParts);
+                    options.Add(QueryResult.ResolvedKnowledge(queryToFind, updated.Result, checkRule, sf));
                 }
             }
         }
-        return QueryResult.Failed(queryToFind, When);
+        return options;
     }
 
-    private QueryResult CheckNonceQuery(
-        NonceMessage queryToFind,
-        HashSet<IMessage> facts,
-        List<HornClause> basicRules,
-        int rank)
+    private List<QueryResult> CheckBasicQuery(IMessage queryToFind, QueryFrame qf)
     {
-        List<HornClause> candidates = new(from r in basicRules where queryToFind.Equals(r.Result) && r.BeforeRank(rank) select r);
+        List<HornClause> candidates = new(from r in qf.BasicRules
+                                          where (queryToFind.IsUnifiableWith(r.Result) && r.BeforeRank(qf.Rank))
+                                                && !r.Premises.Contains(queryToFind)
+                                          select r);
+        return CheckQuery(queryToFind, qf, candidates);
+    }
+
+    private List<QueryResult> CheckFunctionQuery(FunctionMessage queryToFind, QueryFrame qf)
+    {
+        List<HornClause> candidates = new(from r in qf.CompositeRules
+                                          where r.Result is FunctionMessage fMsg && fMsg.Name == queryToFind.Name && r.BeforeRank(qf.Rank)
+                                          select r);
+        return CheckQuery(queryToFind, qf, candidates);
+    }
+
+    private static int RatchetRank(HornClause current, int rank) => HornClause.RatchetRank(current.Rank, rank);
+
+    private List<QueryResult> CheckTupleQuery(TupleMessage queryToFind, QueryFrame qf)
+    {
+        // Note that the rules have been detupled, so each element will need to be followed up individually.
+        List<List<QueryResult>> options = AttemptSatisfyPremises(qf, queryToFind.Members);
+        List<QueryResult> toReturn = new();
+        foreach (List<QueryResult> option in options)
+        {
+            toReturn.Add(QueryResult.Compose(queryToFind, When, option));
+        }
+        return toReturn;
+    }
+
+    private QueryResult CheckNonceQuery(NonceMessage queryToFind, QueryFrame qf)
+    {
+        List<HornClause> candidates = new(from r in qf.BasicRules where queryToFind.Equals(r.Result) && r.BeforeRank(qf.Rank) select r);
         candidates.Sort(SortRules);
         foreach (HornClause checkRule in candidates)
         {
@@ -457,9 +610,9 @@ public class QueryEngine
             bool found = true;
             foreach (IMessage premise in checkRule.Premises)
             {
-                if (facts.Contains(premise))
+                if (qf.BasicFacts.Contains(premise))
                 {
-                    qrParts.Add(QueryResult.BasicFact(premise));
+                    qrParts.Add(QueryResult.BasicFact(premise, premise, new()));
                 }
                 else
                 {
@@ -469,95 +622,11 @@ public class QueryEngine
             }
             if (found)
             {
-                qrParts.Add(QueryResult.ResolvedKnowledge(queryToFind, checkRule));
+                qrParts.Add(QueryResult.ResolvedKnowledge(queryToFind, queryToFind, checkRule, new()));
                 return QueryResult.Compose(queryToFind, When, qrParts);
             }
         }
         return QueryResult.Failed(queryToFind, When);
-    }
-
-    private static int RatchetRank(HornClause current, int rank) => HornClause.RatchetRank(current.Rank, rank);
-
-    private QueryResult CheckFunctionQuery(
-        FunctionMessage queryToFind, 
-        HashSet<IMessage> facts, 
-        List<HornClause> basicRules,
-        List<HornClause> compRules,
-        QueryStatus status, 
-        Guard guard,
-        Dictionary<IMessage, IMessage?> stateRepl,
-        int rank)
-    {
-        List<HornClause> candidates = new(from r in compRules
-                                          where r.Result is FunctionMessage fMsg && fMsg.Name == queryToFind.Name && r.BeforeRank(rank)
-                                          select r);
-        candidates.Sort(SortRules);
-        foreach (HornClause checkRule in candidates)
-        {
-            SigmaFactory sf = new();
-            List<QueryResult> qrParts = new();
-            if (checkRule.Result.DetermineUnifiableSubstitution(queryToFind, checkRule.Guard, guard, sf))
-            {
-                if (sf.AnyContradictionsWithState(stateRepl))
-                {
-                    continue;
-                }
-
-                HornClause updated = checkRule.Substitute(sf.CreateForwardMap());
-                Guard nextGuard = guard.PerformSubstitution(sf.CreateBackwardMap()).Union(updated.Guard);
-                Dictionary<IMessage, IMessage?> updatedStateRepl = sf.UpdateStateReplacements(stateRepl);
-
-                bool found = true;
-                foreach (IMessage premise in updated.Premises)
-                {
-                    QueryResult qr = CheckQuery(
-                        premise, 
-                        facts, 
-                        basicRules, 
-                        compRules, 
-                        status, 
-                        nextGuard, 
-                        updatedStateRepl, 
-                        RatchetRank(checkRule, rank));
-                    if (!qr.Found)
-                    {
-                        found = false;
-                        break;
-                    }
-                    qrParts.Add(qr);
-                }
-                if (found)
-                {
-                    qrParts.Add(QueryResult.ResolvedKnowledge(queryToFind, updated));
-                    return QueryResult.Compose(queryToFind, When, qrParts);
-                }
-            }
-        }
-        return QueryResult.Failed(queryToFind, When);
-    }
-
-    private QueryResult CheckTupleQuery(
-        TupleMessage queryToFind, 
-        HashSet<IMessage> facts, 
-        List<HornClause> basicRules, 
-        List<HornClause> compRules,
-        QueryStatus status, 
-        Guard guard,
-        Dictionary<IMessage, IMessage?> stateRepl,
-        int rank)
-    {
-        // Note that the rules have been detupled, so each element will need to be followed up individually.
-        List<QueryResult> qrParts = new();
-        foreach (IMessage part in queryToFind.Members)
-        {
-            QueryResult qr = CheckQuery(part, facts, basicRules, compRules, status, guard, stateRepl, rank);
-            if (!qr.Found)
-            {
-                return QueryResult.Failed(queryToFind, When);
-            }
-            qrParts.Add(qr);
-        }
-        return QueryResult.Compose(queryToFind, When, qrParts);
     }
 
     private static int SortRules(HornClause hc1, HornClause hc2)
@@ -579,6 +648,29 @@ public class QueryEngine
             }
             return cmp;
         }
+    }
+
+    private static readonly List<Type> PremiseTypePriorities = new()
+    {
+        typeof(FunctionMessage),
+        typeof(TupleMessage),
+        typeof(NonceMessage),
+        typeof(NameMessage),
+        typeof(TupleVariableMessage),
+        typeof(VariableMessage)
+    };
+
+    private static int PrioritisePremises(IMessage msg1, IMessage msg2)
+    {
+        int msg1Priority = PremiseTypePriorities.IndexOf(msg1.GetType());
+        int msg2Priority = PremiseTypePriorities.IndexOf(msg2.GetType());
+        int cmp = msg1Priority - msg2Priority;
+        if (msg1Priority == msg2Priority && msg1 is FunctionMessage fMsg1)
+        {
+            FunctionMessage fMsg2 = (FunctionMessage)msg2;
+            return fMsg1.FindMaximumDepth().CompareTo(fMsg2.FindMaximumDepth());
+        }
+        return cmp;
     }
 
     /*private static void DescribeExecutionState(
