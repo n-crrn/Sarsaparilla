@@ -34,7 +34,7 @@ public class QueryEngine
             }
         }
 
-        BasicFacts = new();
+        BasicFacts = new() { new NameMessage("true"), new NameMessage("false") };
         KnowledgeRules = new();
         SystemRules = new();
         TransferringRules = new();
