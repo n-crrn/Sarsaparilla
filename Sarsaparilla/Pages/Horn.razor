@@ -106,12 +106,6 @@
         }
     }
 
-    private void Compile() 
-    {
-        NotParsed = false;
-        Compiler.Compile(StatefulHornSource);
-    }
-
     public void OverwriteWithSample(string model)
     {
         StatefulHornSource = model;
@@ -123,7 +117,7 @@
 
     public async void SaveSource()
     {
-        await SaveStringToFile(DefaultSourceFilename, StatefulHornSource);
+        await UserFileHandling.SaveStringToFile(JS, DefaultSourceFilename, StatefulHornSource);
     }
 
     #endregion
@@ -133,15 +127,10 @@
 
     private QueryEngine? Engine = null;
 
-    private static readonly string SaveFromStreamJSFunc = "saveFromStream";
-
-    private UTF8Encoding Utf8 = new();
-
-    private async Task SaveStringToFile(string filename, string data)
+    private void Compile() 
     {
-        using MemoryStream memStream = new(Utf8.GetBytes(data));
-        using DotNetStreamReference dnStreamRef = new(memStream);
-        await JS.InvokeVoidAsync(SaveFromStreamJSFunc, filename, dnStreamRef);
+        NotParsed = false;
+        Compiler.Compile(StatefulHornSource);
     }
 
     #endregion

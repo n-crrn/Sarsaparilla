@@ -12,13 +12,13 @@
     flex-direction: row;
 }
 
-.pane-button-bar > button {
-    margin: 2px;
-}
+    .pane-button-bar > button {
+        margin: 2px;
+    }
 
-.pane-button-bar > .grower {
-    flex-grow: 1;
-}
+    .pane-button-bar > .grower {
+        flex-grow: 1;
+    }
 
 .pane-body {
     flex-grow: 1;

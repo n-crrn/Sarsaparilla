@@ -6,6 +6,8 @@
 @using SarsaWidgets
 @using Sarsaparilla.Utils;
 
+@inject IJSRuntime JS
+
 <PageTitle>Applied π Interface</PageTitle>
 
 <PaneStack>
@@ -15,7 +17,16 @@
         </ButtonBarItems>
         <Body>
             <div class='editor-pane-contents'>
-                <SampleSelector Library="@SampleLibrary" OnModelSelected="@OverwriteWithSample"/>
+                <div class='pane-button-bar'>
+                    <button class='load-source-file'>
+                        <InputFile OnChange=@LoadSourceFile/>
+                        <div class='load-source-file-inner'>📂 Load Source File</div>
+                    </button>
+                    <div class='grower'></div>
+                    <SampleSelector Library="@SampleLibrary" OnModelSelected="@OverwriteWithSample"/>
+                    <div class='grower'></div>
+                    <button @onclick=SaveSource>💾 Save Source</button>
+                </div>
                 <AppliedPiEditor @bind-Text=AppliedPiSource />
                 @if (ErrorMessage != null)
                 {
@@ -94,6 +105,9 @@
 
     public Translation? Translation { get; set; }
 
+
+    #region Input/Output handling.
+
     private StaticSampleLibrary SampleLibrary = new(typeof(ModelSampleLibrary));
 
     private void OverwriteWithSample(string model)
@@ -103,6 +117,29 @@
         FullyResolvedNetwork = null;
         StateHasChanged();
     }
+
+    private async void LoadSourceFile(InputFileChangeEventArgs args)
+    {
+        try
+        {
+            using StreamReader reader = new(args.File.OpenReadStream());
+            AppliedPiSource = await reader.ReadToEndAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            AppliedPiSource = $"// UNABLE TO LOAD SOURCE: {ex}";
+        }
+    }
+
+    private static readonly string DefaultSourceFilename = "source.txt";
+
+    public async void SaveSource()
+    {
+        await UserFileHandling.SaveStringToFile(JS, DefaultSourceFilename, AppliedPiSource);
+    }
+
+    #endregion
 
     private void Parse()
     {
