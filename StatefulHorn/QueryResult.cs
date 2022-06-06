@@ -56,9 +56,10 @@ internal class QueryResult
         IMessage query, 
         IMessage actual, 
         HornClause kRule, 
-        SigmaFactory transformation)
+        SigmaFactory transformation,
+        State? when = null)
     {
-        return new(query, actual, kRule.Rank, null, transformation, new List<IMessage>(), new List<HornClause>() { kRule }, new List<Nession>());
+        return new(query, actual, kRule.Rank, when, transformation, new List<IMessage>(), new List<HornClause>() { kRule }, new List<Nession>());
     }
 
     public static QueryResult Unresolved(VariableMessage query, int rank, State? when = null)

@@ -558,16 +558,13 @@ public class QueryEngine
                     }
                     else
                     {
-                        foreach (List<QueryResult> option in optionsFound)
+                        foreach (List<QueryResult> optionDetails in optionsFound)
                         {
                             // All QueryResults in option should have the same transformation based on sf.
-                            SigmaFactory retSF = option[0].Transformation;
-                            options.Add(QueryResult.Compose(
-                                queryToFind,
-                                updated.Result.PerformSubstitution(retSF.CreateBackwardMap()),
-                                When,
-                                retSF,
-                                option));
+                            SigmaFactory retSF = optionDetails[0].Transformation;
+                            HornClause finalUpdatedRule = updated.Substitute(retSF.CreateBackwardMap());
+                            optionDetails.Add(QueryResult.ResolvedKnowledge(queryToFind, finalUpdatedRule.Result, updated, retSF, When));
+                            options.Add(QueryResult.Compose(queryToFind, finalUpdatedRule.Result, When, retSF, optionDetails));
                         }
                     }
                 }
@@ -575,7 +572,7 @@ public class QueryEngine
                 {
                     // If there are no premises, this is one case where the system can just present
                     // a single option.
-                    options.Add(QueryResult.ResolvedKnowledge(queryToFind, updated.Result, checkRule, sf));
+                    options.Add(QueryResult.ResolvedKnowledge(queryToFind, updated.Result, checkRule, sf, When));
                     return options;
                 }
             }
