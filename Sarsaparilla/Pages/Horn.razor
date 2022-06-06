@@ -10,6 +10,7 @@
 @using System.Text
 @using StatefulHorn
 @using SarsaWidgets
+@using Sarsaparilla.Utils;
 
 @inject IJSRuntime JS
 
@@ -28,9 +29,7 @@
                         <div class='load-source-file-inner'>📂 Load Source File</div>
                     </button>
                     <div class='grower'></div>
-                    <button @onclick=LoadBasicExample>Load Basic Example</button>
-                    <button @onclick=LoadPaperExample1>Load Paper Example 1</button>
-                    <button @onclick=LoadPaperExample2>Load Paper Example 2</button>
+                    <SampleSelector Library="@SampleLibrary" OnModelSelected="@OverwriteWithSample"/>
                     <div class='grower'></div>
                     <button @onclick=SaveSource>💾 Save Source</button>
                 </div>
@@ -76,6 +75,8 @@
         };
     }
 
+    private AppKnowledgeSampleLibrary SampleLibrary = new();
+
     #region Clause source handling.
 
     public string StatefulHornSource { get; set; } = "";
@@ -117,11 +118,11 @@
         NotParsed = true;
     }
 
-    public void LoadBasicExample() => ResetWithSource(SampleLibrary.Basic);
-
-    public void LoadPaperExample1() => ResetWithSource(SampleLibrary.PaperExample1);
-
-    public void LoadPaperExample2() => ResetWithSource(SampleLibrary.PaperExample2);
+    public void OverwriteWithSample(string model)
+    {
+        ResetWithSource(model);
+        StateHasChanged();
+    }
 
     private static readonly string DefaultSourceFilename = "source.txt";
 

@@ -1,0 +1,70 @@
+﻿@*
+ * A component that will display a list of samples, and allow the user to select one for
+ * viewing. It is specifically designed to make it a multi-step process, to slow the 
+ * user from absent-mindedly overwriting their model.
+ *@
+
+@using StatefulHorn
+
+<div class='outer'>
+@if (Library != null)
+{
+    <label>
+        @Label :
+        <select @onchange=SelectorChanged>
+            @foreach ((string title, string desc) in Library.GetListing())
+            {
+                <option title="@desc">@title</option>
+            }
+        </select>
+    </label>
+    <button @onclick=ModelSelected>Overwrite</button>
+}
+else
+{
+    <p>No models available.</p>
+}
+</div>
+
+@code {
+
+    [Parameter]
+    public string Label { get; set; } = "Sample";
+
+    private ISampleLibrary? _Library = null;
+
+    [Parameter]
+    public ISampleLibrary? Library {
+        get => _Library;
+        set
+        {
+            if (value != null)
+            {
+                (string title, string _) = value.GetListing().First();
+                SelectedModel = value.GetSample(title);
+            }
+            else
+            {
+                SelectedModel = "";
+            }
+            _Library = value;
+        }
+
+    }
+
+    private string SelectedModel = "";
+
+    private void SelectorChanged(ChangeEventArgs args)
+    {
+        SelectedModel = Library!.GetSample((string)args.Value!);
+    }
+
+    [Parameter]
+    public Action<string>? OnModelSelected {get; set; }
+
+    private void ModelSelected()
+    {
+        OnModelSelected?.Invoke(SelectedModel);
+    }
+
+}
