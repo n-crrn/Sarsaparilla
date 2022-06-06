@@ -49,17 +49,7 @@ process
     [TestMethod]
     public async Task FalseAttackAvoidanceTest()
     {
-        string piSource =
-@"free c: channel.
-free d: channel [private].
-free s: bitstring [private].
-
-query attacker(s).
-
-process
-  out(d, s) | ( in(d, v: bitstring); out(c, d) ).
-";
-        await DoTest(piSource, false, false);
+        await DoTest(ModelSampleLibrary.FalseAttackAvoidanceModelCode, false, false);
     }
 
     [TestMethod]
@@ -87,20 +77,11 @@ process
 query attacker(b).
 
 let macro = new b: bitstring; out(c, b).
-process macro.";
-
+process macro.
+";
         await DoTest(piSource1, false, true);
 
-        string piSource2 =
-@"free c: channel.
-
-query attacker((b, d)).
-
-let macro1 = new b: bitstring; out(c, b).
-let macro2 = new d: bitstring; out(c, d).
-process macro1 | macro2.
-";
-        await DoTest(piSource2, false, true);
+        await DoTest(ModelSampleLibrary.MacroModelCode, false, true);
     }
 
     [TestMethod]
@@ -124,21 +105,7 @@ process
     [TestMethod]
     public async Task DeconstructorTest()
     {
-        string piSource =
-@"free c: channel.
-
-query attacker(new value).
-
-type key.
-free theKey: key.
-
-fun enc(bitstring, bitstring): bitstring.
-reduc forall x: bitstring, y: key; dec(enc(x, y), y) = x.
-
-process 
-  new value: bitstring;
-  out(c, enc(value, theKey)).";
-        await DoTest(piSource, false, true);
+        await DoTest(ModelSampleLibrary.DeconstructorModelCode, false, true);
     }
 
     [TestMethod]

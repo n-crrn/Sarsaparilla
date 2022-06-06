@@ -75,7 +75,7 @@
         };
     }
 
-    private AppKnowledgeSampleLibrary SampleLibrary = new();
+    private StaticSampleLibrary SampleLibrary = new(typeof(KnowledgeSampleLibrary));
 
     #region Clause source handling.
 
@@ -112,15 +112,10 @@
         Compiler.Compile(StatefulHornSource);
     }
 
-    private void ResetWithSource(string src) 
-    {
-        StatefulHornSource = src;
-        NotParsed = true;
-    }
-
     public void OverwriteWithSample(string model)
     {
-        ResetWithSource(model);
+        StatefulHornSource = model;
+        NotParsed = true;
         StateHasChanged();
     }
 

@@ -4,6 +4,7 @@
 @using AppliedPi.Translate
 @using StatefulHorn
 @using SarsaWidgets
+@using Sarsaparilla.Utils;
 
 <PageTitle>Applied π Interface</PageTitle>
 
@@ -14,6 +15,7 @@
         </ButtonBarItems>
         <Body>
             <div class='editor-pane-contents'>
+                <SampleSelector Library="@SampleLibrary" OnModelSelected="@OverwriteWithSample"/>
                 <AppliedPiEditor @bind-Text=AppliedPiSource />
                 @if (ErrorMessage != null)
                 {
@@ -91,6 +93,16 @@
     public ResolvedNetwork? FullyResolvedNetwork { get; set; }
 
     public Translation? Translation { get; set; }
+
+    private StaticSampleLibrary SampleLibrary = new(typeof(ModelSampleLibrary));
+
+    private void OverwriteWithSample(string model)
+    {
+        AppliedPiSource = model;
+        ParsedNetwork = null;
+        FullyResolvedNetwork = null;
+        StateHasChanged();
+    }
 
     private void Parse()
     {

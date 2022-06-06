@@ -195,6 +195,7 @@ public class QueryTests
         Assert.IsTrue(aMsg.IsUnifiableWith(bMsg));
         Assert.IsTrue(bMsg.IsUnifiableWith(aMsg));
 
+        // Now the proper test.
         string initState = "SD(init[])";
         List<string> ruleSet = new()
         {
