@@ -38,6 +38,17 @@ public class SigmaMap
 
     public SigmaMap Union(SigmaMap other) => new(_Map.Concat(other._Map));
 
+    /// <summary>
+    /// Conducts a transformation upon this transformation. Used to subscript variables away from
+    /// colliding within their soon-to-be-host rule.
+    /// </summary>
+    /// <param name="further">Substitutions to be applied to the substitutions of this map.</param>
+    /// <returns>A new SigmaMap.</returns>
+    public SigmaMap Substitute(SigmaMap further)
+    {
+        return new(from sub in _Map select (sub.Variable, sub.Value.PerformSubstitution(further)));
+    }
+
     #region Basic properties and access.
 
     private readonly List<(IMessage Variable, IMessage Value)> _Map;
@@ -70,7 +81,25 @@ public class SigmaMap
             static bool bothVars((IMessage, IMessage) pair) => pair.Item1 is VariableMessage && pair.Item2 is VariableMessage;
             return (from pair in Map select pair).All(bothVars);
         }
-    } 
+    }
+
+    private HashSet<IMessage>? _InsertedVariables = null;
+
+    public IReadOnlySet<IMessage> InsertedVariables
+    {
+        get
+        {
+            if (_InsertedVariables == null)
+            {
+                _InsertedVariables = new();
+                foreach ((IMessage _, IMessage result) in _Map)
+                {
+                    result.CollectVariables(_InsertedVariables);
+                }
+            }
+            return _InsertedVariables;
+        }
+    }
 
     #endregion
 

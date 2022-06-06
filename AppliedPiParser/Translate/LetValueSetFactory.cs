@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using AppliedPi.Model;
 using AppliedPi.Processes;
@@ -118,6 +119,7 @@ public class LetValueSetFactory
 
         if (iGen is Term t)
         {
+            IMessage termAsMsg = ResolvedNetwork.TermToMessage(t);
             yield return new LetSetRule(
                 uniqueDesig,
                 Premises,
@@ -125,6 +127,26 @@ public class LetValueSetFactory
                 NextSockets,
                 IfBranchConditions.Empty,
                 StatefulHorn.Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })));
+            if (termAsMsg is FunctionMessage fMsg)
+            {
+                // For every destructor, an explicit rule must be included to effect the
+                // translation. This is because the rules DO NOT indicate equivalence. 
+                // They indicate knowledge following from. Being enclosed within the 
+                // cell tagging function, they need to be explicitly explained.
+                foreach (Destructor d in Network.DestructorsForFunction(fMsg.Name))
+                {
+                    IMessage lhs = new FunctionMessage(CellName, new() { ResolvedNetwork.TermToLooseMessage(d.LeftHandSide) });
+                    IMessage rhs = new FunctionMessage(CellName, new() { ResolvedNetwork.TermToLooseMessage(new(d.RightHandSide)) });
+                    List<StatefulHorn.Event> updatedPrems = new(Premises) { StatefulHorn.Event.Know(lhs) };
+                    yield return new LetSetRule(
+                        uniqueDesig,
+                        updatedPrems,
+                        PreviousSockets,
+                        NextSockets,
+                        IfBranchConditions.Empty,
+                        StatefulHorn.Event.Know(rhs));
+                }
+            }
         }
         else if (iGen is IfTerm it)
         {

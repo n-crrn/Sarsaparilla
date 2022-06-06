@@ -11,14 +11,17 @@ public class TupleMessage : IMessage
         _Members = members;
 
         ContainsVariables = false;
-        HashCode = members.Count;
+        HashCode = 673;
         foreach (IMessage msg in members)
         {
             if (msg.ContainsVariables)
             {
                 ContainsVariables = true;
             }
-            HashCode ^= msg.GetHashCode();
+            unchecked
+            {
+                HashCode = HashCode * 839 + msg.GetHashCode();
+            }
         }
     }
 
@@ -140,12 +143,14 @@ public class TupleMessage : IMessage
 
     public override bool Equals(object? obj)
     {
-        return obj is TupleMessage tMsg && _Members.Count == tMsg.Members.Count && _Members.SequenceEqual(tMsg._Members);
+        return obj is TupleMessage tMsg 
+            && _Members.Count == tMsg.Members.Count 
+            && _Members.SequenceEqual(tMsg._Members);
     }
 
     private readonly int HashCode;
 
-    public override int GetHashCode() => HashCode; //_Members[0].GetHashCode();
+    public override int GetHashCode() => HashCode;
 
     #endregion
 }

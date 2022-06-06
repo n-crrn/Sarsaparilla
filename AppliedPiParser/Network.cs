@@ -115,6 +115,11 @@ public class Network
 
     public IReadOnlySet<Destructor> Destructors => _Destructors;
 
+    public IEnumerable<Destructor> DestructorsForFunction(string funcName)
+    {
+        return from d in _Destructors where d.LeftHandSide.Name == funcName select d;
+    }
+
     #endregion
     #region Processes (including let statements).
 

@@ -11,7 +11,8 @@ public class OperationRuleSource : IRuleSource
     public enum Op
     {
         Anify,
-        Detuple
+        Detuple,
+        Scrub
     };
 
     public OperationRuleSource(HornClause original, Op operation)

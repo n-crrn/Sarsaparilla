@@ -70,80 +70,73 @@ public class SigmaFactory
         return new(new List<(IMessage Variable, IMessage Value)>(from m in merged select ((IMessage)m.Key, m.Value)));
     }
 
+    /// <summary>
+    /// Occasionally, a set of substitutions will be created that lead to 'dangling variables' 
+    /// that eclipse variables in the broader context. This method allows those variables to 
+    /// be moved out of the way before application to a HornClause.
+    /// </summary>
+    /// <param name="sm">A set of substitutions.</param>
+    public void ForwardSubstitute(SigmaMap sm)
+    {
+        List<VariableMessage> keys = new(Forward.Keys);
+        foreach (VariableMessage vm in keys)
+        {
+            Forward[vm] = Forward[vm].PerformSubstitution(sm);
+        }
+    }
+
     #endregion
     #region Adding new substitutions
 
-    private static bool ContainsContradictingValue(
-        Dictionary<VariableMessage, IMessage> oneWay, 
-        Dictionary<VariableMessage, IMessage> otherWay, 
-        VariableMessage vMsg, 
-        IMessage sub)
+    private static void InsertAndSettle(
+        Dictionary<VariableMessage, IMessage> aheadSubs,
+        Dictionary<VariableMessage, IMessage> reverseSubs, 
+        VariableMessage newVar, 
+        IMessage result)
     {
-        if (oneWay.TryGetValue(vMsg, out IMessage? existing))
+        result = result.PerformSubstitution(new(from s in reverseSubs select ((IMessage)s.Key, s.Value)));
+
+        List<IMessage> varList = new(reverseSubs.Keys);
+        SigmaMap thisReplacement = new(newVar, result);
+        foreach (VariableMessage varItem in varList)
         {
-            if(!sub.Equals(existing))
-            {
-                return true;
-            }
+            reverseSubs[varItem] = reverseSubs[varItem].PerformSubstitution(thisReplacement);
         }
 
-        foreach ((VariableMessage fromMsg, IMessage toMsg) in otherWay)
-        {
-            if (toMsg.Equals(vMsg) && !fromMsg.Equals(sub))
-            {
-                return true;
-            }
-        }
-
-        // Need to check vMsg is not within otherWay.Value.
-        HashSet<IMessage> heldVariables = new();
-        foreach (IMessage heldValue in from owv in otherWay.Values where !owv.Equals(vMsg) select owv)
-        {
-            heldValue.CollectVariables(heldVariables);
-        }
-        if (heldVariables.Contains(vMsg))
-        {
-            return true;
-        }
-
-        if (sub is not VariableMessage)
-        {
-            HashSet<IMessage> subVariables = new();
-            sub.CollectVariables(subVariables);
-            foreach (IMessage varValue in subVariables)
-            {
-                if (otherWay.ContainsKey((VariableMessage)varValue))
-                {
-                    return true;
-                }
-                if (oneWay.ContainsValue((VariableMessage)varValue))
-                {
-                    return true;
-                }
-            }
-        }
-        return false;
+        aheadSubs[newVar] = result;
     }
 
     public bool TryAdd(IMessage msg1, IMessage msg2)
     {
         Debug.Assert(msg1 is VariableMessage || msg2 is VariableMessage, "One of the messages must be a variable.");
-        bool wasAdded = false;
+        bool acceptable = false;
 
-        if (msg1 is VariableMessage vMsg1 &&
-            !ContainsContradictingValue(Forward, Backward, vMsg1, msg2))
+        if (msg1 is VariableMessage vMsg1)
         {
-            Forward[vMsg1] = msg2;
-            wasAdded = true;
+            if (!Forward.TryGetValue(vMsg1, out IMessage? repl1))
+            {
+                InsertAndSettle(Forward, Backward, vMsg1, msg2);
+                acceptable = true;
+            } 
+            else
+            {
+                acceptable = msg2.Equals(repl1);
+            }
         }
-        else if (BothWays && msg2 is VariableMessage vMsg2 &&
-                 !ContainsContradictingValue(Backward, Forward, vMsg2, msg1))
+        else if (BothWays && msg2 is VariableMessage vMsg2)
         {
-            Backward[vMsg2] = msg1;
-            wasAdded = true;
+            if (!Backward.TryGetValue(vMsg2, out IMessage? repl2))
+            {
+                InsertAndSettle(Backward, Forward, vMsg2, msg1);
+                acceptable = true;
+            }
+            else
+            {
+                acceptable = msg1.Equals(repl2);
+            }
         }
         
-        return wasAdded;
+        return acceptable;
     }
 
     #endregion

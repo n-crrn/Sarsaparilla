@@ -126,39 +126,13 @@ public class CompositionTests
         StateConsistentRule r2 = parser.ParseStateConsistentRule("k(sk), k(aenc(m, pk(sk))) -[ ]-> k(m)");
 
         string msg = "Should not be able to compose rules where result is in premise.";
-        Assert.IsFalse(r1.TryComposeWith(r2, out Rule? result), msg);
+        Assert.IsFalse(r1.TryComposeWith(r2, out Rule? result) , msg);
         Assert.IsNull(result, "Result should be null from failed attempt at composing.");
-    }
-
-    [TestMethod]
-    public void InvalidComposeUnification()
-    {
-        // The following is a unification - leading a composition - that has been attempted during
-        // testing and found to be invalid.
-
-        IMessage pksk = new FunctionMessage("pk", new() { new VariableMessage("sk") });
-        IMessage pub = new VariableMessage("pub");
-        IMessage aenc = new FunctionMessage("aenc", new() { pksk, pub });
-        IMessage sk = new VariableMessage("sk");
-        IMessage aencsk = new FunctionMessage("aenc", new() { sk, pksk });
-
-        ShouldNotBeUnifiable(Event.Know(aenc), Event.Know(aencsk));
-
-        // --- Second sub-test ---
-
-        IMessage msg3 = MessageParser.ParseMessage("aenc(<mf, bob_l[], bob_r[]>, pk(sksd[]))");
-        IMessage msg4 = MessageParser.ParseMessage("aenc(<mf, mf, sr>, pk(sksd[]))");
-        ShouldNotBeUnifiable(Event.Know(msg3), Event.Know(msg4));
-
-        // --- Third sub-test ---
-
-        IMessage msg5 = MessageParser.ParseMessage("aenc(pk(aenc(m, pub)), pub)");
-        IMessage msg6 = MessageParser.ParseMessage("aenc(m, pk(left[]))");
-        ShouldNotBeUnifiable(Event.Know(msg5), Event.Know(msg6));
     }
 
     private static void ShouldNotBeUnifiable(Event ev1, Event ev2)
     {
+        Debug.WriteLine($"Attempted to unify {ev1} and {ev2}");
         SigmaFactory sf = new();
         bool canBeUnified = ev1.CanBeUnifiableWith(ev2, new(), new(), sf);
         if (canBeUnified)

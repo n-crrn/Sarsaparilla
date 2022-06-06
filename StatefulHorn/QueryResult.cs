@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 
+using StatefulHorn.Messages;
+
 namespace StatefulHorn;
 
 /// <summary>
@@ -10,45 +12,68 @@ namespace StatefulHorn;
 /// </summary>
 internal class QueryResult
 {
-    internal QueryResult(IMessage query, IMessage? actual, State? when)
+    internal QueryResult(IMessage query, IMessage? actual, int rank, State? when)
     {
         Query = query;
         Actual = actual;
         When = when;
+        Rank = rank;
         Transformation = new();
     }
 
     public QueryResult(
         IMessage query,
         IMessage? actual,
+        int rank,
         State? when,
         SigmaFactory transformation,
-        IEnumerable<IMessage> facts,
-        IEnumerable<HornClause> knowledge,
-        IEnumerable<Nession> foundNessions)
+        IEnumerable<IMessage>? facts,
+        IEnumerable<HornClause>? knowledge,
+        IEnumerable<Nession>? foundNessions)
     {
         Query = query;
-        When = when;
         Actual = actual;
+        Rank = rank;
+        When = when;
         Transformation = transformation;
-        Facts = new(facts);
-        Knowledge = new(knowledge);
-        FoundSessions = new(foundNessions);
+        Facts = facts != null ? new(facts) : null;
+        Knowledge = knowledge != null ? new(knowledge) : null;
+        FoundSessions = foundNessions != null ? new(foundNessions) : null;
     }
 
-    public static QueryResult BasicFact(IMessage query, IMessage actual, SigmaFactory transformation, State? when = null)
+    private static readonly int InfiniteRank = -1; // FIXME: Centralise the "infinite" values.
+
+    public static QueryResult BasicFact(
+        IMessage query, 
+        IMessage actual, 
+        SigmaFactory transformation,
+        State? when = null)
     {
-        return new(query, actual, when, transformation, new List<IMessage>() { query }, new List<HornClause>(), new List<Nession>());
+        return new(query, actual, InfiniteRank, when, transformation, new List<IMessage>() { query }, new List<HornClause>(), new List<Nession>());
     }
 
-    public static QueryResult ResolvedKnowledge(IMessage query, IMessage actual, HornClause kRule, SigmaFactory transformation)
+    public static QueryResult ResolvedKnowledge(
+        IMessage query, 
+        IMessage actual, 
+        HornClause kRule, 
+        SigmaFactory transformation)
     {
-        return new(query, actual, null, transformation, new List<IMessage>(), new List<HornClause>() { kRule }, new List<Nession>());
+        return new(query, actual, kRule.Rank, null, transformation, new List<IMessage>(), new List<HornClause>() { kRule }, new List<Nession>());
     }
 
-    public static QueryResult Failed(IMessage query, State? when) => new(query, null, when);
+    public static QueryResult Unresolved(VariableMessage query, int rank, State? when = null)
+    {
+        return new(query, query, rank, when, new(), null, null, null);
+    }
 
-    public static QueryResult Compose(IMessage query, State? when, IEnumerable<QueryResult> combinedResults)
+    public static QueryResult Failed(IMessage query, int rank, State? when) => new(query, null, rank, when);
+
+    public static QueryResult Compose(
+        IMessage query, 
+        IMessage actual, 
+        State? when, 
+        SigmaFactory transformation, 
+        IEnumerable<QueryResult> combinedResults)
     {
         List<IMessage> fullFactList = new();
         List<HornClause> knowledgeList = new();
@@ -58,17 +83,33 @@ internal class QueryResult
         HashSet<HornClause> emptyKnowledge = new();
         List<Nession> emptyNession = new();
 
+        int rank = -1;
+
         foreach (QueryResult qr in combinedResults)
         {
             Debug.Assert(qr.Found);
+            rank = HornClause.RatchetRank(rank, qr.Rank);
             fullFactList.AddRange(qr.Facts ?? emptyList);
             knowledgeList.AddRange(qr.Knowledge ?? emptyKnowledge);
             nessions.AddRange(qr.FoundSessions ?? emptyNession);
         }
 
-        return new(query, query, when, new(), fullFactList, knowledgeList, nessions);
+        return new(query, actual, rank, when, transformation, fullFactList, knowledgeList, nessions);
     }
      
+    public QueryResult Transform(SigmaFactory transformation)
+    {
+        return new(
+            Query, 
+            Actual!.PerformSubstitution(transformation.CreateBackwardMap()),
+            Rank,
+            When, 
+            transformation, 
+            Facts, 
+            Knowledge, 
+            FoundSessions);
+    }
+
     #region Properties.
 
     public IMessage Query { get; init; }
@@ -79,7 +120,11 @@ internal class QueryResult
 
     public State? When { get; init; }
 
-    public bool Found => Facts != null;
+    public int Rank { get; init; }
+
+    public bool Found => Facts != null || (Actual != null && Actual is VariableMessage);
+
+    public bool Resolved => Actual != null && !Actual.ContainsVariables;
 
     public HashSet<IMessage>? Facts { get; init; }
 

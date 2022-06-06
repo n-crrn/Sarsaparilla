@@ -12,16 +12,16 @@ public class FunctionMessage : IMessage
         _Parameters = parameters;
 
         ContainsVariables = false;
-        unchecked
+        // Prime numbers randomly selected.
+        HashCode = 673 * 839 + Name.GetHashCode();
+        foreach (IMessage msg in _Parameters)
         {
-            // Prime numbers randomly selected.
-            HashCode = 673 * 839 + Name.GetHashCode();
-            foreach (IMessage msg in _Parameters)
+            if (msg.ContainsVariables)
             {
-                if (msg.ContainsVariables)
-                {
-                    ContainsVariables = true;
-                }
+                ContainsVariables = true;
+            }
+            unchecked
+            {
                 HashCode = HashCode * 839 + msg.GetHashCode();
             }
         }
@@ -133,7 +133,10 @@ public class FunctionMessage : IMessage
 
     public override bool Equals(object? obj)
     {
-        return obj is FunctionMessage fMsg && Name.Equals(fMsg.Name) && _Parameters.SequenceEqual(fMsg._Parameters);
+        return obj is FunctionMessage fMsg && 
+            _Parameters.Count == fMsg._Parameters.Count && 
+            Name.Equals(fMsg.Name) && 
+            _Parameters.SequenceEqual(fMsg._Parameters);
     }
 
     private readonly int HashCode;

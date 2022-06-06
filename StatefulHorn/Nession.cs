@@ -239,6 +239,18 @@ public class Nession
                 Equals(GuardStatements, f.GuardStatements);
         }
 
+        public bool CellsEqual(Frame other)
+        {
+            for (int i = 0; i < Cells.Count; i++)
+            {
+                if (!Cells[i].Condition.Equals(other.Cells[i].Condition))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public override int GetHashCode() => Cells.First().GetHashCode(); // Lazy but deterministic.
     }
 
@@ -314,6 +326,10 @@ public class Nession
 
         // Create new frame.
         Frame nextFrame = updated.History[^1].ApplyTransfers(subTransfers);
+        if (nextFrame.CellsEqual(updated.History[^1]))
+        {
+            return (null, false);
+        }
         updated.History.Add(nextFrame);
         updated.UpdateNonceDeclarations();
         return (updated, bwdMap.IsEmpty);

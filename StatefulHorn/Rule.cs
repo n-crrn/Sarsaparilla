@@ -230,16 +230,9 @@ public abstract class Rule
     public Rule SubscriptVariables(string subscript)
     {
         HashSet<IMessage> oldVars = CollectAllVariables();
-        List<(IMessage Variable, IMessage Value)> newVars = new(from v in oldVars select (v, ScriptVariableMessage(v, subscript)));
+        List<(IMessage Variable, IMessage Value)> newVars = new(from v in oldVars 
+                                                                select (v, MessageUtils.SubscriptVariableMessage(v, subscript)));
         return PerformSubstitution(new SigmaMap(newVars));
-    }
-
-    private static IMessage ScriptVariableMessage(IMessage originalMsg, string subscript)
-    {
-        VariableMessage originalVar = (VariableMessage)originalMsg;
-        string originalName = originalVar.Name;
-        string newName = originalName.Contains('_') ? $"{originalName}-{subscript}" : $"{originalName}_{subscript}";
-        return new VariableMessage(newName);
     }
 
     /// <summary>

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using StatefulHorn;
+using StatefulHorn.Messages;
 
 namespace StatefulHornTest;
 
@@ -77,7 +78,7 @@ public class QueryTests
             "k(enc_a(m, pk(sk))), k(sk) -[]-> k(m)",
             "k(sk) -[]-> k(pk(sk))",
             "k(p), k(n) -[ ]-> k(h(p, n))",
-            // Session commencement and state transitions - should '_' be added as a variable/message stand-in?
+            // Session commencement and state transitions.
             //"n([bobl], l[]), n([bobr], r[]), k(mf) -[ ]-> k(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))",
             "n([bobl])(a0), n([bobr])(a0), k(mf)(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, left[])), a0) ]-> k([bobl])",
             "n([bobl])(a0), n([bobr])(a0), k(mf)(a0), m(enc_a(<mf, [bobl], [bobr]>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k([bobr])",
@@ -173,6 +174,61 @@ public class QueryTests
             "-[ ]-> k(key[])"
         };
         await DoTest(ruleSet, "cell2(something[])", initState, false, true);
+    }
+
+    [TestMethod]
+    public async Task VariableCollisionCheck()
+    {
+        // Firstly, a quick unification check. This check must pass before we can test further.
+        FunctionMessage aMsg = new("LetChannel", new() {
+            new FunctionMessage("dec", new() { new VariableMessage("x"), new NameMessage("key") })
+        });
+        FunctionMessage bMsg = new("LetChannel", new() {
+            new FunctionMessage("dec", new() { 
+                new FunctionMessage("enc", new() { 
+                    new TupleMessage(new() { new NameMessage("value1"), new VariableMessage("x") }), 
+                    new FunctionMessage("pk", new() { new VariableMessage("y") })
+                }), 
+                new VariableMessage("y") 
+            })
+        });
+        Assert.IsTrue(aMsg.IsUnifiableWith(bMsg));
+        Assert.IsTrue(bMsg.IsUnifiableWith(aMsg));
+
+        string initState = "SD(init[])";
+        List<string> ruleSet = new()
+        {
+            "-[ ]-> k(Channel(enc(<value1[], value2[]>, pk(key[]))))",
+            "k(Channel(x)) -[ ]-> k(LetCell(dec(x, key[])))",
+            "k(LetCell(dec(enc(x, pk(y)), y))) -[ ]-> k(LetCell(x))",
+            "k(LetCell(<x, y>)) -[ ]-> k(x)"
+        };
+        await DoTest(ruleSet, "value1[]", initState, false, true);
+    }
+
+    [TestMethod]
+    public async Task TupleTransferCheck()
+    {
+        string initState = "Channel(init[])";
+        List<string> ruleSet = new()
+        {
+            "k(enc(x, pk(y))), k(y) -[ ]-> k(dec(enc(x, pk(y)), y))",
+            "k(dec(enc(x, pk(y)), y)) -[ ]-> k(x)",
+            "-[ (Channel(init[]), a0) ]-> <a0: Channel(enc(<value1[], value2[]>, pk(key[])))>",
+            "-[ (Channel(x), a0) ]-> k(ChannelCell(x))",
+            "k(ChannelCell(x)) -[ ]-> k(LetCell(dec(x, key[])))",
+            "k(LetCell(dec(enc(x, pk(y)), y))) -[ ]-> k(LetCell(x))",
+            "k(LetCell(<x, y>)) -[ ]-> k(x)"
+        };
+        await DoTest(ruleSet, "value1[]", initState, true, false);
+
+        List<string> ruleSet2 = new()
+        {
+            "-[ ]-> k(right[])",
+            "n([bobl])(a0), n([bobr])(a0) -[ (Channel(init[]), a0) ]-> m(enc(<init[], [bobl], [bobr]>, pk(sksd[])))",
+            "k(enc(<init[], sl, sr>, pk(sksd[]))), k(right[]) -[ ]-> k(sr)"
+        };
+        await DoTest(ruleSet2, "[bobr]", initState, true, false);
     }
 
 }
