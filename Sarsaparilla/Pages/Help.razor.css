@@ -1,0 +1,32 @@
+﻿@media (min-width: 620px) {
+    article {
+        width: 600px;
+        padding: 10px;
+    }
+}
+
+@media not (min-width: 620px)
+{
+    article {
+        max-width: 600px;
+        padding: 10px;
+    }
+}
+
+img {
+    width: 100%;
+}
+
+.padded {
+    border: solid white 5px;
+}
+
+.outer {
+    flex-shrink: 2;
+    flex-grow: 1;
+    flex-basis: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: scroll;
+}

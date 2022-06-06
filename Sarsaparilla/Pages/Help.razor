@@ -2,12 +2,99 @@
 
 <PageTitle>Help</PageTitle>
 
-<h2>Help</h2>
+<div class='outer'>
+    <article>
 
-<p>
-    This is where the help text for the system will be stored.
-</p>
+        <h2>Introduction &mdash; What is Sarsaparilla?</h2>
 
-@code {
+        <p>
+            Sarsaparilla is a test platform for a number of formal logic algorithms
+            associated with representing stateful security protocols. It stands for
+            "State Aware Research Studying All Protocols' Authoritative Representation
+            In Latest Logic Analyser."
+        </p>
 
-}
+        <h2>Using a π-Model</h2>
+
+        <p>
+            Sarsaparilla supports a subset of the ProVerif Specification Language
+            (dialect of Applied π-Calculus) used by
+            <a href='https://bblanche.gitlabpages.inria.fr/proverif/'>ProVerif</a>.
+            Models written this way are translated into Stateful Horn Clauses, and
+            can be input on the <a href='/'>π-Model Page</a>.
+        </p>
+
+        <p>
+            The page has three sections:
+        </p>
+
+        <dl>
+            <dt>Model Editor</dt>
+            <dd>
+                This section allows you to input a model to Sarsaparilla. There are
+                facilities for loading or saving models to or from your computer.
+                There is also a small selection of sample models.
+            </dd>
+
+            <dt>Compiled Model Details</dt>
+            <dd>
+                This section details a basic outline of the in-memory representation
+                of the model and the term-resolved representation of the model.
+                It also provides a full listing of the Stateful Horn Clause
+                translation of the π-Calculus model.
+            </dd>
+
+            <dt>Query Result</dt>
+            <dd>
+                This section provides the result of any attempt at leak detection.
+            </dd>
+        </dl>
+
+        <p>
+            Each section can be minimised or maximised by using the corresponding
+            buttons horizontally aligned with its section header. An example of
+            the screen is illustrated below.
+        </p>
+
+        <img src='img/pi-model-annotated.png' alt='Annotated diagram of the Pi Model page.'/>
+
+        <p>
+            The quickest way to start with Sarsaparilla is to follow the three
+            green steps indicated on the above diagram.
+        </p>
+
+        <ol>
+            <li>
+                Select a sample and click the 'Overwrite' button to load it into the
+                editor field.
+            </li>
+
+            <li>
+                Click the 'Compile' button to create the in-memory model and 
+                create the translation to Stateful Horn Clauses.
+            </li>
+
+            <li>
+                Click the 'Query' button to see if the specified messages are leaked.
+            </li>
+        </ol>
+
+        <p>
+            If the leak is detected, a read-out linking the leaked message to the
+            rules leading to it is provided as per below. Unfortunately, at this time
+            there is no way to directly link attacks to π-Model processes.
+        </p>
+
+        <img class='padded' src='img/full-attack-readout.png' alt='Example of a detected attack.'/>
+
+        <h2>Directly Using Stateful Horn Clauses</h2>
+
+        <p>
+            Stateful Horn Clauses can be used directly with Sarsaparilla. They are
+            input on the <a href='/horn'>Horn Clause page</a>.
+        </p>
+
+    </article>
+</div>
+
+@code { }
