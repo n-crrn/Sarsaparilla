@@ -13,7 +13,7 @@
 <PaneStack>
     <Pane Title='Editor'>
         <ButtonBarItems>
-            <button @onclick=Parse>Parse</button>
+            <button @onclick=Compile>Compile</button>
         </ButtonBarItems>
         <Body>
             <div class='editor-pane-contents'>
@@ -38,7 +38,7 @@
         </Body>
     </Pane>
 
-    <Pane Title='Parsed π Model'>
+    <Pane Title='Compiled π-Model'>
         <ButtonBarItems>
             <button @onclick=Query disabled=@QueryDisabled>Query</button>
         </ButtonBarItems>
@@ -141,7 +141,7 @@
 
     #endregion
 
-    private void Parse()
+    private void Compile()
     {
         try
         {
