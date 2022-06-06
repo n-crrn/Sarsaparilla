@@ -15,6 +15,3 @@ textarea {
     border: solid 1px var(--foreground-theme-color, black);
 }
 
-textarea:focus {
-    background-color: var(--highlight-background-theme-color);
-}
