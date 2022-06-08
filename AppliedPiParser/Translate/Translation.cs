@@ -431,7 +431,7 @@ public class Translation
                     }
                     tf.InteractionCount[reader] = rc + 1;
                 }
-                rules.UnionWith(AttackChannelRule.GenerateRulesForReceivePattern(icp.ReceivePattern, tf.Conditions));
+                rules.UnionWith(AttackChannelRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern, tf.Conditions));
 
                 foreach ((string varEntry, _) in icp.ReceivePattern)
                 {
@@ -454,6 +454,7 @@ public class Translation
                         ProVerifTranslate(sendChannel, n.Branches[0], sendPremises, rules, tf.Rn, tf.Nw);
                     }
                     ParallelProcessesProVerifTranslate(tf, sendChannel, StatefulHorn.Event.Know(sendMessage), rules);
+                    rules.Add(new BasicRule(new() { StatefulHorn.Event.Know(sendMessage) }, resultMessage, $"ChannelToken:{sendMessage}:{resultMessage}"));
 
                     resultMessage = sendMessage;
                 }

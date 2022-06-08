@@ -38,7 +38,7 @@ process out(c, x) | in(c, y: bitstring).";
             new FiniteWriteRule(c2Out, finiteWriteInteractions, new(), new NameMessage("x")),
             new FiniteCrossLinkRule(c2Out, c3In),
             new ReadRule(c3In, "y"),
-            new AttackChannelRule("y"),
+            new AttackChannelRule(c3In, "y"),
             new ShutSocketsRule(new Dictionary<Socket, int>() { { c2Out, 1 } }),
             new ShutSocketsRule(new Dictionary<Socket, int>() { { c3In, 1 } })
         };
@@ -95,7 +95,7 @@ process
             // Branch 2 (in(c, v)) rules.
             new OpenSocketsRule(new List<Socket>() { c2In }, new List<Socket>() { c1Out }),
             new ReadRule(c2In, "v"),
-            new AttackChannelRule("v"),
+            new AttackChannelRule(c2In, "v"),
             new ShutSocketsRule(new Dictionary<Socket, int>() { { c2In, 1 } }),
             // Branch 3 (new f: channel; out(f, d)) rules.
             new KnowChannelContentRule(f3Out),
@@ -108,9 +108,10 @@ process
             new KnowChannelContentRule(cInfOut),
             // Note that "@f@0" in the next rule is due to a channel being sent from a replicated process.
             new InfiniteWriteRule(cInfOut, new Dictionary<Socket, int>(), lastPremises, new NameMessage("@f@0")),
+            new BasicRule(new() { Event.Know(new NameMessage("@f@0"))}, new NameMessage("f")),
             new ReadResetRule(cInfIn),
             new ReadRule(cInfIn, "x"),
-            new AttackChannelRule("x"),
+            new AttackChannelRule(cInfIn, "x"),
             new FiniteCrossLinkRule(cInfOut, c2In)
         };
 
@@ -138,7 +139,7 @@ process !( out(c, s) |  in(c, v: bitstring) ).";
             // Following rules should not be triggered during Nession construction.
             new ReadResetRule(cIn),
             new ReadRule(cIn, "v"),
-            new AttackChannelRule("v")
+            new AttackChannelRule(cIn, "v")
         };
         DoMutateTest(testSource, expectedSockets, expectedMutations);
     }
@@ -174,7 +175,7 @@ process
             new OpenSocketsRule(new List<Socket>() { cIn, cOut }, new List<Socket>()),
             new KnowChannelContentRule(cOut),
             new ReadRule(cIn, "v"),
-            new AttackChannelRule("v"),
+            new AttackChannelRule(cIn, "v"),
             // Branch 2 (out(c, v)) -> Note that the conditional is branch 1.
             new FiniteWriteRule(cOut, new Dictionary<Socket, int>() { { cOut, 0 }, { cIn, 1 } }, outputPremises, vMsg)
             {
@@ -223,7 +224,7 @@ process
             // in(c, v)
             new OpenSocketsRule(cIn),
             new ReadRule(cIn, "v"),
-            new AttackChannelRule("v"),
+            new AttackChannelRule(cIn, "v"),
             new ShutSocketsRule(new Dictionary<Socket, int>() { { cIn, 1 } }),
             // let x: bitstring = hash(s) in...
             new LetSetRule("x", letPremises, new List<Socket>() { cIn }, new List<Socket>() { cOut }, IfBranchConditions.Empty, Event.Know(filledXMsg)),
