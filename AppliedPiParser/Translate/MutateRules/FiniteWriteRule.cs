@@ -6,10 +6,10 @@ using StatefulHorn;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class FiniteWriteRule : IMutateRule
+public class WriteRule : IMutateRule
 {
 
-    public FiniteWriteRule(
+    public WriteRule(
         WriteSocket s, 
         IDictionary<Socket, int> finActionCounts, 
         HashSet<Event> premises, 
@@ -23,8 +23,6 @@ public class FiniteWriteRule : IMutateRule
 
     public WriteSocket Socket { get; init; }
 
-    public int PriorWriteCount => FiniteActionCounts[Socket];
-
     public IDictionary<Socket, int> FiniteActionCounts { get; init; }
 
     public HashSet<Event> Premises { get; init; }
@@ -33,7 +31,18 @@ public class FiniteWriteRule : IMutateRule
 
     #region IMutableRule implementation.
 
-    public string Label => $"FinWrite-{ValueToWrite}-{Socket}({PriorWriteCount})";
+    public string Label
+    {
+        get
+        {
+            if (Socket.IsInfinite)
+            {
+                return $"Write-{ValueToWrite}-{Socket}";
+            }
+            int priorWriteCount = FiniteActionCounts[Socket]; // Error if not included.
+            return $"Write-{ValueToWrite}-{Socket}({priorWriteCount})";
+        }
+    } 
 
     public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 
@@ -48,7 +57,10 @@ public class FiniteWriteRule : IMutateRule
                 latest = ss;
             }
         }
-        Debug.Assert(latest != null);
+        if (latest == null)
+        {
+            latest = factory.RegisterState(Socket.WaitingState());
+        }
         factory.RegisterPremises(latest, Premises);
         latest.TransfersTo = Socket.WriteState(ValueToWrite);
         factory.GuardStatements = Conditions?.CreateGuard();
@@ -60,11 +72,11 @@ public class FiniteWriteRule : IMutateRule
     #endregion
     #region Basic object override.
 
-    public override string ToString() => $"Write to socket rule for {Socket} after {PriorWriteCount} prior writes.";
+    public override string ToString() => $"Write to socket rule for {Socket} of value {ValueToWrite}.";
 
     public override bool Equals(object? obj)
     {
-        return obj is FiniteWriteRule r &&
+        return obj is WriteRule r &&
             Socket.Equals(r.Socket) &&
             FiniteActionCounts.ToHashSet().SetEquals(r.FiniteActionCounts) &&
             Premises.SetEquals(r.Premises) &&

@@ -476,7 +476,7 @@ public class Translation
                     }
                     if (finReaders.TryGetValue(outChannelTerm, out List<ReadSocket>? rxSocketList) && rxSocketList!.Count > 0)
                     {
-                        rules.Add(new InfiniteWriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
+                        rules.Add(new WriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
                         {
                             Conditions = tf.Conditions
                         });
@@ -490,7 +490,7 @@ public class Translation
                 else
                 {
                     int wc = tf.InteractionCount[writer];
-                    rules.Add(new FiniteWriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
+                    rules.Add(new WriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
                     {
                         Conditions = tf.Conditions
                     });
