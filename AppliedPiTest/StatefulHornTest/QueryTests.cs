@@ -61,7 +61,7 @@ public class QueryTests
             "(15) = -[ (SD(m), c1) ]-> k(m)",
             "(16) = k(x)(d1) -[ (SD(m), d1) ]-> <d1: SD(h(m, x))>"
         };
-        await DoTest(ruleSet, "<bob_l[], bob_r[]>", "SD(init[])", true, false);
+        await DoTest5(ruleSet, "<bob_l[], bob_r[]>", "SD(init[])", true);//, false);
     }
 
     [TestMethod]
@@ -89,11 +89,11 @@ public class QueryTests
             "-[ (SD(m), a0) ]-> k(m)"
         };
 
-        await DoTest(ruleSet, "h(init[], left[])", "SD(init[])", false, true);
-        await DoTest(ruleSet, "<[bobl], [bobr]>", "SD(init[])", false);
+        await DoTest5(ruleSet, "h(init[], left[])", "SD(init[])", true); //, true);
+        await DoTest5(ruleSet, "<[bobl], [bobr]>", "SD(init[])", false);
 
         ruleSet.Add("-[ (SD(m), a0) ]-> <a0: SD(init[])>");
-        await DoTest(ruleSet, "<[bobl], [bobr]>", "SD(init[])", true);
+        await DoTest5(ruleSet, "<[bobl], [bobr]>", "SD(init[])", true);
     }
 
     [TestMethod]
@@ -104,7 +104,7 @@ public class QueryTests
             "-[ ]-> k(n[])",
             "k(x) -[ ]-> k(test(x))"
         };
-        await DoTest(ruleSet, "test(n[])", "SD(init[])", false, true);
+        await DoTest5(ruleSet, "test(n[])", "SD(init[])", true); // false, true);
     }
 
     [TestMethod]
@@ -116,7 +116,30 @@ public class QueryTests
             "k(c[]) -[ ]-> k(d[])",
             "k(d[]) -[ ]-> k(s[])"
         };
-        await DoTest(ruleSet, "s[]", "SD(init[])", false, true);
+        await DoTest5(ruleSet, "s[]", "SD(init[])", true); // false, true);
+    }
+
+    private async Task DoTest5(
+        IEnumerable<string> ruleSrcs,
+        string querySrc,
+        string stateInitSrc,
+        bool shouldFindAttack)
+    {
+        List<Rule> rules = new(from r in ruleSrcs select Parser.Parse(r));
+        IMessage query = MessageParser.ParseMessage(querySrc);
+        State initState = MessageParser.ParseState(stateInitSrc);
+
+        QueryEngine5 qe5 = new(new HashSet<State>() { initState }, query, null, rules);
+        bool attackFound = false;
+        bool completedDone = false;
+
+        void onAttackAssessedFound(Nession n, IReadOnlySet<HornClause> _, Attack? a) => attackFound |= a != null;
+        void onCompletion() => completedDone = true;
+
+        const int testElaborations = 5;
+        await qe5.Execute(null, onAttackAssessedFound, onCompletion, testElaborations, false);
+        Assert.AreEqual(shouldFindAttack, attackFound);
+        Assert.IsTrue(completedDone, "Completion not called");
     }
 
     [TestMethod]
@@ -130,8 +153,8 @@ public class QueryTests
             "-[ ]-> k(a[])",
             "-[ ]-> k(b[])"
         };
-        await DoTest(ruleSet, "enc(a[], b[])", initState, false, false);
-        await DoTest(ruleSet, "enc(b[], a[])", initState, false, true);
+        await DoTest5(ruleSet, "enc(a[], b[])", initState, false); // false, false);
+        await DoTest5(ruleSet, "enc(b[], a[])", initState, true); // false, true);
 
         List<string> ruleSet2 = new()
         {
@@ -140,8 +163,8 @@ public class QueryTests
             "[x ~/> test1[]] k(x)(a0) -[ (SD(init[]), a0) ]-> <a0: SD(x)>",
             "-[ (SD(m), a0) ]-> k(h(m))"
         };
-        await DoTest(ruleSet2, "h(test1[])", initState, false, false);
-        await DoTest(ruleSet2, "h(test2[])", initState, true, false);
+        await DoTest5(ruleSet2, "h(test1[])", initState, false); //  false, false);
+        await DoTest5(ruleSet2, "h(test2[])", initState, true); // true, false);
     }
 
     [TestMethod]
@@ -156,7 +179,7 @@ public class QueryTests
             "-[ ]-> k(enc(something[], pk(key[])))",
             "-[ ]-> k(key[])"
         };
-        await DoTest(ruleSet, "something[]", initState, false, true);
+        await DoTest5(ruleSet, "something[]", initState, true); // false, true);
     }
 
     [TestMethod]
@@ -173,7 +196,7 @@ public class QueryTests
             "-[ ]-> k(cell1(dec(enc(something[], pk(key[])), key[])))",
             "-[ ]-> k(key[])"
         };
-        await DoTest(ruleSet, "cell2(something[])", initState, false, true);
+        await DoTest5(ruleSet, "cell2(something[])", initState, true); // false, true);
     }
 
     [TestMethod]
@@ -204,7 +227,7 @@ public class QueryTests
             "k(LetCell(dec(enc(x, pk(y)), y))) -[ ]-> k(LetCell(x))",
             "k(LetCell(<x, y>)) -[ ]-> k(x)"
         };
-        await DoTest(ruleSet, "value1[]", initState, false, true);
+        await DoTest5(ruleSet, "value1[]", initState, true); // false, true);
     }
 
     [TestMethod]
@@ -221,7 +244,7 @@ public class QueryTests
             "k(LetCell(dec(enc(x, pk(y)), y))) -[ ]-> k(LetCell(x))",
             "k(LetCell(<x, y>)) -[ ]-> k(x)"
         };
-        await DoTest(ruleSet, "value1[]", initState, true, false);
+        await DoTest5(ruleSet, "value1[]", initState, true); //, false);
 
         List<string> ruleSet2 = new()
         {
@@ -229,7 +252,23 @@ public class QueryTests
             "n([bobl])(a0), n([bobr])(a0) -[ (Channel(init[]), a0) ]-> m(enc(<init[], [bobl], [bobr]>, pk(sksd[])))",
             "k(enc(<init[], sl, sr>, pk(sksd[]))), k(right[]) -[ ]-> k(sr)"
         };
-        await DoTest(ruleSet2, "[bobr]", initState, true, false);
+        await DoTest5(ruleSet2, "[bobr]", initState, true); //, false);
+    }
+
+    [TestMethod]
+    public async Task TupleDeconstructionCheck()
+    {
+        string initState = "SD(init[])";
+        List<string> ruleSet = new()
+        {
+            "-[ ]-> k(destr(<enc(s[], k[]), m[]>))",
+            "k(destr(<v, w>)) -[ ]-> k(v@cell(v))",
+            "k(destr(<v, w>)) -[ ]-> k(w@cell(w))",
+            "k(v@cell(v)), k(w@cell(w)) -[ ]-> k(x@cell(dec(v, k[])))",
+            "k(x@cell(x)) -[ ]-> k(x)",
+            "k(dec(enc(x, y), y)) -[ ]-> k(x)"
+        };
+        await DoTest5(ruleSet, "s[]", initState, true);// false, true);
     }
 
 }

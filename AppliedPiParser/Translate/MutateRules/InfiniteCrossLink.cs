@@ -15,13 +15,13 @@ public class InfiniteCrossLink : IMutateRule
         ReadSocket toSocket, 
         IDictionary<Socket, int> finActionCounts,
         HashSet<Event> premises, 
-        IMessage sent)
+        IMessage result)
     {
         From = fromSocket;
         To = toSocket;
         FiniteActionCounts = finActionCounts;
         Premises = premises;
-        Result = Event.Know(sent);
+        Result = Event.Know(result);
         Debug.Assert(From.IsInfinite && To.IsInfinite);
     }
 
@@ -34,6 +34,52 @@ public class InfiniteCrossLink : IMutateRule
     public HashSet<Event> Premises { get; init; }
 
     public Event Result { get; init; }
+
+    private static int dId = 0;
+
+    public static IEnumerable<IMutateRule> GenerateRulesForReceivePatterns(
+        WriteSocket from,
+        ReadSocket to,
+        IDictionary<Socket, int> finActionCounts,
+        HashSet<Event> premises,
+        IMessage sent)
+    {
+        List<DeconstructionRule> dRules = new();
+        foreach (List<(string, string)> pattern in to.ReceivePatterns)
+        {
+            List<string> simplifiedRxPattern = new(from rx in pattern select rx.Item1);
+            foreach (string varName in simplifiedRxPattern)
+            {
+                IMessage rxMsg;
+                if (simplifiedRxPattern.Count == 1)
+                {
+                    rxMsg = new VariableMessage(varName);
+                }
+                else
+                {
+                    rxMsg = new TupleMessage(from rx in simplifiedRxPattern 
+                                             select new VariableMessage(rx));
+                }
+                dRules.Add(new(
+                    "icl" + dId,
+                    rxMsg,
+                    new VariableMessage(varName),
+                    ReadRule.VariableCellName(varName)
+                ));
+                dId++;
+            }
+        }
+        foreach (DeconstructionRule dRule in dRules)
+        {
+            yield return dRule;
+            yield return new InfiniteCrossLink(
+                from,
+                to,
+                finActionCounts,
+                premises,
+                dRule.SourceCellContaining(sent));
+        }
+    }
 
     #region IMutateRule implementation.
 

@@ -398,7 +398,6 @@ public class HornClause
                 if (i != j)
                 {
                     HornClause h2 = clauses[j];
-                    //if (h1.EqualsIgnoringRank(h2))
                     if (h1.Implies(h2))
                     {
                         if (h1.Rank >= h2.Rank)

@@ -125,6 +125,7 @@ public class NessionManager
 
         if (!checkFinishIteratively)
         {
+            processed.Reverse();
             finishedFunc(processed);
         }
     }

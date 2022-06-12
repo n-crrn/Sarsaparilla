@@ -425,7 +425,7 @@ public class Nession
 
     public List<Nession> TryApplySystemRule(StateConsistentRule scr)
     {
-        Debug.Assert(!scr.Snapshots.IsEmpty);
+        //Debug.Assert(!scr.Snapshots.IsEmpty);
         List<Nession> generated = new() { this };
 
         // Do a check to ensure that we don't have the same rule already added.
@@ -689,6 +689,8 @@ public class Nession
         }
         return varSet;
     }
+
+    
 
     #endregion
     #region Basic object overrides.

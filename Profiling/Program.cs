@@ -48,7 +48,7 @@ process
   out(d, s) | ( in(d, v: bitstring); out(c, d) ).
 ";
 */
-
+/*
 string piSource =
 @"free publicChannel: channel.
 free value: bitstring.
@@ -66,6 +66,55 @@ process
            out(c, h(inRead)) )
          | ( out(c, holder);
              in(c, v: bitstring) ) ) ).
+";*/
+
+string piSource =
+@"type key.
+
+const left: bitstring.
+const right: bitstring.
+
+fun h(bitstring):bitstring.
+fun pk(key):key.
+
+query attacker((bobl, bobr)).
+
+free publicChannel: channel.
+
+let SD(b: channel, sk: key) =
+  new mStart: bitstring;
+  (* Configure left or right. *)
+  in(b, x: bitstring); 
+  (* Read instruction. *)
+  out(b, mStart);
+  let mUpdated: bitstring = h(mStart, x) in
+  in(b, enc_rx: bitstring);
+  let (mf: bitstring, sl: bitstring, sr: bitstring, =pk(sk)) = enc_rx in
+    if mUpdated = h(mStart, left) then
+      out(b, sl)
+    else
+      if mUpdated = h(mStart, right) then
+        out(b, sr).
+  (* Otherwise, just ignore. *)
+
+let Bob(b: channel, sk: key) =
+  new bobl: bitstring;
+  new bobr: bitstring;
+  (* Read from SD. *)
+  in(b, mf: bitstring); 
+  out(b, (mf, bobl, bobr, pk(sk)));
+  in(b, result: bitstring).
+
+let BobSDSet(which: bitstring) =
+  new b: channel;
+  new k: key;
+  out(publicChannel, b);
+  ( SD(b, k) |
+    ( out(b, which); Bob(b, k) ) ).
+
+process
+  (! BobSDSet(left) |
+   ! BobSDSet(right) | ! in(publicChannel, bChan: channel) ).
 ";
 
 Network nw = Network.CreateFromCode(piSource);
@@ -82,9 +131,13 @@ void onGlobalAttackFound(Attack a)
     a.DescribeSources();
 }
 
-void onAttackAssessed(Nession n, HashSet<HornClause> _, Attack? a)
+void onAttackAssessed(Nession n, IReadOnlySet<HornClause> _, Attack? a)
 {
-    if (a == null)
+    if (a != null)
+    {
+        Console.WriteLine("Attack found");
+    }
+    /*if (a == null)
     {
         Console.WriteLine("Assessed following nession, attack NOT found.");
         Console.WriteLine(n.ToString());
@@ -96,7 +149,7 @@ void onAttackAssessed(Nession n, HashSet<HornClause> _, Attack? a)
         Console.WriteLine("Attack details as follows:");
         Console.WriteLine(a.DescribeSources());
     }
-    Console.WriteLine("----------------------------------------------");
+    Console.WriteLine("----------------------------------------------");*/
 }
 
 Console.WriteLine("Following rules found...");

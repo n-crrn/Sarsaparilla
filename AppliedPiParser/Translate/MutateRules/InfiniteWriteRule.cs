@@ -1,18 +1,18 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 
 using StatefulHorn;
+using StatefulHorn.Messages;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class WriteRule : IMutateRule
+public class InfiniteWriteRule : IMutateRule
 {
 
-    public WriteRule(
-        WriteSocket s, 
-        IDictionary<Socket, int> finActionCounts, 
-        HashSet<Event> premises, 
+    public InfiniteWriteRule(
+        WriteSocket s,
+        IDictionary<Socket, int> finActionCounts,
+        HashSet<Event> premises,
         IMessage value)
     {
         Socket = s;
@@ -31,18 +31,7 @@ public class WriteRule : IMutateRule
 
     #region IMutableRule implementation.
 
-    public string Label
-    {
-        get
-        {
-            if (Socket.IsInfinite)
-            {
-                return $"Write-{ValueToWrite}-{Socket}";
-            }
-            int priorWriteCount = FiniteActionCounts[Socket]; // Error if not included.
-            return $"Write-{ValueToWrite}-{Socket}({priorWriteCount})";
-        }
-    } 
+    public string Label => $"InfWrite-{ValueToWrite}-{Socket}";
 
     public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 
@@ -62,9 +51,10 @@ public class WriteRule : IMutateRule
             latest = factory.RegisterState(Socket.WaitingState());
         }
         factory.RegisterPremises(latest, Premises);
-        latest.TransfersTo = Socket.WriteState(ValueToWrite);
+        factory.RegisterPremises(latest, Event.Know(new NameMessage(Socket.ChannelName)));
         factory.GuardStatements = Conditions?.CreateGuard();
-        return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateTransferringRule());
+        Rule r = factory.CreateStateConsistentRule(Event.Know(ValueToWrite));
+        return IfBranchConditions.ApplyReplacements(Conditions, r);
     }
 
     public int RecommendedDepth => 2;
@@ -72,11 +62,11 @@ public class WriteRule : IMutateRule
     #endregion
     #region Basic object override.
 
-    public override string ToString() => $"Write to socket rule for {Socket} of value {ValueToWrite}.";
+    public override string ToString() => $"Infinite write to {Socket} of value {ValueToWrite}.";
 
     public override bool Equals(object? obj)
     {
-        return obj is WriteRule r &&
+        return obj is InfiniteWriteRule r &&
             Socket.Equals(r.Socket) &&
             FiniteActionCounts.ToHashSet().SetEquals(r.FiniteActionCounts) &&
             Premises.SetEquals(r.Premises) &&

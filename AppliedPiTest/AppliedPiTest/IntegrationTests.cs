@@ -129,6 +129,29 @@ process
     }
 
     [TestMethod]
+    public async Task LetDestructorTest()
+    {
+        string piSource =
+@"type key.
+
+free c: channel.
+free d: channel [private].
+free s: bitstring [private].
+free k: key.
+
+fun enc(bitstring, key): bitstring [private].
+reduc forall x: bitstring, y: key; dec(enc(x, y), y) = x.
+
+query attacker(s).
+
+process
+  out(d, enc(s, k)) |
+  (in(d, v: bitstring); let r: bitstring = dec(v, k) in out(c, r) ).
+";
+        await DoTest(piSource, false, true);
+    }
+
+    [TestMethod]
     public async Task LoopTest()
     {
         // In this first example, there is a process that is capable of generating
@@ -196,6 +219,22 @@ process
         await DoTest(piSource3, false, true);
     }
 
+    [TestMethod]
+    public async Task InfiniteWriteCorrectnessTest()
+    {
+        string piSource1 =
+@"free c: channel.
+free s: bitstring [private].
+
+query attacker(s).
+
+process
+    new d: channel;
+    (!out(d, s)) | !(in(d, v: bitstring); out(c, v)) | !in(c, w: bitstring).
+";
+        await DoTest(piSource1, false, true);
+    }
+
 
     /// <summary>
     /// Conducts a full integration test, where source code is used to construct a Network to
@@ -216,6 +255,24 @@ process
         ResolvedNetwork rn = ResolvedNetwork.From(nw);
         Translation t = Translation.From(rn, nw);
 
+        Console.WriteLine("Queries are:");
+        foreach (IMessage q in t.Queries)
+        {
+            Console.WriteLine("  " + q.ToString());
+        }
+
+        Console.WriteLine("Initial states are:");
+        foreach (State ini in t.InitialStates)
+        {
+            Console.WriteLine("  " + ini.ToString());
+        }
+
+        Console.WriteLine("Translated rules were as follows:");
+        foreach (Rule r in t.Rules)
+        {
+            Console.WriteLine("  " + r.ToString());
+        }
+
         try
         {
             // Preparations for running the query engine.
@@ -224,7 +281,7 @@ process
             bool nessionAttackFound = false;
             void onAttackAssessedFound(Nession n, IReadOnlySet<HornClause> hs, Attack? a) => nessionAttackFound |= a != null;
 
-            foreach (QueryEngine qe in t.QueryEngines())
+            /*foreach (QueryEngine qe in t.QueryEngines())
             {
                 await qe.Execute(null, onGlobalAttackFound, onAttackAssessedFound, null, t.RecommendedDepth);
 
@@ -232,30 +289,23 @@ process
                 {
                     break; // Mission achieved.
                 }
+            }*/
+
+            foreach (QueryEngine5 qe in t.QE5s())
+            {
+                await qe.Execute(null, onAttackAssessedFound, null, t.RecommendedDepth);
+
+                if (nessionAttackFound)
+                {
+                    break; // Mission achieved.
+                }
             }
-            
+
             Assert.AreEqual(expectGlobalAttack, globalAttackFound, "Global attack finding.");
             Assert.AreEqual(expectNessionAttack, nessionAttackFound, "Expected non-global attack.");
         }
         catch (Exception)
         {
-            Console.WriteLine("Queries are:");
-            foreach (IMessage q in t.Queries)
-            {
-                Console.WriteLine("  " + q.ToString());
-            }
-
-            Console.WriteLine("Initial states are:");
-            foreach (State ini in t.InitialStates)
-            {
-                Console.WriteLine("  " + ini.ToString());
-            }
-
-            Console.WriteLine("Translated rules were as follows:");
-            foreach (Rule r in t.Rules)
-            {
-                Console.WriteLine("  " + r.ToString());
-            }
             throw;
         }
     }

@@ -35,6 +35,14 @@ public class Translation
         }
     }
 
+    public IEnumerable<QueryEngine5> QE5s()
+    {
+        foreach (IMessage queryMsg in Queries)
+        {
+            yield return new QueryEngine5(InitialStates, queryMsg, null, Rules);
+        }
+    }
+
     public int RecommendedDepth { get; init; }
 
     private static Rule TranslateConstructor(Constructor ctr, RuleFactory factory)
@@ -467,16 +475,27 @@ public class Translation
                     if (infReaders.TryGetValue(outChannelTerm, out ReadSocket? rxSocket))
                     {
                         // For every matching receive pattern, add an infinite cross link.
-                        InfiniteCrossLink iclRule = new(writer, rxSocket, tf.InteractionCount, tf.Premises, resultMessage)
+                        List<IMutateRule> icls = new(InfiniteCrossLink.GenerateRulesForReceivePatterns(
+                            writer,
+                            rxSocket,
+                            tf.InteractionCount,
+                            tf.Premises,
+                            resultMessage));
+                        foreach (IMutateRule iclR in icls)
+                        {
+                            iclR.Conditions = tf.Conditions;
+                            rules.Add(iclR);
+                        }
+                        rules.Add(new InfiniteWriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
                         {
                             Conditions = tf.Conditions
-                        };
-                        rules.Add(iclRule);
+                        });
+                        
                         foundDestination = true;
                     }
                     if (finReaders.TryGetValue(outChannelTerm, out List<ReadSocket>? rxSocketList) && rxSocketList!.Count > 0)
                     {
-                        rules.Add(new WriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
+                        rules.Add(new FiniteWriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
                         {
                             Conditions = tf.Conditions
                         });
@@ -490,7 +509,7 @@ public class Translation
                 else
                 {
                     int wc = tf.InteractionCount[writer];
-                    rules.Add(new WriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
+                    rules.Add(new FiniteWriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
                     {
                         Conditions = tf.Conditions
                     });

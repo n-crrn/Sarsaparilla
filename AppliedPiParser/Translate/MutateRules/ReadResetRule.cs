@@ -26,7 +26,7 @@ public class ReadResetRule : IMutateRule
 
     #region IMutate implementation.
 
-    public string Label => $"readReset:{Socket}";
+    public string Label => $"ReadReset:{Socket}";
 
     public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 

@@ -213,7 +213,7 @@ public class SigmaFactory
 
     public bool BackwardIsValidByGuard(Guard g) => IsValidByGuard(Backward, g);
 
-    public bool AnyContradictionsWithState(Dictionary<IMessage, IMessage?> stateVariables)
+    public bool AnyContradictionsWithState(IDictionary<IMessage, IMessage?> stateVariables)
     {
         foreach ((VariableMessage vm, IMessage sm) in Forward.Concat(Backward))
         {

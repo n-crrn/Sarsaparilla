@@ -113,6 +113,8 @@ public class LetValueSetFactory
 
     public IEnumerable<IMutateRule> GenerateSetRules() => InnerGenerateSetRules(Let.RightHandSide, IfBranchConditions.Empty);
 
+    private static int dId = 0;
+
     private IEnumerable<IMutateRule> InnerGenerateSetRules(ITermGenerator iGen, IfBranchConditions branchCond)
     {
         string uniqueDesig = UniqueDesignation;
@@ -120,32 +122,52 @@ public class LetValueSetFactory
         if (iGen is Term t)
         {
             IMessage termAsMsg = ResolvedNetwork.TermToMessage(t);
-            yield return new LetSetRule(
-                uniqueDesig,
-                Premises,
-                PreviousSockets,
-                NextSockets,
-                IfBranchConditions.Empty,
-                StatefulHorn.Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })));
+            
             if (termAsMsg is FunctionMessage fMsg)
             {
                 // For every destructor, an explicit rule must be included to effect the
                 // translation. This is because the rules DO NOT indicate equivalence. 
                 // They indicate knowledge following from. Being enclosed within the 
                 // cell tagging function, they need to be explicitly explained.
-                foreach (Destructor d in Network.DestructorsForFunction(fMsg.Name))
+                List<Destructor> destructors = new(Network.DestructorsForFunction(fMsg.Name));
+                if (destructors.Count > 0)
                 {
-                    IMessage lhs = new FunctionMessage(CellName, new() { ResolvedNetwork.TermToLooseMessage(d.LeftHandSide) });
-                    IMessage rhs = new FunctionMessage(CellName, new() { ResolvedNetwork.TermToLooseMessage(new(d.RightHandSide)) });
-                    List<StatefulHorn.Event> updatedPrems = new(Premises) { StatefulHorn.Event.Know(lhs) };
-                    yield return new LetSetRule(
-                        uniqueDesig,
-                        updatedPrems,
-                        PreviousSockets,
-                        NextSockets,
-                        IfBranchConditions.Empty,
-                        StatefulHorn.Event.Know(rhs));
+                    foreach (Destructor d in destructors)
+                    {
+                        IMessage lhs = ResolvedNetwork.TermToLooseMessage(d.LeftHandSide);
+                        IMessage rhs = ResolvedNetwork.TermToLooseMessage(new(d.RightHandSide));
+                        DeconstructionRule dRule = new($"lvs{dId}", lhs, rhs, CellName);
+                        dId++;
+                        yield return dRule;
+                        yield return new LetSetRule(
+                            uniqueDesig,
+                            Premises,
+                            PreviousSockets,
+                            NextSockets,
+                            IfBranchConditions.Empty,
+                            StatefulHorn.Event.Know(dRule.SourceCellContaining(ResolvedNetwork.TermToMessage(t))));
+                    }
                 }
+                else
+                {
+                    yield return new LetSetRule(
+                            uniqueDesig,
+                            Premises,
+                            PreviousSockets,
+                            NextSockets,
+                            IfBranchConditions.Empty,
+                            StatefulHorn.Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })));
+                }
+            }
+            else
+            {
+                yield return new LetSetRule(
+                    uniqueDesig,
+                    Premises,
+                    PreviousSockets,
+                    NextSockets,
+                    IfBranchConditions.Empty,
+                    StatefulHorn.Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })));
             }
         }
         else if (iGen is IfTerm it)

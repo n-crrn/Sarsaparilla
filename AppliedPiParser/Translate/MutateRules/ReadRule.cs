@@ -39,10 +39,12 @@ public class ReadRule : IMutateRule
         }
     }
 
+    public static string VariableCellName(string vName) => $"{vName}@cell";
+
     public static Event VariableCellAsPremise(string vName)
     {
         IMessage v = new VariableMessage(vName);
-        return Event.Know(new FunctionMessage($"{vName}@cell", new() { v }));
+        return Event.Know(new FunctionMessage(VariableCellName(vName), new() { v }));
     }
 
     #endregion

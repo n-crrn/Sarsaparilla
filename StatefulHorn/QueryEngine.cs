@@ -12,7 +12,8 @@ public class QueryEngine
 {
     public QueryEngine(
         IReadOnlySet<State> states, 
-        IMessage q, State? when, 
+        IMessage q,
+        State? when, 
         IEnumerable<Rule> userRules)
         : this(states, new List<IMessage>() { q }, when, userRules)
     { }
@@ -102,8 +103,6 @@ public class QueryEngine
 
     private NessionManager? CurrentNessionManager = null;
 
-    private bool CancelQuery = false;
-
     public const int UseDefaultDepth = -1;
 
     public async Task Execute(
@@ -114,11 +113,6 @@ public class QueryEngine
         int maxDepth = UseDefaultDepth,
         bool checkIteratively = false)
     {
-        if (CancelQuery)
-        {
-            CancelQuery = false;
-        }
-
         // Check the basic facts for a global attack.
         foreach (IMessage q in Queries)
         {
@@ -220,7 +214,6 @@ public class QueryEngine
 
     public void CancelExecution()
     {
-        CancelQuery = true;
         CurrentNessionManager?.CancelElaboration();
     }
 
@@ -407,7 +400,7 @@ public class QueryEngine
     /// <summary>
     /// Maximum number of rules investigated in solving for a message.
     /// </summary>
-    private static readonly int MaxChase = 10;
+    private static readonly int MaxChase = 15;
 
     private List<QueryResult> InnerCheckQuery(IMessage queryToFind, QueryFrame qf)
     {
@@ -416,6 +409,7 @@ public class QueryEngine
             return new(); // Hit the depth boundary - failed.
         }
 
+        Console.WriteLine($"Chasing {queryToFind}");
         List<QueryResult> options = new();
         IMessage blankedQuery = MessageUtils.BlankMessage(queryToFind);
         if (!qf.NowProving.Contains(queryToFind))
@@ -426,41 +420,54 @@ public class QueryEngine
             }
             else
             {
-                if (qf.NowProving.Count >= MaxChase)
+                /*if (qf.NowProving.Count >= MaxChase)
                 {
+                    Console.WriteLine($"    Chase limit ({MaxChase}).");
                     return options; // Probably not going to find the answer down this branch.
-                }
+                }*/
                 qf.NowProving.Add(queryToFind);
 
                 // Check the facts, see what matches.
                 if (BasicFacts.Contains(queryToFind))
                 {
+                    Console.WriteLine("    Previously contains.");
                     options.Add(QueryResult.BasicFact(queryToFind, queryToFind, new(), When));
                 }
                 else
                 {
                     if (CanMatchBasicFacts(qf.BasicFacts, queryToFind, qf.Guard, out List<(IMessage, SigmaFactory)> matchList))
                     {
+                        Console.WriteLine("    Match basic facts.");
                         options.AddRange(from ml in matchList select QueryResult.BasicFact(queryToFind, ml.Item1, ml.Item2, When));
                     }
 
                     // Also have a look at other rule-derived possibilities.
                     if (queryToFind is TupleMessage tMsg)
                     {
+                        Console.WriteLine("    Tuple search");
                         options.AddRange(CheckTupleQuery(tMsg, qf));
                     }
-                    else if (queryToFind is FunctionMessage fMsg)
+                    /*else if (queryToFind is FunctionMessage fMsg)
                     {
                         options.AddRange(CheckFunctionQuery(fMsg, qf));
-                    }
+                    }*/
                     else
                     {
+                        Console.WriteLine("    Basic search");
                         options.AddRange(CheckBasicQuery(queryToFind, qf));
                     }
                 }
 
                 qf.NowProving.Remove(queryToFind);
             }
+        }
+        else
+        {
+            Console.WriteLine("  Held within current search");
+        }
+        if (options.Count == 0)
+        {
+            Console.WriteLine("  Failed");
         }
         return options;
     }
@@ -538,6 +545,7 @@ public class QueryEngine
         foreach (HornClause checkRule in candidates)
         {
             List<QueryResult> qrParts = new();
+            Console.WriteLine($"Trying rul {checkRule}");
             if (checkRule.CanResultIn(queryToFind, qf.Guard, out SigmaFactory? sf) &&
                 !sf!.AnyContradictionsWithState(qf.StateVariableReplacements))
             {
@@ -550,11 +558,13 @@ public class QueryEngine
                     List<IMessage> prioritisedPremises = new(updated.Premises);
                     prioritisedPremises.Sort(PrioritisePremises);
                     QueryFrame innerQF = qf.Next(nextGuard, updatedStateRepl, RatchetRank(checkRule, qf.Rank));
+                    Console.WriteLine($"Attempting to solve rule {checkRule} as...");
+                    Console.WriteLine($"    {updated}");
                     List<List<QueryResult>> optionsFound = AttemptSatisfyPremises(innerQF, prioritisedPremises);
 
                     if (optionsFound.Count == 0)
                     {
-                        qf.CacheFailure(queryToFind, checkRule);
+                        //qf.CacheFailure(queryToFind, checkRule);
                     }
                     else
                     {
@@ -582,11 +592,12 @@ public class QueryEngine
 
     private List<QueryResult> CheckBasicQuery(IMessage queryToFind, QueryFrame qf)
     {
-        List<HornClause> candidates = new(from r in qf.BasicRules
+        List<HornClause> candidates = new(from r in qf.BasicRules.Concat(qf.FunctionRules)
                                           where (r.BeforeRank(qf.Rank) 
                                                  && queryToFind.IsUnifiableWith(r.Result))
                                                  && !r.Premises.Contains(queryToFind)
                                           select r);
+        Console.WriteLine("Basic candidates are:" + string.Join("\n", candidates));
         return QueryWork(queryToFind, qf, candidates);
     }
 
@@ -654,27 +665,6 @@ public class QueryEngine
             }
             return cmp;
         };
-    }
-
-    private static int SortRules(HornClause hc1, HornClause hc2)
-    {
-        if (hc1.BeforeRank(hc2.Rank))
-        {
-            return 1;
-        }
-        else if (hc2.BeforeRank(hc1.Rank))
-        {
-            return -1;
-        }
-        else
-        {
-            int cmp = hc1.Variables.Count.CompareTo(hc2.Variables.Count);
-            if (cmp == 0)
-            {
-                cmp = hc1.Complexity.CompareTo(hc2.Complexity);
-            }
-            return cmp;
-        }
     }
 
     private static readonly List<Type> PremiseTypePriorities = new()
