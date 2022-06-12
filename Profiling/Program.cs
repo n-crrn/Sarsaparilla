@@ -125,12 +125,6 @@ Translation t = Translation.From(rn, nw);
 
 QueryEngine qe2 = t.QueryEngines().First();
 
-void onGlobalAttackFound(Attack a)
-{
-    Console.WriteLine("Global attack found");
-    a.DescribeSources();
-}
-
 void onAttackAssessed(Nession n, IReadOnlySet<HornClause> _, Attack? a)
 {
     if (a != null)
@@ -158,5 +152,5 @@ foreach (Rule r in t.Rules)
     Console.WriteLine(r);
 }
 Console.WriteLine("Commencing execution...");
-await qe2.Execute(null, onGlobalAttackFound, onAttackAssessed, null);
+await qe2.Execute(null, onAttackAssessed, null);
 Console.WriteLine("Finished execution.");

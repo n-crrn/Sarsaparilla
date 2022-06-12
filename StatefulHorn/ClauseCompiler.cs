@@ -54,6 +54,7 @@ public class ClauseCompiler : IClauseCompiler
         HashSet<State>? initStates = null;
         IMessage? leak = null;
         State? when = null;
+        int maxElab = -1;
 
         List<Rule> basisRules = new();
         foreach ((int line, string src) in foundClauses)
@@ -63,7 +64,7 @@ public class ClauseCompiler : IClauseCompiler
             {
                 if (leak != null || when != null)
                 {
-                    OnError?.Invoke(this, "Attempted to specifiy multiple queries, only first one noted.");
+                    OnError?.Invoke(this, "Attempted to specify multiple queries, only first one noted.");
                 }
                 else
                 {
@@ -91,6 +92,18 @@ public class ClauseCompiler : IClauseCompiler
                     }
                 }
             }
+            else if (IsLimitLine(src))
+            {
+                (int elabLimit, string? limitErr) = ParseLimit(src);
+                if (limitErr != null)
+                {
+                    OnError?.Invoke(this, limitErr);
+                }
+                else
+                {
+                    maxElab = elabLimit;
+                }
+            }
             else
             {
                 try
@@ -116,7 +129,7 @@ public class ClauseCompiler : IClauseCompiler
         }
         if (initStates != null && leak != null)
         {
-            OnComplete?.Invoke(this, new QueryEngine(initStates, leak, when, basisRules), null);
+            OnComplete?.Invoke(this, new QueryEngine(initStates, leak, when, basisRules, maxElab), null);
         }
     }
 
@@ -125,6 +138,7 @@ public class ClauseCompiler : IClauseCompiler
     private readonly static string QueryPrefix = "query leak ";
     private readonly static string WhenConnector = " when ";
     private readonly static string InitPrefix = "init ";
+    private readonly static string LimitPrefix = "limit ";
 
     private static bool IsQueryLine(string cleanLine) => cleanLine.StartsWith(QueryPrefix);
 
@@ -160,6 +174,18 @@ public class ClauseCompiler : IClauseCompiler
     {
         string line = cleanLine[InitPrefix.Length..];
         return MessageParser.TryParseStates(line);
+    }
+
+    private static bool IsLimitLine(string cleanLine) => cleanLine.StartsWith(LimitPrefix);
+
+    private static (int, string?) ParseLimit(string cleanLine)
+    {
+        string number = cleanLine[LimitPrefix.Length..];
+        if (int.TryParse(number, out int value) && value > 0)
+        {
+            return (value, null);
+        }
+        return (-1, "Limit value was not a valid number.");
     }
 
 }

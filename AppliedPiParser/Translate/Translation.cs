@@ -35,11 +35,11 @@ public class Translation
         }
     }
 
-    public IEnumerable<QueryEngine5> QE5s()
+    public IEnumerable<QueryEngine> QE5s()
     {
         foreach (IMessage queryMsg in Queries)
         {
-            yield return new QueryEngine5(InitialStates, queryMsg, null, Rules);
+            yield return new QueryEngine(InitialStates, queryMsg, null, Rules);
         }
     }
 

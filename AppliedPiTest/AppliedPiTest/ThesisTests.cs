@@ -65,7 +65,7 @@ process
   (! BobSDSet(left) |
    ! BobSDSet(right) | ! in(publicChannel, bChan: channel) ).
 ";
-        await IntegrationTests.DoTest(piSource, false, false);
+        await IntegrationTests.DoTest(piSource, false);
     }
 
     [TestMethod]
@@ -121,7 +121,7 @@ process
   (! BobSDSet(left) |
    ! BobSDSet(right) | ! in(publicChannel, bChan: channel) ).
 ";
-        await IntegrationTests.DoTest(piSource, false, true);
+        await IntegrationTests.DoTest(piSource, true);
     }
 
 }

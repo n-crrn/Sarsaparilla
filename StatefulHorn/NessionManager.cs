@@ -49,14 +49,12 @@ public class NessionManager
 
     private bool CancelElaborate = false;
 
-    public async Task Elaborate(Func<List<Nession>, bool> finishedFunc, int maxDepth = -1, bool checkFinishIteratively = false)
+    public async Task Elaborate(Func<List<Nession>, bool> finishedFunc, int numberOfSubElaborations, bool checkFinishIteratively = false)
     {
         if (CancelElaborate)
         {
             CancelElaborate = false;
         }
-
-        int numberOfSubElaborations = maxDepth == -1 ? TransferringRules.Count + SystemRules.Count : maxDepth;
 
         Nession initSeed = new(InitialConditions);
 

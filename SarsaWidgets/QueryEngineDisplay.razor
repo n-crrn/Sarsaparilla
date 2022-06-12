@@ -180,7 +180,7 @@
             StateHasChanged();
             await Task.Delay(1);
 
-            await Engine.Execute(OnStartNextLevel, OnGlobalAttackFound, OnAttackAssessed, OnQueryCompletion);
+            await Engine.Execute(OnStartNextLevel, OnAttackAssessed, OnQueryCompletion);
         }
     }
 

@@ -11,10 +11,11 @@ namespace StatefulHorn;
 public class PremiseOptionSet
 {
 
-    private PremiseOptionSet(List<QueryNode> nodes, SigmaFactory sf)
+    private PremiseOptionSet(List<QueryNode> nodes, SigmaFactory sf, HornClause? hc)
     {
         Nodes = nodes;
         SigmaFactory = sf;
+        SourceClause = hc;
     }
 
     public static PremiseOptionSet? FromRule(
@@ -36,7 +37,7 @@ public class PremiseOptionSet
                 QueryNode qn = qm.RequestNode(premise, hc.Rank, updatedGuard, requester);
                 nodes.Add(qn);
             }
-            return new(nodes, sf);
+            return new(nodes, sf, hc);
         }
         sf = null;
         return null;
@@ -47,15 +48,16 @@ public class PremiseOptionSet
         Guard g,
         int rank,
         QueryNodeMatrix qm,
-        QueryNode? requester = null)
+        QueryNode? requester = null,
+        HornClause? hc = null)
     {
         List<QueryNode> nodes = new(from m in msgList select qm.RequestNode(m, rank, g, requester));
-        return new(nodes, new());
+        return new(nodes, new(), hc);
     }
 
     public static PremiseOptionSet LaterFailure(QueryNode qn)
     {
-        return new(new() { qn }, new());
+        return new(new() { qn }, new(), null);
     }
 
     public IReadOnlyList<QueryNode> Nodes { get; }
@@ -63,6 +65,8 @@ public class PremiseOptionSet
     public IEnumerable<QueryNode> InProgressNodes => from n in Nodes where n.Status == QNStatus.InProgress select n;
 
     private readonly SigmaFactory SigmaFactory;
+
+    private readonly HornClause? SourceClause;
 
     internal QueryResult? Result { get; private set; }
 
@@ -78,12 +82,24 @@ public class PremiseOptionSet
         {
             return null;
         }
-        Result = QueryResult.Compose(
-            query, 
-            query.PerformSubstitution(SigmaFactory.CreateBackwardMap()), 
-            when, 
-            SigmaFactory, 
-            from n in Nodes select n.Result[0]);
+        if (SourceClause != null)
+        {
+            Result = QueryResult.ResolvedKnowledge(
+                query,
+                query.PerformSubstitution(SigmaFactory.CreateBackwardMap()),
+                SourceClause,
+                SigmaFactory,
+                when);
+        }
+        else
+        {
+            Result = QueryResult.Compose(
+                query,
+                query.PerformSubstitution(SigmaFactory.CreateBackwardMap()),
+                when,
+                SigmaFactory,
+                from n in Nodes select n.Result[0]);
+        }
         return Result;
     }
 
@@ -138,7 +154,7 @@ public class PremiseOptionSet
                 SigmaMap sm = sf.CreateForwardMap();
                 List<IMessage> updated = new(from m in fullOriginal select m.PerformSubstitution(sm));
                 Guard updatedGuard = g.PerformSubstitution(sm);
-                optSet.Add(PremiseOptionSet.FromMessages(updated, updatedGuard, rank, qm, requester));
+                optSet.Add(PremiseOptionSet.FromMessages(updated, updatedGuard, rank, qm, requester, SourceClause));
             }
         }
         return optSet;

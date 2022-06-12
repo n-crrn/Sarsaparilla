@@ -27,7 +27,7 @@ free s: bitstring [private].
 query attacker(s).
 process ( out(c, s) | in(c, v: bitstring) ).
 ";
-        await DoTest(piSource, false, true);
+        await DoTest(piSource, true);
     }
 
     [TestMethod]
@@ -43,13 +43,13 @@ query attacker(s).
 process
   out(d, s) | ( in(d, v: bitstring); out(c, v) ).
 ";
-        await DoTest(piSource, false, true);
+        await DoTest(piSource, true);
     }
 
     [TestMethod]
     public async Task FalseAttackAvoidanceTest()
     {
-        await DoTest(ModelSampleLibrary.FalseAttackAvoidanceModelCode, false, false);
+        await DoTest(ModelSampleLibrary.FalseAttackAvoidanceModelCode, false);
     }
 
     [TestMethod]
@@ -65,7 +65,7 @@ query attacker(s).
 process
   (! out(d, s)) | ( in(d, v: bitstring); out(c, d) ).
 ";
-        await DoTest(piSource, false, true);
+        await DoTest(piSource, true);
     }
 
     [TestMethod]
@@ -79,9 +79,9 @@ query attacker(b).
 let macro = new b: bitstring; out(c, b).
 process macro.
 ";
-        await DoTest(piSource1, false, true);
+        await DoTest(piSource1, true);
 
-        await DoTest(ModelSampleLibrary.MacroModelCode, false, true);
+        await DoTest(ModelSampleLibrary.MacroModelCode, true);
     }
 
     [TestMethod]
@@ -99,13 +99,13 @@ process
     ( in(c, v: bitstring); if v <> something then out(c, secret) ) ).";
 
         // Though "something" is the value sent, the attacker can intervene and send anything else.
-        await DoTest(piSource, false, true);
+        await DoTest(piSource, true);
     }
 
     [TestMethod]
     public async Task DeconstructorTest()
     {
-        await DoTest(ModelSampleLibrary.DeconstructorModelCode, false, true);
+        await DoTest(ModelSampleLibrary.DeconstructorModelCode, true);
     }
 
     [TestMethod]
@@ -125,7 +125,7 @@ process
   ( out(c, (value1, value2)) | 
     ( in(c, v: bitstring); let (a: bitstring, b: bitstring) = v in out(publicChannel, a) ) ).
 ";
-        await DoTest(piSource, false, true);
+        await DoTest(piSource, true);
     }
 
     [TestMethod]
@@ -148,7 +148,7 @@ process
   out(d, enc(s, k)) |
   (in(d, v: bitstring); let r: bitstring = dec(v, k) in out(c, r) ).
 ";
-        await DoTest(piSource, false, true);
+        await DoTest(piSource, true);
     }
 
     [TestMethod]
@@ -175,7 +175,7 @@ process
          | ( out(c, holder);
              in(c, v: bitstring) ) ) ).
 ";
-        await DoTest(piSource1, false, true);
+        await DoTest(piSource1, true);
 
         // In this second example, the channel is again made public but the process
         // can only run once. Therefore, h(h(value)) cannot be generated.
@@ -197,7 +197,7 @@ process
       | ( out(c, holder);
           in(c, v: bitstring) ) ).
 ";
-        await DoTest(piSource2, false, false); 
+        await DoTest(piSource2, false); 
 
         // In this final example, the channel is made public and the process is replicated.
         // However, the magic transformation occurs in its concurrent process.
@@ -216,7 +216,7 @@ process
        ( out(pubC, c); out(c, holder); in(c, v: bitstring) )
        | ( in(c, inRead: bitstring); out(c, h(inRead)) ) )
 ";
-        await DoTest(piSource3, false, true);
+        await DoTest(piSource3, true);
     }
 
     [TestMethod]
@@ -232,7 +232,7 @@ process
     new d: channel;
     (!out(d, s)) | !(in(d, v: bitstring); out(c, v)) | !in(c, w: bitstring).
 ";
-        await DoTest(piSource1, false, true);
+        await DoTest(piSource1, true);
     }
 
 
@@ -249,7 +249,7 @@ process
     ///   Whether one or more nessions are expected to demonstrate an attack.
     /// </param>
     /// <returns></returns>
-    public async static Task DoTest(string src, bool expectGlobalAttack, bool expectNessionAttack)
+    public async static Task DoTest(string src, bool expectNessionAttack)
     {
         Network nw = Network.CreateFromCode(src);
         ResolvedNetwork rn = ResolvedNetwork.From(nw);
@@ -276,22 +276,10 @@ process
         try
         {
             // Preparations for running the query engine.
-            bool globalAttackFound = false;
-            void onGlobalAttackFound(Attack a) => globalAttackFound = true;
             bool nessionAttackFound = false;
             void onAttackAssessedFound(Nession n, IReadOnlySet<HornClause> hs, Attack? a) => nessionAttackFound |= a != null;
 
-            /*foreach (QueryEngine qe in t.QueryEngines())
-            {
-                await qe.Execute(null, onGlobalAttackFound, onAttackAssessedFound, null, t.RecommendedDepth);
-
-                if (globalAttackFound && nessionAttackFound)
-                {
-                    break; // Mission achieved.
-                }
-            }*/
-
-            foreach (QueryEngine5 qe in t.QE5s())
+            foreach (QueryEngine qe in t.QE5s())
             {
                 await qe.Execute(null, onAttackAssessedFound, null, t.RecommendedDepth);
 
@@ -301,8 +289,7 @@ process
                 }
             }
 
-            Assert.AreEqual(expectGlobalAttack, globalAttackFound, "Global attack finding.");
-            Assert.AreEqual(expectNessionAttack, nessionAttackFound, "Expected non-global attack.");
+            Assert.AreEqual(expectNessionAttack, nessionAttackFound, "Non-global attack.");
         }
         catch (Exception)
         {
