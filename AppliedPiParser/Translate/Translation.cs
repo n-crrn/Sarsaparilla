@@ -537,8 +537,9 @@ public class Translation
                     });
                 }
             }
-            if (infReaders.TryGetValue(wt, out ReadSocket? infRxSocket))
+            if (!ws.IsInfinite && infReaders.TryGetValue(wt, out ReadSocket? infRxSocket))
             {
+                Console.WriteLine($"Connecting {ws} to {infRxSocket!}");
                 rules.Add(new FiniteCrossLinkRule(ws, infRxSocket!)
                 {
                     Conditions = tf.Conditions
@@ -582,6 +583,12 @@ public class Translation
             {
                 rules.Add(new ShutSocketsRule(tf.InteractionCount) { Conditions = tf.Conditions });
             }
+        }
+        // Sometimes, control passes through a branch that does not do anything. The ordering of
+        // sockets still needs to be maintained.
+        if (thisBranchSockets.Count == 0)
+        {
+            thisBranchSockets = tf.PreviousSockets;
         }
 
         // The following constants are used for both IfProcesses and LetProcesses.
