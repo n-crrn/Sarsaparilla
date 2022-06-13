@@ -30,15 +30,15 @@ public class DeconstructionRule : IMutateRule
 
     #region IMutableRule implementation.
 
-    public string Label => $"Destr-{Id}-{DestinationCell.Name}";
+    public string Label => $"Deconst-{Id}-{DestinationCell.Name}";
 
     public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 
     public Rule GenerateRule(RuleFactory factory)
     {
-        factory.RegisterPremises(StatefulHorn.Event.Know(SourceCell));
+        factory.RegisterPremises(Event.Know(SourceCell));
         factory.GuardStatements = Conditions?.CreateGuard();
-        Rule r = factory.CreateStateConsistentRule(StatefulHorn.Event.Know(DestinationCell));
+        Rule r = factory.CreateStateConsistentRule(Event.Know(DestinationCell));
         return IfBranchConditions.ApplyReplacements(Conditions, r);
     }
 
