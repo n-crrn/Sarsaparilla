@@ -154,6 +154,13 @@ public class ParseTests
         AssertRulesEqual(generalExpected, generalParsed, generalLabelInput);
         Assert.AreEqual(expectedLabel, generalParsed.Label, "Labels do not match for general case.");
 
+        // --- With guard check ---
+        string guardedLabelInput = $"{expectedLabel} = [x ~/> n[]] know(x), know(y) -[ ]-> know(enc(x, y))";
+        Rule guardedParsed = parser.Parse(guardedLabelInput);
+        Rule guardedExpected = CreateDefaultRuleWithGuard(expectedLabel, new() { (new VariableMessage("x"), new NameMessage("n")) });
+        AssertRulesEqual(guardedExpected, guardedParsed, guardedLabelInput);
+        Assert.AreEqual(expectedLabel, guardedParsed.Label, "Labels do not match for guarded case.");
+
         // --- Empty guard and premise check ---
         string emptyGHMInput = $"{expectedLabel} = -[ ]-> know(z[])";
         Rule emptyGHMParsed = parser.Parse(emptyGHMInput);
@@ -161,22 +168,13 @@ public class ParseTests
         Rule emptyGHMExpected = Factory.CreateStateConsistentRule(Event.Know(new NameMessage("z")));
         AssertRulesEqual(emptyGHMExpected, emptyGHMParsed, emptyGHMInput);
         Assert.AreEqual(expectedLabel, emptyGHMParsed.Label, "Labels do not match when guard and premise empty.");
-
-        // --- With guard but empty premise check ---
-        string emptyHMInput = $"{expectedLabel} = [x ~/> name[]] -[ ]-> know(z[])";
-        Rule emptyHMParsed = parser.Parse(emptyHMInput);
-        Factory.SetNextLabel("expected HM");
-        Factory.GuardStatements = Guard.CreateFromSets(new() { (new VariableMessage("x"), new NameMessage("name")) });
-        Rule emptyHMExpected = Factory.CreateStateConsistentRule(Event.Know(new NameMessage("z")));
-        AssertRulesEqual(emptyHMExpected, emptyHMParsed, emptyHMInput);
-        Assert.AreEqual(expectedLabel, emptyHMParsed.Label, "Labels do not match when premise empty.");
     }
 
     /// <summary>
     /// Ensure that guard statements can be correctly parsed.
     /// </summary>
     [TestMethod]
-    public void GuardLogicCheck()
+    public void GuardChecks()
     {
         RuleParser parser = new();
 
@@ -190,6 +188,7 @@ public class ParseTests
         {
             Rule generated = parser.Parse(src);
             AssertRulesEqual(expected, generated, src);
+            Assert.AreEqual(1, generated.GuardStatements.Ununified.Count);
         }
     }
 

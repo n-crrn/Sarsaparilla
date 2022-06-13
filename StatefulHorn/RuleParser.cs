@@ -823,7 +823,9 @@ public class RuleParser
             {
                 throw new RuleParseException(whole, $"Could not parse result '{result.Parts[0]}': {resultErr}");
             }
-            return Factory.CreateStateConsistentRule(resultEv!);
+            StateConsistentRule scr = Factory.CreateStateConsistentRule(resultEv!);
+            ThrowIfGuardNotTransferred(scr, guardPieces, whole);
+            return scr;
         }
         foreach ((string ssLabel, State transferTo) in ParseStateTransferringResult(whole, result.Parts))
         {
@@ -841,7 +843,17 @@ public class RuleParser
             }
         }
 
-        return Factory.CreateStateTransferringRule();
+        Rule str = Factory.CreateStateTransferringRule();
+        ThrowIfGuardNotTransferred(str, guardPieces, whole);
+        return str;
+    }
+
+    private static void ThrowIfGuardNotTransferred(Rule r, List<GuardPiece> original, string whole)
+    {
+        if (r.GuardStatements.Ununified.Count != original.Count)
+        {
+            throw new RuleParseException(whole, $"Guard referred to variables not in rule.");
+        }
     }
 
     private static List<(string, State)> ParseStateTransferringResult(string whole, List<string> parts)
