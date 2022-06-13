@@ -587,7 +587,7 @@ public class Translation
         // sockets still needs to be maintained.
         if (thisBranchSockets.Count == 0)
         {
-            thisBranchSockets = tf.PreviousSockets;
+            thisBranchSockets.AddRange(tf.PreviousSockets);
         }
 
         // The following constants are used for both IfProcesses and LetProcesses.
