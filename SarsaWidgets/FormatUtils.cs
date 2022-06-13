@@ -55,7 +55,7 @@ public static class FormatUtils
         return new MarkupString(wholeBuffer.ToString());
     }
 
-    private static readonly List<char> EndSubCharacters = new() { '[', ']', '(', ')', ',', '>', '{', '}' };
+    private static readonly List<char> EndSubCharacters = new() { '[', ']', '(', ')', ',', '>', '{', '}', '@' };
 
     private static bool CharEndsSub(char c) => char.IsWhiteSpace(c) || EndSubCharacters.Contains(c);
 
