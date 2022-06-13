@@ -16,13 +16,6 @@ public class RuleDescription
 {
     public RuleDescription(Rule r)
     {
-        GuardStatements = new();
-
-        Snapshots = new();
-        Premises = new();
-        PremiseSnapshotMapping = new();
-        OrderingStatements = new();
-
         GetGuardFromRule(r);
         GetSnapshotsFromRule(r);
         GetPremisesFromRule(r);
@@ -31,14 +24,7 @@ public class RuleDescription
 
     #region Guards
 
-    // FIXME: These ops can be rationalised down to just "UnifiedTo".
-    public enum GuardOp
-    {
-        CannotBeUnifiedTo,
-        CannotBeUnifiableWith
-    }
-
-    public List<(IMessage, GuardOp, IMessage)> GuardStatements { get; init; }
+    public List<(IMessage, IMessage)> GuardStatements { get; init; } = new();
 
     public bool HasGuard => GuardStatements.Count > 0;
 
@@ -48,7 +34,7 @@ public class RuleDescription
         {
             foreach (IMessage to in toSet)
             {
-                GuardStatements.Add((from, GuardOp.CannotBeUnifiedTo, to));
+                GuardStatements.Add((from, to));
             }
         }
     }
@@ -56,9 +42,9 @@ public class RuleDescription
     #endregion
     #region Snapshots
 
-    public List<Snapshot> Snapshots { get; init; }
+    public List<Snapshot> Snapshots { get; init; } = new();
 
-    public List<(string, Snapshot.Ordering, string)> OrderingStatements { get; init; }
+    public List<(string, Snapshot.Ordering, string)> OrderingStatements { get; init; } = new();
 
     private void GetSnapshotsFromRule(Rule r)
     {
@@ -79,9 +65,9 @@ public class RuleDescription
     #endregion
     #region Premises
 
-    public SortedList<string, Event> Premises { get; init; }
+    public SortedList<string, Event> Premises { get; init; } = new();
 
-    public Dictionary<string, List<string>> PremiseSnapshotMapping { get; init; }
+    public Dictionary<string, List<string>> PremiseSnapshotMapping { get; init; } = new();
 
     private void GetPremisesFromRule(Rule r)
     {

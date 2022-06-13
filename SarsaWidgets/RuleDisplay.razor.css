@@ -33,6 +33,7 @@
 
 .guard {
     text-align: var(--rule-align, right);
+    margin-right: 8px;
 }
 
 .premise {

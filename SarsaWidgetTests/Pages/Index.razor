@@ -66,7 +66,8 @@
             parser.Parse("R_2 ⋈_{know(x_1, y)} R_3 = n([bob_l]), n([bob_r]), k(m_f) -[ ]-> k(enc_a(<m_f, [bob_l], [bob_r]>, pk(sksd[])))"),
             parser.Parse("k(x), k(y) -[ ]-> a(x, y)"),
             parser.Parse("i(value)(a0) -[ (SD(init[]), a0) ]-> <a0: SD(value)>"),
-            parser.Parse("k(bob_l[]), k(bob_r[]) -[ ]-> l(<bob_l[], bob_r[]>)")
+            parser.Parse("k(bob_l[]), k(bob_r[]) -[ ]-> l(<bob_l[], bob_r[]>)"),
+            parser.Parse("[a ~/> A[]] k(bob(a)) -[ ]-> k(b[])")
         };
 
         Rule otherRule1 = parser.Parse("k(x), k(y), k(z) -[ ]-> k(enc(enc(x, y), z))");

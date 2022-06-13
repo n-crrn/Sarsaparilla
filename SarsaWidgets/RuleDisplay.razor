@@ -27,9 +27,8 @@
                 {
                     <div class='guard'>
                         [
-                            @foreach ((IMessage msg1, RuleDescription.GuardOp op, IMessage msg2) in rd.GuardStatements) {
-                                string opStr = op == RuleDescription.GuardOp.CannotBeUnifiedTo ? "~/⤳" : "≠";
-                                <span class='linear-element'>@msg1 <span class='op'>@opStr</span> @msg2</span>
+                            @foreach ((IMessage msg1, IMessage msg2) in rd.GuardStatements) {
+                                <span class='linear-element'>@msg1 <span class='op'>~/⤳</span> @msg2</span>
                             }
                         ]
                     </div>
