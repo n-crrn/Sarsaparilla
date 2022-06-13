@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -82,24 +83,25 @@ public class PremiseOptionSet
         {
             return null;
         }
+
+        List<QueryResult> premiseResults = new(from n in Nodes select n.Result[0]);
         if (SourceClause != null)
         {
-            Result = QueryResult.ResolvedKnowledge(
+            QueryResult thisClauseResult = QueryResult.ResolvedKnowledge(
                 query,
                 query.PerformSubstitution(SigmaFactory.CreateBackwardMap()),
                 SourceClause,
                 SigmaFactory,
                 when);
+            premiseResults.Add(thisClauseResult);
         }
-        else
-        {
-            Result = QueryResult.Compose(
-                query,
-                query.PerformSubstitution(SigmaFactory.CreateBackwardMap()),
-                when,
-                SigmaFactory,
-                from n in Nodes select n.Result[0]);
-        }
+        Result = QueryResult.Compose(
+            query,
+            query.PerformSubstitution(SigmaFactory.CreateBackwardMap()),
+            when,
+            SigmaFactory,
+            premiseResults);
+
         return Result;
     }
 
