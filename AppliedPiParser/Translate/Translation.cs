@@ -539,7 +539,6 @@ public class Translation
             }
             if (!ws.IsInfinite && infReaders.TryGetValue(wt, out ReadSocket? infRxSocket))
             {
-                Console.WriteLine($"Connecting {ws} to {infRxSocket!}");
                 rules.Add(new FiniteCrossLinkRule(ws, infRxSocket!)
                 {
                     Conditions = tf.Conditions
