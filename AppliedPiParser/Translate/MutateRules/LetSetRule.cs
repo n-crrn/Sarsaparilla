@@ -22,14 +22,8 @@ public class LetSetRule : IMutateRule
         Designation = desig;
         Premises = new HashSet<StatefulHorn.Event>(premises);
         SocketStates = new List<State>();
-        foreach (Socket s in shutSockets)
-        {
-            SocketStates.Add(s.ShutState());
-        }
-        foreach (Socket s in initSockets)
-        {
-            SocketStates.Add(s.InitialState());
-        }
+        SocketStates.AddRange(from s in shutSockets select s.ShutState());
+        SocketStates.AddRange(from i in initSockets select i.InitialState());
         TriggerConditions = triggerConditions;
         SetKnow = setKnow;
     }

@@ -12,7 +12,6 @@ public class FiniteCrossLinkRule : IMutateRule
     {
         From = fromSocket;
         To = toSocket;
-        Debug.Assert(!(From.IsInfinite && To.IsInfinite));
     }
 
     public WriteSocket From { get; init; }

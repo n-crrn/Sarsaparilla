@@ -39,7 +39,7 @@ public class ReadResetRule : IMutateRule
         }
         else
         {
-            priorReads = factory.RegisterState(Socket.ReadState(new VariableMessage("_v")));
+            priorReads = factory.RegisterState(Socket.ReadState(new VariableMessage("@v")));
         }
         priorReads.TransfersTo = Socket.WaitingState();
         return factory.CreateStateTransferringRule();

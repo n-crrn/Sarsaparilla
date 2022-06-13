@@ -31,7 +31,7 @@ public class LetValueSetFactory
         ResolvedNetwork = rn;
         Network = nw;
         PreviousSockets = new List<Socket>(previousSockets);
-        NextSockets = new List<Socket>(nextSockets);
+        NextSockets = new List<Socket>(from ns in nextSockets where !ns.IsInfinite select ns);
         Premises = new HashSet<StatefulHorn.Event>(premises);
     }
 

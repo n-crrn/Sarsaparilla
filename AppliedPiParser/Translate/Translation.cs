@@ -537,6 +537,13 @@ public class Translation
                     });
                 }
             }
+            if (infReaders.TryGetValue(wt, out ReadSocket? infRxSocket))
+            {
+                rules.Add(new FiniteCrossLinkRule(ws, infRxSocket!)
+                {
+                    Conditions = tf.Conditions
+                });
+            }
         }
 
         // Regardless of the ending process type, each ending process will still require an
