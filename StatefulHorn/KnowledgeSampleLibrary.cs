@@ -66,6 +66,7 @@ public class KnowledgeSampleLibrary
 
 init SD(init[])
 query leak <bob_l[], bob_r[]>
+limit 5
 ";
 
     public const string NonceTupleCheckSampleCode =
@@ -105,6 +106,7 @@ k(enc_a(<mf, sl, sr>, pk(sksd[])))(a0) -[ (SD(h(mf, right[])), a0) ]-> k(sr)
 
 init SD(init[])
 query leak <[bobl], [bobr]>
+limit 5
 ";
 
     #endregion

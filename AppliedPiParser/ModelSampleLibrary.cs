@@ -25,77 +25,13 @@ public class ModelSampleLibrary
     static ModelSampleLibrary()
     {
         GenerateLibrary(
-            ("BobSDNoAttack", "A full model demonstrating a security device."),
             ("FalseAttackAvoidanceModelCode", "A model demonstrating false attack avoidance."),
+            ("ChannelLeak1Code", "A demonstration of the channel-leak rules."),
+            ("ChannelLeak2Code", "A demonstration of no channel-leak from non-replicated processes."),
             ("DeconstructorModelCode", "A model demonstrating usage of a deconstructor."),
             ("MacroModelCode", "A demonstration of a query looking for 'new' values in macros.")
         );
     }
-
-    #endregion
-    #region The Library - Demonstration
-
-    public const string BobSDNoAttack =
-@"(*
- * Encoding of the NonceTupleCheckSampleCode sample in Applied Pi. In this
- * example, the values of bobl and bobr should not be - together -
- * determinable.
- * 
- * The original example comes from the paper 'A Verification Framework for
- * Stateful Security Protocols' in Formal Methods and Software Engineering
- * 2017 pp 262-280 by L. Li, N. Dong, J. Pang, J. Sun, G. Bai, Y. Liu and 
- * J.S. Dong.
- *)
-
-type key.
-
-const left: bitstring.
-const right: bitstring.
-
-fun h(bitstring): bitstring.
-fun pk(key): key.
-fun enc(bitstring, key): bitstring.
-reduc forall x: bitstring, y: key; dec(enc(x, pk(y)), y) = x.
-
-query attacker((bobl, bobr)).
-
-free publicChannel: channel.
-
-let SD(b: channel, sk: key) =
-  new mStart: bitstring;
-  (* Configure left or right. *)
-  in(b, x: bitstring); 
-  (* Read instruction. *)
-  out(b, mStart);
-  let mUpdated: bitstring = h(mStart, x) in
-  in(b, enc_rx: bitstring);
-  let (mf: bitstring, sl: bitstring, sr: bitstring) = dec(enc_rx, sk) in
-    if mUpdated = h(mStart, left) then
-      out(b, sl)
-    else
-      if mUpdated = h(mStart, right) then
-        out(b, sr).
-  (* Otherwise, just ignore. *)
-
-let Bob(b: channel, sk: key) =
-  new bobl: bitstring;
-  new bobr: bitstring;
-  (* Read from SD. *)
-  in(b, mf: bitstring); 
-  out(b, enc((mf, bobl, bobr), pk(sk)));
-  in(b, result: bitstring).
-
-let BobSDSet(which: bitstring) =
-  new b: channel;
-  new k: key;
-  out(publicChannel, b);
-  ( SD(b, k) |
-    ( out(b, which); Bob(b, k) ) ).
-
-process
-  (! BobSDSet(left) |
-   ! BobSDSet(right) | ! in(publicChannel, bChan: channel) ).
-";
 
     #endregion
     #region The Library - Functional Samples
@@ -120,6 +56,54 @@ query attacker(s).
 
 process
   out(d, s) | ( in(d, v: bitstring); out(c, d) ).
+";
+
+    public const string ChannelLeak1Code =
+@"(* 
+ * Demonstration of the application of the channel-leak rules. The only way
+ * that h(h(value)) can be leaked is if the second sub-process runs 
+ * multiple times.
+ *)
+
+free pubC: channel.
+free value: bitstring.
+const holder: bitstring.
+
+fun h(bitstring): bitstring [private].
+
+query attacker(h(h(value))).
+
+process
+  ( in(pubC, aChannel: channel) ) (* Read anything from public channel. *)
+  | (! ( new c: channel;
+         out(pubC, c);
+         ( in(c, inRead: bitstring);
+           out(c, h(inRead)) )
+         | ( out(c, holder);
+             in(c, v: bitstring) ) ) ).
+";
+
+    public const string ChannelLeak2Code =
+@"(*
+ * Demonstration of how a the leak demonstrated in ChannelLeak1Code is not
+ * present in the non-replicated version of the model.
+ *)
+free pubC: channel.
+free value: bitstring.
+const holder: bitstring.
+
+fun h(bitstring): bitstring [private].
+
+query attacker(h(h(value))).
+
+process
+  ( in(pubC, aChannel: channel) ) (* Read anything from public channel. *)
+  | ( new c: channel;
+      out(pubC, c);
+      ( in(c, inRead: bitstring);
+        out(c, h(inRead)) )
+      | ( out(c, holder);
+          in(c, v: bitstring) ) ).
 ";
 
     public const string DeconstructorModelCode =
