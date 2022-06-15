@@ -37,9 +37,9 @@ public class QueryNode
 
     public IMessage Message { get; init; }
 
-    public HashSet<IMessage> Actual { get; init; } = new();
+    //public HashSet<IMessage> Actual { get; init; } = new();
 
-    internal List<QueryResult> Result { get; init; } = new();
+    //internal List<QueryResult> Result { get; init; } = new();
 
     public Guard Guard { get; init; }
 
@@ -71,6 +71,32 @@ public class QueryNode
     }
 
     #endregion
+    #region Result generation.
+
+    internal IEnumerable<IMessage> GetResolvedPossibilities() => from qr in GetResults() select qr.Actual!;
+
+    internal IEnumerable<QueryResult> GetResults() => GetResults(new Dictionary<IMessage, IMessage?>());
+
+    internal IEnumerable<QueryResult> GetResults(IDictionary<IMessage, IMessage?> stateVarValues)
+    {
+        foreach (PremiseOptionSet pos in SuccessfulOptionSets)
+        {
+            // This dictionary risks being modified as it is passed down through
+            // the query tree.
+            Dictionary<IMessage, IMessage?> copySVV = new(stateVarValues);
+            QueryResult? qr = pos.CreateSuccessResult(Message, When, copySVV);
+            if (qr != null)
+            {
+                yield return qr;
+            }
+        }
+        if (Status == QNStatus.Unresolvable)
+        {
+            yield return QueryResult.Unresolved((VariableMessage)Message, Rank, When);
+        }
+    }
+
+    #endregion
     #region Rule assessment.
 
     public List<QueryNode> AssessRules(IEnumerable<HornClause> systemRules, QueryNodeMatrix matrix)
@@ -78,19 +104,15 @@ public class QueryNode
         List<QueryNode> premiseNodes = new();
         foreach (HornClause hc in systemRules)
         {
-            PremiseOptionSet? optionSet = PremiseOptionSet.FromRule(Message, Guard, Rank, hc, matrix, this, out SigmaFactory? sf);
+            PremiseOptionSet? optionSet = PremiseOptionSet.FromRule(Message, Guard, Rank, hc, matrix, this, out SigmaFactory? _);
             if (optionSet != null)
             {
-                if (optionSet.IsEmpty)
+                if (optionSet.Nodes.Count == 0)
                 {
-                    // This means that the rule is proven.
-                    IMessage actMsg = hc.Result.PerformSubstitution(sf!.CreateForwardMap());
-                    Actual.Add(actMsg);
-                    Result.Add(QueryResult.BasicFact(Message, actMsg, sf!, When));
+                    SuccessfulOptionSets.Add(optionSet);
                     Status = QNStatus.Proven;
-                    Changed = true;
                 }
-                else if (Status != QNStatus.Proven) // Don't add further if not needed.
+                else if (Status != QNStatus.Proven)
                 {
                     OptionSets.Add(optionSet);
                     premiseNodes.AddRange(optionSet.InProgressNodes);
@@ -99,7 +121,9 @@ public class QueryNode
         }
         if (Status == QNStatus.Proven)
         {
-            return new(); // No further processing required.
+            // No further processing required if there is a premise-less rule.
+            OptionSets.Clear();
+            return new(); 
         }
 
         if (Message is TupleMessage tMsg)
@@ -137,14 +161,15 @@ public class QueryNode
             }
         }
         InnerAssessState();
-        foreach (PremiseOptionSet pos in OptionSets)
+        for (int i = 0; i < OptionSets.Count; i++)
         {
-            QueryResult? qr = pos.AttemptFinalResolveResult(Message, When);
-            if (qr != null)
+            PremiseOptionSet pos = OptionSets[i];
+            if (pos.PartialSuccess)
             {
-                Result.Add(qr);
-                Actual.Add(qr.Actual!);
                 Status = QNStatus.Proven;
+                OptionSets.RemoveAt(i);
+                SuccessfulOptionSets.Add(pos);
+                break;
             }
         }
     }
@@ -206,12 +231,12 @@ public class QueryNode
             {
                 Status = QNStatus.Proven;
                 Changed = true;
-                foreach (PremiseOptionSet pos in SuccessfulOptionSets)
+                /*foreach (PremiseOptionSet pos in SuccessfulOptionSets)
                 {
                     QueryResult qr = pos.CreateSuccessResult(Message, When)!;
-                    Result.Add(qr);
+                    //Result.Add(qr);
                     Actual.Add(qr.Actual!);
-                }
+                }*/
             }
         }
         return Changed;
@@ -241,13 +266,18 @@ public class QueryNode
     internal QueryResult? GetStateConsistentProof(HashSet<IMessage> stateVars)
     {
         IDictionary<IMessage, IMessage?> lookup = CreateStateVariablesLookup(stateVars);
-        foreach (PremiseOptionSet pos in SuccessfulOptionSets)
+        if (Status == QNStatus.Proven)
         {
-            if (pos.IsConsistentWithStateVariables(lookup))
+            foreach (PremiseOptionSet pos in SuccessfulOptionSets)
             {
-                return pos.Result;
+                QueryResult? qr = pos.CreateSuccessResult(Message, When, lookup);
+                if (qr != null)
+                {
+                    return qr;
+                }
             }
         }
+        
         return null;
     }
 

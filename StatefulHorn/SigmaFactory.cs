@@ -219,7 +219,7 @@ public class SigmaFactory
         {
             if (stateVariables.TryGetValue(vm, out IMessage? setValue) && setValue != null && !Equals(sm, setValue))
             {
-                    return true;
+                return true;
             }
         }
         return false;

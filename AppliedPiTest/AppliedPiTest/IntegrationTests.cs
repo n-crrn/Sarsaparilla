@@ -17,6 +17,17 @@ namespace SarsaparillaTests.AppliedPiTest;
 [TestClass]
 public class IntegrationTests
 {
+    [TestMethod]
+    public async Task TrivialTest()
+    {
+        string piSource =
+@"free c: channel.
+free s: bitstring.
+query attacker(s).
+process in(c,x:bitstring) | out(c, s).
+";
+        await DoTest(piSource, true);
+    }
 
     [TestMethod]
     public async Task BasicChainTest()
@@ -157,7 +168,7 @@ process
         // In this first example, there is a process that is capable of generating
         // h(h(value)) but it must be run at least twice to do so. This is a test
         // of a channel being made public from its inner scope.
-        string piSource1 =
+        /*string piSource1 =
 @"free pubC: channel.
 free value: bitstring.
 const holder: bitstring.
@@ -175,7 +186,7 @@ process
          | ( out(c, holder);
              in(c, v: bitstring) ) ) ).
 ";
-        await DoTest(piSource1, true);
+        await DoTest(piSource1, true);*/
 
         // In this second example, the channel is again made public but the process
         // can only run once. Therefore, h(h(value)) cannot be generated.
@@ -199,7 +210,7 @@ process
 ";
         await DoTest(piSource2, false); 
 
-        // In this final example, the channel is made public and the process is replicated.
+        /*// In this final example, the channel is made public and the process is replicated.
         // However, the magic transformation occurs in its concurrent process.
         string piSource3 =
 @"free pubC: channel.
@@ -216,7 +227,7 @@ process
        ( out(pubC, c); out(c, holder); in(c, v: bitstring) )
        | ( in(c, inRead: bitstring); out(c, h(inRead)) ) )
 ";
-        await DoTest(piSource3, true);
+        await DoTest(piSource3, true);*/
     }
 
     [TestMethod]

@@ -69,22 +69,39 @@ public class PremiseOptionSet
 
     private readonly HornClause? SourceClause;
 
-    internal QueryResult? Result { get; private set; }
-
     public bool IsEmpty => Nodes.Count == 0;
 
-    public bool HasSucceeded => Nodes.All((QueryNode qn) => qn.ResultSucceeded);
+    public bool HasSucceeded => Nodes.Count == 0 || Nodes.All((QueryNode qn) => qn.ResultSucceeded);
 
     public bool HasFailed => (from qn in Nodes where qn.ResultFailed select qn).Any();
 
-    internal QueryResult? CreateSuccessResult(IMessage query, State? when)
+    internal QueryResult? CreateSuccessResult(
+        IMessage query, 
+        State? when, 
+        IDictionary<IMessage, IMessage?> stateVarValues)
     {
-        if (!HasSucceeded)
+        if (!((HasSucceeded || PartialSuccess) && IsConsistentWithStateVariables(stateVarValues)))
         {
             return null;
         }
 
-        List<QueryResult> premiseResults = new(from n in Nodes select n.Result[0]);
+        if (Nodes.Count == 0)
+        {
+            return QueryResult.ResolvedKnowledge(query, query, SourceClause!, new SigmaFactory(), when);
+        }
+
+        //List<QueryResult> premiseResults = new(from n in Nodes select n.GetResults(stateVarValues).First());
+        List<QueryResult> premiseResults = new();
+        foreach (QueryNode n in Nodes)
+        {
+            List<QueryResult> possResults = new(n.GetResults(stateVarValues));
+            if (possResults.Count == 0)
+            {
+                return null;
+            }
+            premiseResults.Add(possResults[0]);
+        }
+
         if (SourceClause != null)
         {
             QueryResult thisClauseResult = QueryResult.ResolvedKnowledge(
@@ -95,14 +112,12 @@ public class PremiseOptionSet
                 when);
             premiseResults.Add(thisClauseResult);
         }
-        Result = QueryResult.Compose(
+        return QueryResult.Compose(
             query,
             query.PerformSubstitution(SigmaFactory.CreateBackwardMap()),
             when,
             SigmaFactory,
             premiseResults);
-
-        return Result;
     }
 
     public bool PartialSuccess
@@ -141,7 +156,7 @@ public class PremiseOptionSet
             if (n.Status == QNStatus.Proven)
             {
                 original.Add(n.Message);
-                options = AddToOptionsList(options, n.Actual.ToList());
+                options = AddToOptionsList(options, n.GetResolvedPossibilities().ToList());
             }
         }
 
@@ -151,7 +166,7 @@ public class PremiseOptionSet
         foreach (List<IMessage> opt in options)
         {
             SigmaFactory sf = new();
-            if (sf.CanUnifyMessagesOneWay(original, opt, g))
+            if (sf.CanUnifyMessagesOneWay(original, opt, g) && !sf.IsEmpty)
             {
                 SigmaMap sm = sf.CreateForwardMap();
                 List<IMessage> updated = new(from m in fullOriginal select m.PerformSubstitution(sm));
@@ -207,40 +222,6 @@ public class PremiseOptionSet
         }
     }
 
-    internal QueryResult? AttemptFinalResolveResult(IMessage query, State? when)
-    {
-        if (!PartialSuccess)
-        {
-            return null;
-        }
-        List<QueryResult> subItemResults = new();
-        foreach (QueryNode qn in Nodes)
-        {
-            if (qn.ResultSucceeded)
-            {
-                subItemResults.Add(qn.Result[0]);
-            }
-            else
-            {
-                if (qn.Message is VariableMessage vMsg)
-                {
-                    subItemResults.Add(QueryResult.Unresolved(vMsg, qn.Rank, when));
-                }
-                else
-                {
-                    return null;
-                }
-            }
-        }
-        Result = QueryResult.Compose(
-            query, 
-            query.PerformSubstitution(SigmaFactory.CreateBackwardMap()), 
-            when, 
-            SigmaFactory, 
-            subItemResults);
-        return Result;
-    }
-
     #region State variable consistency checking.
 
     public bool IsConsistentWithStateVariables(IDictionary<IMessage, IMessage?> stateVarValues)
@@ -272,7 +253,7 @@ public class PremiseOptionSet
             else
             {
                 // If success was based on a rule, there won't be option sets.
-                hasGoodPos = n.Status == QNStatus.Proven;
+                hasGoodPos = n.Status == QNStatus.Unresolvable;
             }
             
             if (!hasGoodPos)
