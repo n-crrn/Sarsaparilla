@@ -1,8 +1,9 @@
-﻿using System;
+﻿using StatefulHorn.Query;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Parser;
 
 /// <summary>
 /// A class that accepts a source file containing a list of Stateful Horn clauses, and processes
@@ -40,7 +41,7 @@ public class ClauseCompiler : IClauseCompiler
 
                 // In case this rule is broken over several lines, collect the pieces.
                 int lineEndOffset = lineOffset;
-                while (thisLineClean.EndsWith("\\") && (lineEndOffset + 1) < lines.Length)
+                while (thisLineClean.EndsWith("\\") && lineEndOffset + 1 < lines.Length)
                 {
                     lineEndOffset++;
                     thisLineClean = thisLineClean + " " + UncommentLine(lines[lineEndOffset]);
@@ -146,7 +147,7 @@ public class ClauseCompiler : IClauseCompiler
     {
         string line = cleanLine[QueryPrefix.Length..];
         string[] parts = line.Split(WhenConnector);
-        (IMessage? msg, string? err) = MessageParser.TryParseMessage(parts[0]);
+        (IMessage? msg, string? err) = PartParser.TryParseMessage(parts[0]);
         if (err != null)
         {
             return (null, null, err);
@@ -154,7 +155,7 @@ public class ClauseCompiler : IClauseCompiler
         State? when = null;
         if (parts.Length == 2)
         {
-            (when, err) = MessageParser.TryParseState(parts[1]);
+            (when, err) = PartParser.TryParseState(parts[1]);
             if (err != null)
             {
                 return (null, null, err);
@@ -166,14 +167,14 @@ public class ClauseCompiler : IClauseCompiler
         }
         return (msg, when, null);
     }
-    
+
 
     private static bool IsInitLine(string cleanLine) => cleanLine.StartsWith(InitPrefix);
 
     private static (HashSet<State>?, string?) ParseInitStatement(string cleanLine)
     {
         string line = cleanLine[InitPrefix.Length..];
-        return MessageParser.TryParseStates(line);
+        return PartParser.TryParseStates(line);
     }
 
     private static bool IsLimitLine(string cleanLine) => cleanLine.StartsWith(LimitPrefix);

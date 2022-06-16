@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using StatefulHorn.Messages;
-using StatefulHorn.Origin;
 
-namespace StatefulHorn;
+using StatefulHorn.Messages;
+using StatefulHorn.Query.Origin;
+
+namespace StatefulHorn.Query;
 
 /// <summary>
 /// A Nonce sESSION. This class provides a symbolic trace once a specific nonce has been set.
@@ -304,7 +305,7 @@ public class Nession
         {
             subTransfers.Add((StateTransferringRule)r.SubscriptVariables(NextVNumber()));
         }
-        
+
         // Sort out the sigma maps.
         SigmaFactory sf = new();
         foreach (StateTransferringRule str in subTransfers)
@@ -405,7 +406,7 @@ public class Nession
 
     private bool RuleValidByNonces(Rule r)
     {
-        if (r.NonceDeclarations.Any((Event ev) => NonceDeclarations.Contains(ev))) // Do not allow redeclaration of nonces.
+        if (r.NonceDeclarations.Any((ev) => NonceDeclarations.Contains(ev))) // Do not allow redeclaration of nonces.
         {
             return false;
         }
@@ -537,7 +538,7 @@ public class Nession
         {
             allPremises.UnionWith(c.TransferRule.Premises);
         }
-        
+
         // Collect prior transfer rules that would have affected this cell.
         if (historyIndex > 0)
         {
@@ -690,7 +691,7 @@ public class Nession
         return varSet;
     }
 
-    
+
 
     #endregion
     #region Basic object overrides.

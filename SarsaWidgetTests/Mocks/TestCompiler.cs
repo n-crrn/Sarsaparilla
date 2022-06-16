@@ -1,4 +1,6 @@
 ﻿using StatefulHorn;
+using StatefulHorn.Parser;
+using StatefulHorn.Query;
 
 namespace SarsaWidgetTests.Mocks;
 
@@ -9,7 +11,7 @@ public class TestCompiler : IClauseCompiler
     private readonly List<string> GoodRules = new() {
         "know(x), know(y) -[ ]-> know(enc(x, y))",
         "(7) = know(sk) -[ ]-> know(pk(sk))",
-        "(3) = new([bob_l], l_sl[]), new([bob_r], l_sr[]), know(m_f) -[ ]-> know(enc_a(<m_f, [bob_l], [bob_r]>, pk(sksd[])))"
+        "(3) = new([bob_l]), new([bob_r]), know(m_f) -[ ]-> know(enc_a(<m_f, [bob_l], [bob_r]>, pk(sksd[])))"
     };
 
     public Task ConductSuccessfulRun() => ConductRun(GoodRules);
@@ -17,7 +19,7 @@ public class TestCompiler : IClauseCompiler
     private readonly List<string> BadRules = new() {
         "know(x), know(y) -[  know(enc(x, y))",
         "(7) = know(sk) -[ ]-> kow(pk(sk))",
-        "(3) = new([bob_l], l_sl[]), new([bob_r], l_sr[]), know(m_f) -[ ]-> know(enc_a((m_f, [bob_l], [bob_r]), pk(sksd[])))"
+        "(3) = new([bob_l]), new([bob_r], l_sr[]), know(m_f) -[ ]-> know(enc_a((m_f, [bob_l], [bob_r]), pk(sksd[])))"
     };
 
     public Task ConductFailureRun() => ConductRun(BadRules);
@@ -50,8 +52,8 @@ public class TestCompiler : IClauseCompiler
             OnError?.Invoke(this, "One rule implies others.");
         }
 
-        State initState = MessageParser.ParseState("test(init[])");
-        IMessage queryMessage = MessageParser.ParseMessage("bob[]");
+        State initState = PartParser.ParseState("test(init[])");
+        IMessage queryMessage = PartParser.ParseMessage("bob[]");
         OnComplete?.Invoke(this, new(new HashSet<State>() { initState }, queryMessage, null, validRules), null);
     }
 

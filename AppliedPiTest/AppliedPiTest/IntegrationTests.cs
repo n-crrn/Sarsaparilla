@@ -8,6 +8,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using StatefulHorn;
 using AppliedPi;
 using AppliedPi.Translate;
+using StatefulHorn.Query;
 
 namespace SarsaparillaTests.AppliedPiTest;
 

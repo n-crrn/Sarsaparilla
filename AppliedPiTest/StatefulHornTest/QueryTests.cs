@@ -6,6 +6,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using StatefulHorn;
 using StatefulHorn.Messages;
+using StatefulHorn.Parser;
+using StatefulHorn.Query;
 
 namespace StatefulHornTest;
 
@@ -227,8 +229,8 @@ public class QueryTests
         bool shouldFindAttack)
     {
         List<Rule> rules = new(from r in ruleSrcs select Parser.Parse(r));
-        IMessage query = MessageParser.ParseMessage(querySrc);
-        State initState = MessageParser.ParseState(stateInitSrc);
+        IMessage query = PartParser.ParseMessage(querySrc);
+        State initState = PartParser.ParseState(stateInitSrc);
 
         QueryEngine qe5 = new(new HashSet<State>() { initState }, query, null, rules);
         bool attackFound = false;

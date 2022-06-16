@@ -7,6 +7,7 @@
 using StatefulHorn;
 using AppliedPi;
 using AppliedPi.Translate;
+using StatefulHorn.Query;
 
 Console.WriteLine("Profiling commenced...");
 

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Query;
 
 /// <summary>
 /// Used to group State Transfer Rules for optimal application to Nessions.
@@ -162,7 +162,7 @@ public class KnitPattern
 
         // What does the other rule require to work?
         List<State> otherStates = new(from s in other.Snapshots.Traces select s.Condition);
-        
+
         foreach (State os in otherStates)
         {
             foreach (State rs in resultStates)

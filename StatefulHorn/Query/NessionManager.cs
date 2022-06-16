@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Query;
 
 /// <summary>
 /// Version of the Query Engine which is designed to work with Nession structures to 
@@ -79,8 +79,8 @@ public class NessionManager
             // Provide check for cancellation.
             await Task.Delay(15);
             if (CancelElaborate ||
-                (checkFinishIteratively && finishedFunc(nextLevel)) || 
-                elabCounter == (numberOfSubElaborations - 1))
+                checkFinishIteratively && finishedFunc(nextLevel) ||
+                elabCounter == numberOfSubElaborations - 1)
             {
                 goto finishElaborate;
             }
@@ -106,7 +106,7 @@ public class NessionManager
                     i--;
                 }
             }
-            
+
             if (nextLevelIter.Count == 0)
             {
                 // There were no new states found. In this case, we cease the elaboration here.

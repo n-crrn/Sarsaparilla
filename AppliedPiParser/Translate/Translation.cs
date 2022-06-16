@@ -7,6 +7,7 @@ using StatefulHorn.Messages;
 using AppliedPi.Model;
 using AppliedPi.Processes;
 using AppliedPi.Translate.MutateRules;
+using StatefulHorn.Query;
 
 namespace AppliedPi.Translate;
 

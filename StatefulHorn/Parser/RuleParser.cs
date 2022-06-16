@@ -6,7 +6,7 @@ using System.Text;
 
 using StatefulHorn.Messages;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Parser;
 
 /// <summary>
 /// Parses a series of rules to create a set of basis rules.
@@ -202,7 +202,7 @@ public class RuleParser
             throw new RuleParseException(ruleSrc, stateMarkerErrMsg);
         }
         string hmDesc = ruleSrc[i..leftStatePos];
-        string soDesc = ruleSrc[(leftStatePos + LeftState.Length)..(rightStatePos)];
+        string soDesc = ruleSrc[(leftStatePos + LeftState.Length)..rightStatePos];
         string resultDesc = ruleSrc[(rightStatePos + RightState.Length)..];
 
         // --- Process the extracted premises, state specifiers and results sections. ---
@@ -431,7 +431,7 @@ public class RuleParser
                     throw new RuleParseException(whole, $"'{input[i]}' never opened.");
                 }
                 char opening = indentChars.Pop();
-                if (!((opening == '[' && input[i] == ']') || (opening == '(' && input[i] == ')')))
+                if (!(opening == '[' && input[i] == ']' || opening == '(' && input[i] == ')'))
                 {
                     throw new RuleParseException(whole, $"'{input[i]}' mismatch when reading term.");
                 }
@@ -517,7 +517,7 @@ public class RuleParser
                     throw new RuleParseException(whole, "Encountered close bracket/square bracket when reading snapshot.");
                 }
                 char starter = indentChars.Pop();
-                if (!((starter == '(' && c == ')') || (starter == '[' && c == ']')))
+                if (!(starter == '(' && c == ')' || starter == '[' && c == ']'))
                 {
                     throw new RuleParseException(whole, "Mismatched bracket/square bracket when reading term.");
                 }
@@ -529,7 +529,7 @@ public class RuleParser
                 {
                     pairParts.Add(buffer.ToString().Trim());
                     buffer.Clear();
-                    while ((i + 1) < sDesc.Length && (sDesc[i + 1] == ',' || char.IsWhiteSpace(sDesc[i + 1])))
+                    while (i + 1 < sDesc.Length && (sDesc[i + 1] == ',' || char.IsWhiteSpace(sDesc[i + 1])))
                     {
                         i++; // Skip the comma.
                     }
@@ -644,7 +644,7 @@ public class RuleParser
                     }
                     indent--;
                 }
-                else if ((indent == 0) && !(char.IsWhiteSpace(c) || c == ','))
+                else if (indent == 0 && !(char.IsWhiteSpace(c) || c == ','))
                 {
                     throw new RuleParseException(whole, $"Malformed State Transformation section: {resultDesc}");
                 }
@@ -667,12 +667,12 @@ public class RuleParser
 
         foreach (GuardPiece p in pieces)
         {
-            (IMessage? msg1, string? errMsg1) = MessageParser.TryParseMessage(p.Lhs);
+            (IMessage? msg1, string? errMsg1) = PartParser.TryParseMessage(p.Lhs);
             if (errMsg1 != null)
             {
                 throw new RuleParseException(whole, $"Cannot parse message '{p.Lhs}': {errMsg1}");
             }
-            (IMessage? msg2, string? errMsg2) = MessageParser.TryParseMessage(p.Rhs);
+            (IMessage? msg2, string? errMsg2) = PartParser.TryParseMessage(p.Rhs);
             if (errMsg2 != null)
             {
                 throw new RuleParseException(whole, $"Cannot parse message '{p.Rhs}': {errMsg2}");
@@ -690,8 +690,8 @@ public class RuleParser
     private Rule CombinePieces(
         string whole,
         List<GuardPiece> guardPieces,
-        List<PremisePiece> premisePieces, 
-        List<SnapshotPiece> ssPieces, 
+        List<PremisePiece> premisePieces,
+        List<SnapshotPiece> ssPieces,
         List<SnapshotRelationship> ssRelationships,
         ResultParts result)
     {
@@ -709,7 +709,7 @@ public class RuleParser
             }
 
             // Actually parse the state and associate it to its label if successful.
-            (State? s, string? stateErr) = MessageParser.TryParseState(sp.State);
+            (State? s, string? stateErr) = PartParser.TryParseState(sp.State);
             if (stateErr != null)
             {
                 throw new RuleParseException(whole, $"Unable to parse state '{sp.State}': {stateErr}");
@@ -769,7 +769,7 @@ public class RuleParser
         List<(Event, string)> parsedEvents = new();
         foreach (PremisePiece pp in premisePieces)
         {
-            (Event? ev, string? evErrMsg) = MessageParser.TryParseEvent(pp.Event);
+            (Event? ev, string? evErrMsg) = PartParser.TryParseEvent(pp.Event);
 
             if (evErrMsg != null)
             {
@@ -818,7 +818,7 @@ public class RuleParser
             {
                 throw new RuleParseException(whole, "State consistent rule can only have one resulting event.");
             }
-            (Event? resultEv, string? resultErr) = MessageParser.TryParseEvent(result.Parts[0]);
+            (Event? resultEv, string? resultErr) = PartParser.TryParseEvent(result.Parts[0]);
             if (resultErr != null)
             {
                 throw new RuleParseException(whole, $"Could not parse result '{result.Parts[0]}': {resultErr}");
@@ -866,7 +866,7 @@ public class RuleParser
             {
                 throw new RuleParseException(whole, $"Could not parse '{p}' into a snapshot label-state pair: no separator.");
             }
-            (State? s, string? stateParseErrMsg) = MessageParser.TryParseState(transferComponents[1]);
+            (State? s, string? stateParseErrMsg) = PartParser.TryParseState(transferComponents[1]);
             if (stateParseErrMsg != null)
             {
                 throw new RuleParseException(whole, $"Could not parse '{p}' into a snapshot label-state pair: {stateParseErrMsg}");

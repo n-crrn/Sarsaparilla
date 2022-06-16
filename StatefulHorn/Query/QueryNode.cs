@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using StatefulHorn.Messages;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Query;
 
 public enum QNStatus
 {
@@ -123,7 +123,7 @@ public class QueryNode
         {
             // No further processing required if there is a premise-less rule.
             OptionSets.Clear();
-            return new(); 
+            return new();
         }
 
         if (Message is TupleMessage tMsg)
@@ -201,7 +201,8 @@ public class QueryNode
         return InnerAssessState();
     }
 
-    private bool InnerAssessState() {
+    private bool InnerAssessState()
+    {
         // Sort out what works and doesn't.
         for (int i = 0; i < OptionSets.Count; i++)
         {
@@ -277,7 +278,7 @@ public class QueryNode
                 }
             }
         }
-        
+
         return null;
     }
 

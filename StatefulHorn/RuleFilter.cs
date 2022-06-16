@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using StatefulHorn.Parser;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace StatefulHorn;
@@ -17,22 +18,22 @@ public class RuleFilter
         List<string> terms = SplitIntoTerms(filterSpec.Trim());
         foreach (string term in terms)
         {
-            (MessageParser.Result? result, string? _) = MessageParser.TryParse(term, "search text");
+            (PartParser.Result? result, string? _) = PartParser.TryParse(term, "search text");
             if (result != null) // Means we something like "Container(Inner)"
             {
                 if (result.IsEvent())
                 {
-                    (Event? ev, string? _) = MessageParser.TryParseEvent(term);
+                    (Event? ev, string? _) = PartParser.TryParseEvent(term);
                     IndividualFilters.Add((Rule r) => r.ContainsEvent(ev!));
                 }
                 else
                 {
-                    (State? st, string? _) = MessageParser.TryParseState(term);
+                    (State? st, string? _) = PartParser.TryParseState(term);
                     if (st != null)
                     {
                         IndividualFilters.Add((Rule r) => r.ContainsState(st!));
                     }
-                    (IMessage? msg, string? _) = MessageParser.TryParseMessage(term);
+                    (IMessage? msg, string? _) = PartParser.TryParseMessage(term);
                     if (msg != null)
                     {
                         IndividualFilters.Add((Rule r) => r.ContainsMessage(msg!));
@@ -41,7 +42,7 @@ public class RuleFilter
             }
             else
             {
-                (IMessage? simpleMsg, string? _) = MessageParser.TryParseMessage(term);
+                (IMessage? simpleMsg, string? _) = PartParser.TryParseMessage(term);
                 if (simpleMsg != null)
                 {
                     IndividualFilters.Add((Rule r) => r.ContainsMessage(simpleMsg!));

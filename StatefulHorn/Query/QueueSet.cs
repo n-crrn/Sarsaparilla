@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Query;
 
-public class QueueSet<T> where T: notnull
+public class QueueSet<T> where T : notnull
 {
 
     private readonly LinkedList<T> Ordering = new();

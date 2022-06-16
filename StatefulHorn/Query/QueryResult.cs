@@ -5,7 +5,7 @@ using System.Text;
 
 using StatefulHorn.Messages;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Query;
 
 /// <summary>
 /// This is the original class for reporting the results of the QueryEngine.
@@ -44,8 +44,8 @@ internal class QueryResult
     private static readonly int InfiniteRank = -1; // FIXME: Centralise the "infinite" values.
 
     public static QueryResult BasicFact(
-        IMessage query, 
-        IMessage actual, 
+        IMessage query,
+        IMessage actual,
         SigmaFactory transformation,
         State? when = null)
     {
@@ -53,9 +53,9 @@ internal class QueryResult
     }
 
     public static QueryResult ResolvedKnowledge(
-        IMessage query, 
-        IMessage actual, 
-        HornClause kRule, 
+        IMessage query,
+        IMessage actual,
+        HornClause kRule,
         SigmaFactory transformation,
         State? when = null)
     {
@@ -70,10 +70,10 @@ internal class QueryResult
     public static QueryResult Failed(IMessage query, int rank, State? when) => new(query, null, rank, when);
 
     public static QueryResult Compose(
-        IMessage query, 
-        IMessage actual, 
-        State? when, 
-        SigmaFactory transformation, 
+        IMessage query,
+        IMessage actual,
+        State? when,
+        SigmaFactory transformation,
         IEnumerable<QueryResult> combinedResults)
     {
         List<IMessage> fullFactList = new();
@@ -97,17 +97,17 @@ internal class QueryResult
 
         return new(query, actual, rank, when, transformation, fullFactList, knowledgeList, nessions);
     }
-     
+
     public QueryResult Transform(SigmaFactory transformation)
     {
         return new(
-            Query, 
+            Query,
             Actual!.PerformSubstitution(transformation.CreateBackwardMap()),
             Rank,
-            When, 
-            transformation, 
-            Facts, 
-            Knowledge, 
+            When,
+            transformation,
+            Facts,
+            Knowledge,
             FoundSessions);
     }
 
@@ -123,7 +123,7 @@ internal class QueryResult
 
     public int Rank { get; init; }
 
-    public bool Found => Facts != null || (Actual != null && Actual is VariableMessage);
+    public bool Found => Facts != null || Actual != null && Actual is VariableMessage;
 
     public bool Resolved => Actual != null && !Actual.ContainsVariables;
 
@@ -191,7 +191,7 @@ internal class QueryResult
                 if (rule.Source == null)
                 {
                     writer.WriteLine($"{rule}, provided a priori.");
-                } 
+                }
                 else
                 {
                     writer.WriteLine($"{rule}, sourced from:");

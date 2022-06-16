@@ -1,6 +1,8 @@
 ﻿using System;
 
-namespace StatefulHorn;
+using StatefulHorn.Query;
+
+namespace StatefulHorn.Parser;
 
 public record RuleAddedArgs(int Line, string Source, Rule? CompiledRule, string? Error);
 

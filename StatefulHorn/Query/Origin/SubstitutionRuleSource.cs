@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace StatefulHorn.Origin;
+namespace StatefulHorn.Query.Origin;
 
 public class SubstitutionRuleSource : IRuleSource
 {

@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using StatefulHorn.Query;
+using System.Collections.Generic;
 
-namespace StatefulHorn.Origin;
+namespace StatefulHorn.Query.Origin;
 
 public class NessionRuleSource : IRuleSource
 {

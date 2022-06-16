@@ -9,6 +9,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using StatefulHorn;
 using StatefulHorn.Messages;
+using StatefulHorn.Parser;
+using StatefulHorn.Query;
 
 namespace StatefulHornTest;
 
@@ -32,20 +34,20 @@ public class HornClauseTests
         DoComposeTest((-1, new() { xMsg }, new FunctionMessage("SD@x", new() { xMsg })),
                (2, ParseMessages("BobSDSet@b[]", "SD@x(SD@x_v13)", "SD@mUpdated@cell(h(SD@mStart[], left[]))",
                    "SD@enc_rx@cell(SD@enc_rx-v13)", "SD@mf@SD@sl@SD@sr@cell(<SD@mf_v13, SD@sl_v13, SD@sr_v13>)"),
-                   MessageParser.ParseMessage("SD@sl_v13")),
+                   PartParser.ParseMessage("SD@sl_v13")),
                (2, ParseMessages("BobSDSet@b[]", "SD@x_v13", "SD@mUpdated@cell(h(SD@mStart[], left[]))",
                    "SD@enc_rx@cell(SD@enc_rx-v13)", "SD@mf@SD@sl@SD@sr@cell(<SD@mf_v13, SD@sl_v13, SD@sr_v13>)"),
-                   MessageParser.ParseMessage("SD@sl_v13")),
+                   PartParser.ParseMessage("SD@sl_v13")),
                "Advanced compose");
 
         // Multiple replace - number one.
         DoComposeTest((-1, new() { xMsg }, new FunctionMessage("SD@x", new() { xMsg })),
                (2, ParseMessages("BobSDSet@b[]", "SD@x(SD@x_v13)", "SD@x(Name[])",
                    "SD@enc_rx@cell(SD@enc_rx-v13)", "SD@mf@SD@sl@SD@sr@cell(<SD@mf_v13, SD@sl_v13, SD@sr_v13>)"),
-                   MessageParser.ParseMessage("SD@sl_v13")),
+                   PartParser.ParseMessage("SD@sl_v13")),
                (2, ParseMessages("BobSDSet@b[]", "SD@x_v13", "Name[]",
                    "SD@enc_rx@cell(SD@enc_rx-v13)", "SD@mf@SD@sl@SD@sr@cell(<SD@mf_v13, SD@sl_v13, SD@sr_v13>)"),
-                   MessageParser.ParseMessage("SD@sl_v13")),
+                   PartParser.ParseMessage("SD@sl_v13")),
                "Advanced multi-compose 1");
 
         // Multiple replace - number two.
@@ -53,45 +55,45 @@ public class HornClauseTests
                (-1, ParseMessages("@BobSDSet@b@0[]", "SD@x@cell(SD@x)", "SD@enc_rx@cell(SD@enc_rx)",
                 "SD@x@cell(left[])", "SD@mUpdated@cell(SD@mUpdated)",
                 "SD@mf@SD@sl@SD@sr@cell(dec(enc(<SD@mf, SD@sl, SD@sr>, pk(y)), y))"),
-                MessageParser.ParseMessage("SD@sl")),
+                PartParser.ParseMessage("SD@sl")),
                (-1, ParseMessages("@BobSDSet@b@0[]", "SD@x", "SD@enc_rx@cell(SD@enc_rx)",
                 "left[]", "SD@mUpdated@cell(SD@mUpdated)",
                 "SD@mf@SD@sl@SD@sr@cell(dec(enc(<SD@mf, SD@sl, SD@sr>, pk(y)), y))"),
-                MessageParser.ParseMessage("SD@sl")),
+                PartParser.ParseMessage("SD@sl")),
                "Advanced multi-compose 2");
 
         // Self refential risk.
         DoComposeTest((-1, ParseMessages("@BobSDSet@b@0[]", "SD@x@cell(SD@x)", "SD@mUpdated@cell(SD@mUpdated)",
                 "SD@enc_rx@cell(SD@enc_rx)", "SD@mf@SD@sl@SD@sr@cell(dec(enc(x, pk(y)), y))"),
-                MessageParser.ParseMessage("SD@mf@SD@sl@SD@sr@cell(x)")),
+                PartParser.ParseMessage("SD@mf@SD@sl@SD@sr@cell(x)")),
                 (-1, ParseMessages("@BobSDSet@b@0[]", "SD@x@cell(SD@x)", "SD@enc_rx@cell(SD@enc_rx)",
                 "SD@mf@SD@sl@SD@sr@cell(<SD@mf, SD@sl, SD@sr>)"),
-                MessageParser.ParseMessage("SD@sl")),
+                PartParser.ParseMessage("SD@sl")),
                 (-1, ParseMessages("@BobSDSet@b@0[]", "SD@x@cell(SD@x)", "SD@mUpdated@cell(SD@mUpdated)",
                 "SD@enc_rx@cell(SD@enc_rx)", "SD@mf@SD@sl@SD@sr@cell(dec(enc(<SD@mf, SD@sl, SD@sr>, pk(y)), y))"),
-                MessageParser.ParseMessage("SD@sl")),
+                PartParser.ParseMessage("SD@sl")),
                 "Self-referential compose");
 
         // Nil premise match.
-        DoComposeTest((-1, new(), MessageParser.ParseMessage("@BobSDSet@b@0[]")),
+        DoComposeTest((-1, new(), PartParser.ParseMessage("@BobSDSet@b@0[]")),
                 (-1, ParseMessages("@BobSDSet@b@0[]", "SD@x@cell(SD@x)", "SD@enc_rx@cell(SD@enc_rx)",
                 "SD@mf@SD@sl@SD@sr@cell(<SD@mf, SD@sl, SD@sr>)"),
-                MessageParser.ParseMessage("SD@sl")),
+                PartParser.ParseMessage("SD@sl")),
                 (-1, ParseMessages("SD@x@cell(SD@x)", "SD@enc_rx@cell(SD@enc_rx)", 
                 "SD@mf@SD@sl@SD@sr@cell(<SD@mf, SD@sl, SD@sr>)"),
-                MessageParser.ParseMessage("SD@sl")),
+                PartParser.ParseMessage("SD@sl")),
                 "Nil premise compose");
     }
 
     [TestMethod]
     public void ImplyTest()
     {
-        HornClause hc1_1 = MakeClause(1, new(), MessageParser.ParseMessage("test[]"));
-        HornClause hc1_2 = MakeClause(1, ParseMessages("another[]", "testing[]"), MessageParser.ParseMessage("test[]"));
+        HornClause hc1_1 = MakeClause(1, new(), PartParser.ParseMessage("test[]"));
+        HornClause hc1_2 = MakeClause(1, ParseMessages("another[]", "testing[]"), PartParser.ParseMessage("test[]"));
         Assert.IsTrue(hc1_1.Implies(hc1_2), "Failed on empty premised implier.");
 
-        HornClause hc2_1 = MakeClause(-1, ParseMessages("f(x, y)", "y"), MessageParser.ParseMessage("x"));
-        HornClause hc2_2 = MakeClause(-1, ParseMessages("f(x, key[])", "key[]"), MessageParser.ParseMessage("x"));
+        HornClause hc2_1 = MakeClause(-1, ParseMessages("f(x, y)", "y"), PartParser.ParseMessage("x"));
+        HornClause hc2_2 = MakeClause(-1, ParseMessages("f(x, key[])", "key[]"), PartParser.ParseMessage("x"));
         Assert.IsTrue(hc2_1.Implies(hc2_2), "Failed on function implier.");
     }
 
@@ -100,7 +102,7 @@ public class HornClauseTests
 
     private static List<IMessage> ParseMessages(params string[] msgs)
     {
-        return new(from m in msgs select MessageParser.ParseMessage(m));
+        return new(from m in msgs select PartParser.ParseMessage(m));
     }
 
     private static void DoComposeTest(

@@ -2,9 +2,10 @@
  * Displays a rule and its sources. This element is exclusively used by AttackDisplay, but needs
  * to be separate from AttackDisplay as it needs to be able to instantiate itself recursively.
  *@
-@using StatefulHorn
-@using StatefulHorn.Origin;
 @using SarsaWidgets.Primitives;
+@using StatefulHorn
+@using StatefulHorn.Query
+@using StatefulHorn.Query.Origin
 
 <div class='outer'>
     @if (Rule != null)

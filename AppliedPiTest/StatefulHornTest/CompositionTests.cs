@@ -2,6 +2,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using StatefulHorn;
 using StatefulHorn.Messages;
+using StatefulHorn.Parser;
 
 namespace StatefulHornTest;
 

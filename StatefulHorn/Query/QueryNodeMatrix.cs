@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Query;
 
 public class QueryNodeMatrix
 {
@@ -79,7 +79,7 @@ public class QueryNodeMatrix
         }
         return newNodes;
     }
- 
+
     // FIXME: Add an output feature.
 
     private void SpreadFailure(QueryNode qn)

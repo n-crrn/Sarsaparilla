@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 using StatefulHorn.Messages;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Query;
 
 public class PremiseOptionSet
 {
@@ -20,11 +20,11 @@ public class PremiseOptionSet
     }
 
     public static PremiseOptionSet? FromRule(
-        IMessage result, 
-        Guard g, 
+        IMessage result,
+        Guard g,
         int rank,
-        HornClause hc, 
-        QueryNodeMatrix qm, 
+        HornClause hc,
+        QueryNodeMatrix qm,
         QueryNode? requester,
         out SigmaFactory? sf)
     {
@@ -71,13 +71,13 @@ public class PremiseOptionSet
 
     public bool IsEmpty => Nodes.Count == 0;
 
-    public bool HasSucceeded => Nodes.Count == 0 || Nodes.All((QueryNode qn) => qn.ResultSucceeded);
+    public bool HasSucceeded => Nodes.Count == 0 || Nodes.All((qn) => qn.ResultSucceeded);
 
     public bool HasFailed => (from qn in Nodes where qn.ResultFailed select qn).Any();
 
     internal QueryResult? CreateSuccessResult(
-        IMessage query, 
-        State? when, 
+        IMessage query,
+        State? when,
         IDictionary<IMessage, IMessage?> stateVarValues)
     {
         if (!((HasSucceeded || PartialSuccess) && IsConsistentWithStateVariables(stateVarValues)))
@@ -171,7 +171,7 @@ public class PremiseOptionSet
                 SigmaMap sm = sf.CreateForwardMap();
                 List<IMessage> updated = new(from m in fullOriginal select m.PerformSubstitution(sm));
                 Guard updatedGuard = g.PerformSubstitution(sm);
-                optSet.Add(PremiseOptionSet.FromMessages(updated, updatedGuard, rank, qm, requester, SourceClause));
+                optSet.Add(FromMessages(updated, updatedGuard, rank, qm, requester, SourceClause));
             }
         }
         return optSet;
@@ -255,7 +255,7 @@ public class PremiseOptionSet
                 // If success was based on a rule, there won't be option sets.
                 hasGoodPos = n.Status == QNStatus.Unresolvable;
             }
-            
+
             if (!hasGoodPos)
             {
                 return false;

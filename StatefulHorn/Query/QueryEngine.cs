@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
-using StatefulHorn;
 using StatefulHorn.Messages;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Query;
 
 public class QueryEngine
 {
@@ -44,7 +42,7 @@ public class QueryEngine
                 {
                     SystemRules.Add(sysRule);
                 }
-                
+
             }
             else if (r is StateTransferringRule transRule)
             {
@@ -88,7 +86,7 @@ public class QueryEngine
         int maxElab;
         if (maxDepth == -1)
         {
-            maxElab = ElaborationLimit == -1 ? SystemRules.Count + (TransferringRules.Count * 2) : ElaborationLimit;
+            maxElab = ElaborationLimit == -1 ? SystemRules.Count + TransferringRules.Count * 2 : ElaborationLimit;
         }
         else
         {
@@ -96,7 +94,7 @@ public class QueryEngine
         }
 
         CurrentNessionManager = new(InitStates, SystemRules, TransferringRules);
-        await CurrentNessionManager.Elaborate((List<Nession> nextLevelNessions) =>
+        await CurrentNessionManager.Elaborate((nextLevelNessions) =>
         {
             bool atLeastOneAttack = false;
             foreach (IMessage q in Queries)
@@ -215,12 +213,12 @@ public class QueryEngine
     private static bool PreQueryCheck(IMessage query, HashSet<HornClause> clauses)
     {
         HashSet<IMessage> requiredTerms = new();
-        query.CollectMessages(requiredTerms, (IMessage msg) => msg is NameMessage or NonceMessage);
+        query.CollectMessages(requiredTerms, (msg) => msg is NameMessage or NonceMessage);
 
         HashSet<IMessage> systemTerms = new();
         foreach (HornClause hc in clauses)
         {
-            hc.Result.CollectMessages(systemTerms, (IMessage msg) => msg is NameMessage or NonceMessage);
+            hc.Result.CollectMessages(systemTerms, (msg) => msg is NameMessage or NonceMessage);
         }
 
         return requiredTerms.IsSubsetOf(systemTerms);

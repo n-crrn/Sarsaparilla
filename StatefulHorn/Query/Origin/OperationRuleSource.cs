@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace StatefulHorn.Origin;
+namespace StatefulHorn.Query.Origin;
 
 /// <summary>
 /// Represents a rule source where there has been a single operation on a rule.

@@ -4,13 +4,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Parser;
 
 /// <summary>
 /// Namespace for methods dedicated to transforming correctly formatted strings into IMessage
 /// carrying structures such as States and Events.
 /// </summary>
-public static class MessageParser
+public static class PartParser
 {
     #region Public interfaces - methods for parsing states, events and messages.
 
@@ -246,7 +246,7 @@ public static class MessageParser
     ///   The list of messages read as part of the event or state. For instance, for "SD(init[])"
     ///   the list of messages would equal List&lt;IMessage&gt; { NameMessage("init") }.
     /// </param>
-    internal record Result (string Container, List<IMessage> Messages);
+    internal record Result(string Container, List<IMessage> Messages);
 
     internal static bool IsEvent(this Result r) => EventContainers.Contains(r.Container);
 
@@ -306,7 +306,7 @@ public static class MessageParser
         {
             errMsg = "Extra text included after input.";
         }
-        
+
         return (errMsg == null ? new Result(containerBuffer.ToString().Trim(), containedMsgs!) : null, errMsg);
     }
 
@@ -338,7 +338,7 @@ public static class MessageParser
         {
             return (null, i, "Unexpected end of input.");
         }
-        
+
         // Do we have a nonce value? If so, read and return it.
         if ('[' == input[i])
         {

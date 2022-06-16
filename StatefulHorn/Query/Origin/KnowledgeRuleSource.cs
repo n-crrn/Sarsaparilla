@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
 
-namespace StatefulHorn.Origin;
+namespace StatefulHorn.Query.Origin;
 
 public class KnowledgeRuleSource : IRuleSource
 {

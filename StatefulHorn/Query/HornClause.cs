@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using StatefulHorn.Messages;
-using StatefulHorn.Origin;
+using StatefulHorn.Query.Origin;
 
-namespace StatefulHorn;
+namespace StatefulHorn.Query;
 
 public class HornClause
 {
@@ -110,7 +110,7 @@ public class HornClause
         {
             if (p is not NonceMessage)
             {
-                p.CollectMessages(foundUnknowns, (IMessage msg) => msg is NameMessage && !knowledge.Contains(msg));
+                p.CollectMessages(foundUnknowns, (msg) => msg is NameMessage && !knowledge.Contains(msg));
                 if (foundUnknowns.Count > 0)
                 {
                     return false;
@@ -210,7 +210,7 @@ public class HornClause
 
     public HornClause? ComposeUpon(HornClause other)
     {
-        if ((!ComplexResult && Result is not NameMessage) || (Rank != other.Rank && Rank != -1 && other.Rank != -1))
+        if (!ComplexResult && Result is not NameMessage || Rank != other.Rank && Rank != -1 && other.Rank != -1)
         {
             return null;
         }
@@ -321,7 +321,7 @@ public class HornClause
         if (Result.DetermineUnifiedToSubstitution(hc.Result, Guard, sf))
         {
             if (Premises.Count > 0)
-            { 
+            {
                 int lastOtherPremiseIndex = 0;
                 List<IMessage> thisPremises = Premises.ToList();
                 List<IMessage> otherPremises = hc.Premises.ToList();
@@ -368,7 +368,7 @@ public class HornClause
             danglingVars.IntersectWith(Variables);
             if (danglingVars.Count > 0)
             {
-                SigmaMap moveMap = new(from dv in danglingVars 
+                SigmaMap moveMap = new(from dv in danglingVars
                                        select (dv, MessageUtils.SubscriptVariableMessage(dv, "i")));
                 sf.ForwardSubstitute(moveMap);
             }
@@ -462,7 +462,7 @@ public class HornClause
                 nextSet.AddRange(from p in processed1 where !p.Mark select p);
             }
 
-            appliers.RemoveAll((HornClause hc) => !hc.Mark || hc.CanBeSelfReferential);
+            appliers.RemoveAll((hc) => !hc.Mark || hc.CanBeSelfReferential);
             foreach (HornClause a in appliers)
             {
                 a.Mark = false;
@@ -490,7 +490,7 @@ public class HornClause
         HashSet<HornClause> simpleResults = new(fullRuleset.Count);
         foreach (HornClause hc in fullRuleset)
         {
-            if ((hc.ComplexResult && hc.IncreasesDepthBy > 0) || hc.Result is NameMessage)
+            if (hc.ComplexResult && hc.IncreasesDepthBy > 0 || hc.Result is NameMessage)
             {
                 complexResults.Add(hc);
             }
@@ -501,7 +501,7 @@ public class HornClause
         }
 
         // Now apply the complex rules to the "simple" ones.
-        HashSet<HornClause> finalSet = HornClause.FullyElaborateCollection(new(complexResults), simpleResults);
+        HashSet<HornClause> finalSet = FullyElaborateCollection(new(complexResults), simpleResults);
         HashSet<HornClause> finishedRuleset = new(complexResults.Concat(finalSet));
         return finishedRuleset;
     }
@@ -533,7 +533,7 @@ public class HornClause
 
     public override int GetHashCode() => Hash;
 
-    public override string ToString() => Rank.ToString() + "#" + String.Join(", ", Premises) + " -> " + Result.ToString();
+    public override string ToString() => Rank.ToString() + "#" + string.Join(", ", Premises) + " -> " + Result.ToString();
 
     #endregion
     #region Rule conversions.
@@ -543,8 +543,8 @@ public class HornClause
         if (scr.Snapshots.IsEmpty)
         {
             return new(
-                scr.Result.Messages.Single(), 
-                from p in scr.Premises where p.IsKnow select p.Messages.Single(), 
+                scr.Result.Messages.Single(),
+                from p in scr.Premises where p.IsKnow select p.Messages.Single(),
                 scr.GuardStatements);
         }
         return null;
