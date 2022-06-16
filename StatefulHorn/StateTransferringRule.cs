@@ -39,7 +39,7 @@ public class StateTransferringRule : Rule
         SigmaFactory sf = new();
 
         // The following tuple is of form Snapshot, Trace Index, Offset Index with Trace.
-        List<(Snapshot, int, int)>? overallCorres = DetermineSnapshotCorrespondencesWith(r, GuardStatements, r.GuardStatements, sf);
+        List<(Snapshot, int, int)>? overallCorres = DetermineSnapshotCorrespondencesWith(r, sf);
         if (overallCorres == null)
         {
             return null;
@@ -51,7 +51,7 @@ public class StateTransferringRule : Rule
         SigmaMap bwd = sf.CreateBackwardMap();
 
         // The transformed rule is used as a template for the construction of the final rule.
-        StateConsistentRule transformedRule = (StateConsistentRule)r.PerformSubstitution(bwd);
+        StateConsistentRule transformedRule = (StateConsistentRule)r.Substitute(bwd);
         for (int i = 0; i < overallCorres.Count; i++)
         {
             (Snapshot guide, int traceIndex, int offsetIndex) = overallCorres[i];
@@ -77,7 +77,7 @@ public class StateTransferringRule : Rule
         }
         transformedRule.Snapshots.ActivateTransfers();
 
-        Guard combinedGuard = GuardStatements.PerformSubstitution(fwd).Union(r.GuardStatements.PerformSubstitution(bwd));
+        Guard combinedGuard = Guard.PerformSubstitution(fwd).Union(r.Guard.PerformSubstitution(bwd));
         return new StateConsistentRule($"({Label}) ⋈ ({r.Label})", combinedGuard, newPremises, transformedRule.Snapshots, transformedRule.Result);
     }
 

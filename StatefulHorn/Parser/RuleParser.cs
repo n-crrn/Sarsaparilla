@@ -850,7 +850,7 @@ public class RuleParser
 
     private static void ThrowIfGuardNotTransferred(Rule r, List<GuardPiece> original, string whole)
     {
-        if (r.GuardStatements.Ununified.Count != original.Count)
+        if (r.Guard.Ununified.Count != original.Count)
         {
             throw new RuleParseException(whole, $"Guard referred to variables not in rule.");
         }

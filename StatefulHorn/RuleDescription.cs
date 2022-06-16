@@ -30,7 +30,7 @@ public class RuleDescription
 
     private void GetGuardFromRule(Rule r)
     {
-        foreach ((IAssignableMessage from, HashSet<IMessage> toSet) in r.GuardStatements.Ununified)
+        foreach ((IAssignableMessage from, HashSet<IMessage> toSet) in r.Guard.Ununified)
         {
             foreach (IMessage to in toSet)
             {

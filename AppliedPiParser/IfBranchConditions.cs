@@ -208,7 +208,7 @@ public class IfBranchConditions
     {
         if (cond != null)
         {
-            return r.PerformSubstitution(cond.CreateSigmaMap());
+            return r.Substitute(cond.CreateSigmaMap());
         }
         return r;
     }

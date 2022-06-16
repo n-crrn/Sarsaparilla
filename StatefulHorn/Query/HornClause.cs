@@ -545,7 +545,7 @@ public class HornClause
             return new(
                 scr.Result.Messages.Single(),
                 from p in scr.Premises where p.IsKnow select p.Messages.Single(),
-                scr.GuardStatements);
+                scr.Guard);
         }
         return null;
     }

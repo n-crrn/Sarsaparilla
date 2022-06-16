@@ -139,7 +139,7 @@ public class KnitPattern
         {
             foreach (State rs in reqStates)
             {
-                if (os.CanBeUnifiableWith(rs, other.GuardStatements, r.GuardStatements, new()))
+                if (os.CanBeUnifiableWith(rs, other.Guard, r.Guard, new()))
                 {
                     return true;
                 }
@@ -167,7 +167,7 @@ public class KnitPattern
         {
             foreach (State rs in resultStates)
             {
-                if (os.CanBeUnifiableWith(rs, other.GuardStatements, r.GuardStatements, new()))
+                if (os.CanBeUnifiableWith(rs, other.Guard, r.Guard, new()))
                 {
                     return true;
                 }

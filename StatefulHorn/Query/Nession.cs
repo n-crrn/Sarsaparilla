@@ -79,7 +79,7 @@ public class Nession
         {
             return new(
                 Condition.CloneWithSubstitution(sigmaMap),
-                (StateTransferringRule?)TransferRule?.PerformSubstitution(sigmaMap));
+                (StateTransferringRule?)TransferRule?.Substitute(sigmaMap));
         }
 
         public int CompareTo(object? obj) => obj is StateCell sc ? CompareTo(sc) : 1;
@@ -161,7 +161,7 @@ public class Nession
             HashSet<StateConsistentRule> updatedRules = new();
             foreach (StateConsistentRule r in Rules)
             {
-                StateConsistentRule newR = (StateConsistentRule)r.PerformSubstitution(map);
+                StateConsistentRule newR = (StateConsistentRule)r.Substitute(map);
                 newR.IdTag = r.IdTag;
                 updatedRules.Add(newR);
             }
@@ -177,7 +177,7 @@ public class Nession
             foreach (StateTransferringRule str in transfers)
             {
                 // Update guard.
-                gs = gs.Union(str.GuardStatements);
+                gs = gs.Union(str.Guard);
                 // Find the cell, and replace it.
                 foreach ((Snapshot after, State newState) in str.Result.Transformations)
                 {
@@ -322,7 +322,7 @@ public class Nession
         Nession updated = Substitute(bwdMap);
         for (int i = 0; i < subTransfers.Count; i++)
         {
-            subTransfers[i] = (StateTransferringRule)subTransfers[i].PerformSubstitution(fwdMap);
+            subTransfers[i] = (StateTransferringRule)subTransfers[i].Substitute(fwdMap);
         }
 
         // Create new frame.
@@ -353,7 +353,7 @@ public class Nession
             Frame hf = History[historyId];
             State? nessionCondition = hf.GetStateByName(scName);
             if (nessionCondition == null ||
-                !ss.Condition.CanBeUnifiableWith(nessionCondition, hf.GuardStatements, r.GuardStatements, sf))
+                !ss.Condition.CanBeUnifiableWith(nessionCondition, hf.GuardStatements, r.Guard, sf))
             {
                 match = false;
                 break;
@@ -376,7 +376,7 @@ public class Nession
                 if (!lastMatched.Equals(nessionCondition)) // "No change" is ignored.
                 {
                     //bool canMatch = 
-                    if (prev.S.Condition.CanBeUnifiableWith(nessionCondition, hf.GuardStatements, r.GuardStatements, sf))
+                    if (prev.S.Condition.CanBeUnifiableWith(nessionCondition, hf.GuardStatements, r.Guard, sf))
                     {
                         lastMatched = nessionCondition;
                         prev = prev.S.Prior;
@@ -446,7 +446,7 @@ public class Nession
             Debug.Assert(sf != null);
             SigmaMap fwdMap = sf.CreateForwardMap();
             SigmaMap bwdMap = sf.CreateBackwardMap();
-            StateConsistentRule updatedRule = (StateConsistentRule)r.PerformSubstitution(fwdMap);
+            StateConsistentRule updatedRule = (StateConsistentRule)r.Substitute(fwdMap);
             updatedRule.IdTag = scr.IdTag;
             if (bwdMap.IsEmpty)
             {
@@ -641,7 +641,7 @@ public class Nession
             {
                 // Add know events.
                 HashSet<IMessage> premises = new(from p in r.Premises where p.IsKnow select p.Messages.Single());
-                Guard g = f.GuardStatements.Union(r.GuardStatements);
+                Guard g = f.GuardStatements.Union(r.Guard);
                 List<StateTransferringRule> transferRules = new();
                 foreach (Snapshot rSS in r.Snapshots.Traces)
                 {

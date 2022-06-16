@@ -6,51 +6,76 @@ using System.Text;
 
 namespace StatefulHorn;
 
+/// <summary>
+/// The base class for both types of Stateful Horn Clauses providing common functionality.
+/// </summary>
 public abstract class Rule
 {
+    /// <summary>
+    /// Initialises the base members of the Rule class. This constructor is protected as Stateful
+    /// Horn Clauses do not make sense without their results.
+    /// </summary>
+    /// <param name="lbl">User provided description of the rule.</param>
+    /// <param name="g">Guard to be applied to the rule.</param>
+    /// <param name="prems">Premises required to satisfy rule.</param>
+    /// <param name="ss">Applicable tree of snapshots required to satisfy clause.</param>
     protected Rule(string lbl, Guard g, HashSet<Event> prems, SnapshotTree ss)
     {
         Label = lbl;
         Snapshots = ss;
-        _Premises = prems;
-        GuardStatements = g.IsEmpty ? g : g.Intersect(CollectAllVariables());
+        Premises = prems;
+        Guard = g.IsEmpty ? g : g.Intersect(CollectAllVariables());
     }
 
-    protected void GenerateHashCode()
-    {
-        unchecked
-        {
-            // Prime numbers randomly selected.
-            HashCode = 31;
-            foreach (Event ev in _Premises)
-            {
-                HashCode = HashCode * 41 + ev.GetHashCode();
-            }
-            HashCode = HashCode * 41 + Result.GetHashCode();
-        }
-    }
+    #region Properties.
 
-    #region Common properties
+    /// <summary>
+    /// A user provided description attached to the rule.
+    /// </summary>
+    public string Label { get; set; }
 
-    public Guard GuardStatements;
+    /// <summary>
+    /// What variables in this rule cannot match.
+    /// </summary>
+    public Guard Guard { get; protected set; }
 
+    /// <summary>
+    /// The applicable tree of snapshots required to satisfy the clause.
+    /// </summary>
     public SnapshotTree Snapshots { get; init; }
 
-    protected readonly HashSet<Event> _Premises;
-    public IReadOnlySet<Event> Premises => _Premises;
+    /// <summary>
+    /// The premises required for the rule to be applicable. It is assumed that individual
+    /// Snapshots have been associated with individual premises as part of the 
+    /// creation of that Snapshots prior to rule initialisation.
+    /// </summary>
+    public IReadOnlySet<Event> Premises { get; private set; }
 
+    /// <summary>
+    /// The result of applying the rule to a system.
+    /// </summary>
+    /// <remarks>
+    /// This member is abstract as the defining difference between State Consistent Rules and 
+    /// State Transferring Rules is the nature of the result.
+    /// </remarks>
     public abstract ISigmaUnifiable Result { get; }
 
+    /// <summary>
+    /// True if this rule does not rely on state for its application.
+    /// </summary>
     public bool IsStateless => Snapshots.IsEmpty;
 
-    public bool HasPremiseVariables => (from p in _Premises where p.IsKnow && p.ContainsVariables select p).Any();
-    
+    /// <summary>
+    /// Return the list of variables used within the premises of this rule. Note that this is not
+    /// the full list of variables within the rule, as there may be variables used within the
+    /// snapshots.
+    /// </summary>
     public HashSet<IMessage> PremiseVariables
     {
         get
         {
             HashSet<IMessage> variables = new();
-            foreach (Event prem in _Premises)
+            foreach (Event prem in Premises)
             {
                 if (prem.EventType == Event.Type.Know)
                 {
@@ -61,19 +86,21 @@ public abstract class Rule
         }
     }
 
-    public IEnumerable<Event> NonceDeclarations => from p in _Premises where p.EventType == Event.Type.New select p;
+    /// <summary>
+    /// The list of nonces declared in the premises of this rule.
+    /// </summary>
+    public IEnumerable<Event> NonceDeclarations => from p in Premises where p.EventType == Event.Type.New select p;
 
     /// <summary>
     /// Go through the premises, and determine which nonces are used by this rule that are not
     /// declared by the rule.
     /// </summary>
-    /// <returns>Nonces that need to be declared before this rule can be used.</returns>
     public IEnumerable<NonceMessage> NoncesRequired
     {
         get
         {
             HashSet<IMessage> foundNonces = new();
-            foreach (Event ev in (from p in _Premises where p.IsKnow select p))
+            foreach (Event ev in (from p in Premises where p.IsKnow select p))
             {
                 ev.Messages.Single().CollectMessages(foundNonces, (IMessage msg) => msg is NonceMessage);
             }
@@ -88,8 +115,21 @@ public abstract class Rule
 
     #endregion
 
-    // The following tuple is of form Snapshot, Trace Index, Offset Index with Trace.
-    protected List<(Snapshot, int, int)>? DetermineSnapshotCorrespondencesWith(Rule other, Guard fwdGuard, Guard bwdGuard, SigmaFactory sf)
+    /// <summary>
+    /// This method supports the Li et al 2017 paper's algorithms for composition and state
+    /// transformation. It determines which snapshots in this rule correspond with the 
+    /// snapshots in other.
+    /// </summary>
+    /// <param name="other">Rule to compare with.</param>
+    /// <param name="sf">SigmaFactory for assessing and storing substitutions.</param>
+    /// <returns>
+    /// A list of tuples of the form: (1) Snapshot; (2) Which trace the snapshot is part of;
+    /// and (3) The offset of the snapshot from the head of the trace. If null, then no
+    /// correspondence was found.
+    /// </returns> 
+    protected List<(Snapshot, int, int)>? DetermineSnapshotCorrespondencesWith(
+        Rule other,
+        SigmaFactory sf)
     {
         List<(Snapshot, int, int)>? overallCorres = new();
 
@@ -99,7 +139,13 @@ public abstract class Rule
             for (int otherTraceI = 0; otherTraceI < other.Snapshots.Traces.Count; otherTraceI++)
             {
                 Snapshot otherTrace = other.Snapshots.Traces[otherTraceI];
-                List<(Snapshot, int, int)>? corres = IsTraceUnifiableWith(ss, otherTrace, otherTraceI, fwdGuard, bwdGuard, sf);
+                List<(Snapshot, int, int)>? corres = IsTraceUnifiableWith(
+                    ss, 
+                    otherTrace, 
+                    otherTraceI, 
+                    Guard, 
+                    other.Guard, 
+                    sf);
                 if (corres != null)
                 {
                     found = true;
@@ -118,6 +164,24 @@ public abstract class Rule
         return overallCorres;
     }
 
+    /// <summary>
+    /// Determine if the two "next" snapshot list can be unified based on history in their 
+    /// respective trees. This method supports the Li et al 2017 paper's algorithms for 
+    /// composition and state transformation.
+    /// </summary>
+    /// <param name="ss1">The first starsnapshot to consider.</param>
+    /// <param name="ss2">The second snapshot to consider.</param>
+    /// <param name="traceId">
+    /// Which trace is being investigated, used for setting the return tuple.
+    /// </param>
+    /// <param name="fwdGuard">The guard statements associated with the first snapshot.</param>
+    /// <param name="bwdGuard">The guard statements associated with the second snapshot.</param>
+    /// <param name="sf">The SigmaFactory used for substitution deconfliction and storage.</param>
+    /// <returns>
+    /// A list of tuples of the form: (1) Snapshot; (2) Which trace the snapshot is part of;
+    /// and (3) The offset of the snapshot from the head of the trace. If null, then no
+    /// correspondence was found.
+    /// </returns>
     private static List<(Snapshot, int, int)>? IsTraceUnifiableWith(
         Snapshot ss1, 
         Snapshot ss2, 
@@ -127,7 +191,8 @@ public abstract class Rule
         SigmaFactory sf)
     {
         List<(Snapshot, int, int)>? matches = null;
-        if (ss1.Condition.Name == ss2.Condition.Name && ss1.Condition.CanBeUnifiableWith(ss2.Condition, fwdGuard, bwdGuard, sf))
+        if (ss1.Condition.Name == ss2.Condition.Name &&
+            ss1.Condition.CanBeUnifiableWith(ss2.Condition, fwdGuard, bwdGuard, sf))
         {
             matches = new();
             Snapshot.PriorLink? prior1 = ss1.Prior;
@@ -139,7 +204,8 @@ public abstract class Rule
                 {
                     return null;
                 }
-                if (prior1.O == prior2.O && prior1.S.Condition.CanBeUnifiableWith(prior2.S.Condition, fwdGuard, bwdGuard, sf))
+                if (prior1.O == prior2.O && 
+                    prior1.S.Condition.CanBeUnifiableWith(prior2.S.Condition, fwdGuard, bwdGuard, sf))
                 {
                     matches.Add(new(prior1.S, traceId, offset));
                     prior1 = prior1.S.Prior;
@@ -172,13 +238,35 @@ public abstract class Rule
         // the same thing.
         return obj is Rule otherRule &&
                Result.Equals(otherRule.Result) &&
-               _Premises.Count == otherRule._Premises.Count &&
-               _Premises.SetEquals(otherRule._Premises) &&
+               Premises.Count == otherRule.Premises.Count &&
+               Premises.SetEquals(otherRule.Premises) &&
                Snapshots.Equals(otherRule.Snapshots) &&
-               GuardStatements.Equals(otherRule.GuardStatements);
+               Guard.Equals(otherRule.Guard);
     }
 
+    /// <summary>
+    /// Cached calculated hash code for the rule.
+    /// </summary>
     private int HashCode = 0;
+
+    /// <summary>
+    /// Creates a hash code based on the rule's premises and result. Rules are commonly placed in 
+    /// HashSets in order to remove duplicates, so it is calculated once and cached in member
+    /// HashCode.
+    /// </summary>
+    protected void GenerateHashCode()
+    {
+        unchecked
+        {
+            // Prime numbers 31 and 41 selected at random.
+            HashCode = 31;
+            foreach (Event ev in Premises)
+            {
+                HashCode = HashCode * 41 + ev.GetHashCode();
+            }
+            HashCode = HashCode * 41 + Result.GetHashCode();
+        }
+    }
 
     public override int GetHashCode() => HashCode;
 
@@ -195,11 +283,27 @@ public abstract class Rule
     /// <param name="g">Combined guard statement for the new rule.</param>
     /// <param name="prems">Premises for the new rule.</param>
     /// <param name="ss">Snapshot tree of the new rule.</param>
-    /// <param name="substitutions">The list of substitutions that need to be conducted on the result.</param>
+    /// <param name="substitutions">
+    /// The list of substitutions that need to be conducted on the result.
+    /// </param>
     /// <returns>A new rule with the same result as this one.</returns>
-    public abstract Rule CreateDerivedRule(string label, Guard g, HashSet<Event> prems, SnapshotTree ss, SigmaMap substitutions);
+    public abstract Rule CreateDerivedRule(
+        string label, 
+        Guard g, 
+        HashSet<Event> prems, 
+        SnapshotTree ss, 
+        SigmaMap substitutions);
 
-    public Rule PerformSubstitution(SigmaMap sigma)
+    /// <summary>
+    /// Replace variables within the rule with the values specified in the given SigmaMap.
+    /// </summary>
+    /// <param name="sigma">
+    /// List of valid substitutions. May include variables not used within this rule.
+    /// </param>
+    /// <returns>
+    /// A new rule with the substitutions performed.
+    /// </returns>
+    public Rule Substitute(SigmaMap sigma)
     {
         if (sigma.IsEmpty)
         {
@@ -207,7 +311,7 @@ public abstract class Rule
         }
 
         string newLabel = $"{Label} · {sigma}";
-        Guard newG = GuardStatements.PerformSubstitution(sigma);
+        Guard newG = Guard.PerformSubstitution(sigma);
         HashSet<Event> newPremises = new(Premises.Count);
         foreach (Event p in Premises)
         {
@@ -217,6 +321,10 @@ public abstract class Rule
         return CreateDerivedRule(newLabel, newG, newPremises, newTree, sigma);
     }
 
+    /// <summary>
+    /// Return a set containing all variables defined within the Rule's premises and snapshots.
+    /// </summary>
+    /// <returns>Set of variable messages.</returns>
     private HashSet<IMessage> CollectAllVariables()
     {
         HashSet<IMessage> oldVars = PremiseVariables;
@@ -227,89 +335,99 @@ public abstract class Rule
         return oldVars;
     }
 
+    /// <summary>
+    /// When adding a rule to a nession, there needs to be a way to consider variables with the
+    /// same name differently. To prevent namespace collisions, variables are renamed with a 
+    /// "subscript" to retain understandability yet specify that they are unique to the rule.
+    /// </summary>
+    /// <param name="subscript">The text to apply after the variable name.</param>
+    /// <returns>A new rule with variables replaced by subscripted ones.</returns>
     public Rule SubscriptVariables(string subscript)
     {
         HashSet<IMessage> oldVars = CollectAllVariables();
-        List<(IMessage Variable, IMessage Value)> newVars = new(from v in oldVars 
-                                                                select (v, MessageUtils.SubscriptVariableMessage(v, subscript)));
-        return PerformSubstitution(new SigmaMap(newVars));
+        List<(IMessage Variable, IMessage Value)> newVars = 
+            new(from v in oldVars 
+                select (v, MessageUtils.SubscriptVariableMessage(v, subscript)));
+        return Substitute(new SigmaMap(newVars));
     }
 
     /// <summary>
-    /// A "facts substitution" is initially used by the query engine to create the initial rules.
-    /// It means that every premise substituted can be removed as it is assumed from the ruleset.
-    /// This helps to reduce the number of rule compositions that need to be conducted at later
-    /// stages in the elaboration.
+    /// Create a new copy of the rule.
     /// </summary>
-    /// <param name="map">Substitutions to make.</param>
-    /// <returns>A new rule with substituted premises removed from the rule.</returns>
-    public Rule PerformFactsSubstitution(SigmaMap sigma)
-    {
-        string newLabel = $"{Label} · {sigma}";
-        Guard newG = GuardStatements.PerformSubstitution(sigma);
-        HashSet<Event> newPremises = new();
-        foreach (Event p in Premises)
-        {
-            Event updatedPremise = p.PerformSubstitution(sigma);
-            if (updatedPremise.Equals(p) || updatedPremise.ContainsVariables)
-            {
-                // The premise was not affected by the substitution, so will not be removed for
-                // being a fact.
-                newPremises.Add(updatedPremise);
-            }
-        }
-        SnapshotTree newTree = Snapshots.PerformSubstitutions(sigma);
-        return CreateDerivedRule(newLabel, newG, newPremises, newTree, sigma);
-    }
-
+    /// <returns>New rule with premises and snapshots also fully duplicated.</returns>
     public Rule Clone()
     {
-        return CreateDerivedRule(Label, GuardStatements, new(Premises), Snapshots.CloneTree(), SigmaMap.Empty);
+        return CreateDerivedRule(Label, Guard, new(Premises), Snapshots.CloneTree(), SigmaMap.Empty);
     }
 
     #endregion
     #region Filtering
 
-    public virtual bool ContainsMessage(IMessage msg)
+    /// <summary>Searches the clause result for the given message.</summary>
+    /// <param name="msg">Message to find.</param>
+    /// <returns>True if the message is found in the result.</returns>
+    protected abstract bool ResultContainsMessage(IMessage msg);
+
+    /// <summary>Searches the clause result for the given event.</summary>
+    /// <param name="ev">Event to find.</param>
+    /// <returns>True if the event is present in the result.</returns>
+    protected abstract bool ResultContainsEvent(Event ev);
+
+    /// <summary>Searches the clause result for the given state.</summary>
+    /// <param name="st">State to find.</param>
+    /// <returns>True if the state is present in the result.</returns>
+    protected abstract bool ResultContainsState(State st);
+
+    /// <summary>
+    /// Searches the rule for any mention of the given message. Note that the Guard is not
+    /// searched.
+    /// </summary>
+    /// <param name="msg">Message to find.</param>
+    /// <returns>True if found in either the premises, snapshots or result.</returns>
+    public bool ContainsMessage(IMessage msg)
     {
         return
-            _Premises.Any((Event ev) => ev.ContainsMessage(msg)) ||
-            //null != _Premises.Find((Event ev) => ev.ContainsMessage(msg)) ||
+            Premises.Any((Event ev) => ev.ContainsMessage(msg)) ||
             Snapshots.ContainsMessage(msg) ||
             ResultContainsMessage(msg);
     }
 
-    protected abstract bool ResultContainsMessage(IMessage msg);
-
-    public virtual bool ContainsEvent(Event ev)
+    /// <summary>
+    /// Searches the premise and result for the given message.
+    /// </summary>
+    /// <param name="ev">Event to find.</param>
+    /// <returns>True if the event appears in the premise or result.</returns>
+    public bool ContainsEvent(Event ev)
     {
-        return _Premises.Contains(ev) || ResultContainsEvent(ev);
+        return Premises.Contains(ev) || ResultContainsEvent(ev);
     }
 
-    protected abstract bool ResultContainsEvent(Event ev);
-
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="st"></param>
+    /// <returns></returns>
     public virtual bool ContainsState(State st)
     {
         return Snapshots.ContainsState(st) || ResultContainsState(st);
     }
 
-    protected abstract bool ResultContainsState(State st);
-
     #endregion
     #region Textual rule description
 
-    public string Label { get; set; }
-
+    /// <summary>
+    /// Provide the textual description of the premises, when the premises are linked to snapshots.
+    /// </summary>
     protected string LinkedPremisesDescription
     {
         get
         {
-            if (_Premises.Count == 0)
+            if (Premises.Count == 0)
             {
                 return ""; // If there are no premises, output an empty string.
             }
 
-            List<Event> premiseList = _Premises.ToList();
+            List<Event> premiseList = Premises.ToList();
             List<string> premiseStrings = new();
             for (int i = 0; i < premiseList.Count; i++)
             {
@@ -353,23 +471,32 @@ public abstract class Rule
         return buffer.ToString();
     }
 
-    private string FreePremisesDescription => string.Join(", ", from p in _Premises select p.ToString());
-
+    /// <summary>
+    /// Abstract method providing the textual description of the result of a clause.
+    /// </summary>
+    /// <returns>Text description of the clause result.</returns>
     protected abstract string DescribeResult();
 
+    /// <summary>
+    /// Cached value of the string description, as used by ToString().
+    /// </summary>
     private string? Description;
 
-    public override string ToString() => Description ??= /*Label + " = " +*/ Describe();
+    public override string ToString() => Description ??= Describe();
 
+    /// <summary>
+    /// Generates the textual description of the rule, which is cached for usage by ToString();
+    /// </summary>
+    /// <returns>String description of the rule.</returns>
     public string Describe()
     {
-        string gDesc = GuardStatements.IsEmpty ? "" : "[" + GuardStatements.ToString() + "] ";
+        string gDesc = Guard.IsEmpty ? "" : "[" + Guard.ToString() + "] ";
         string ssDesc;
         string premisesDesc;
         if (Snapshots.IsEmpty)
         {
             ssDesc = "";
-            premisesDesc = FreePremisesDescription;
+            premisesDesc = string.Join(", ", from p in Premises select p.ToString());
         }
         else
         {
@@ -382,7 +509,15 @@ public abstract class Rule
         return NonEmptyJoiner(gDesc, premisesDesc, "-[", ssDesc, "]->", resultDesc);
     }
 
-    private static string NonEmptyJoiner(params string[] parts) => string.Join(" ", from p in parts where p.Length > 0 select p);
+    /// <summary>
+    /// Support method for Describe(), allowing strings to be joined with only single spaces.
+    /// </summary>
+    /// <param name="parts">List of strings to join.</param>
+    /// <returns>Single connected string without consecutive spaces.</returns>
+    private static string NonEmptyJoiner(params string[] parts)
+    {
+        return string.Join(" ", from p in parts where p.Length > 0 select p);
+    }
 
     #endregion
 }

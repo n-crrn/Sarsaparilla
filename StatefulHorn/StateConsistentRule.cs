@@ -44,7 +44,7 @@ public class StateConsistentRule : Rule
         {
             if (!Result.ContainsVariables)
             {
-                foreach (Event prem in _Premises)
+                foreach (Event prem in Premises)
                 {
                     if (prem.ContainsVariables)
                     {
@@ -59,7 +59,7 @@ public class StateConsistentRule : Rule
 
     public bool AreAllPremisesKnown(HashSet<IMessage> ruleSet1, HashSet<IMessage> ruleSet2)
     {
-        foreach (Event ev in _Premises)
+        foreach (Event ev in Premises)
         {
             if (ev.IsKnow && !IsPremiseKnown(ruleSet1, ruleSet2, ev.Messages[0]))
             {
@@ -83,7 +83,7 @@ public class StateConsistentRule : Rule
     public IEnumerable<IMessage> GetAllBasicMessages()
     {
         Stack<IMessage> compoundStack = new();
-        foreach (Event ev in _Premises)
+        foreach (Event ev in Premises)
         {
             if (ev.IsKnow)
             {
@@ -135,7 +135,7 @@ public class StateConsistentRule : Rule
         foreach (Event premise in r.Premises)
         {
             sf = new();
-            if (Result.CanBeUnifiableWith(premise, GuardStatements, r.GuardStatements, sf))
+            if (Result.CanBeUnifiableWith(premise, Guard, r.Guard, sf))
             {
                 return true;
             }
@@ -156,7 +156,7 @@ public class StateConsistentRule : Rule
         SigmaMap fwdSigma = substitutions.CreateForwardMap();
         SigmaMap bwdSigma = substitutions.CreateBackwardMap();
 
-        Guard g = GuardStatements.PerformSubstitution(fwdSigma).Union(r.GuardStatements.PerformSubstitution(bwdSigma));
+        Guard g = Guard.PerformSubstitution(fwdSigma).Union(r.Guard.PerformSubstitution(bwdSigma));
 
         Dictionary<Event, Event> updatedPremises = new(Premises.Count + r.Premises.Count - 1);
         HashSet<Event> h = new(Premises.Count);
@@ -259,7 +259,7 @@ public class StateConsistentRule : Rule
         {
             return null;
         }
-        (SnapshotTree? newTree, SigmaFactory? sf) = Snapshots.TryCompress(GuardStatements);
+        (SnapshotTree? newTree, SigmaFactory? sf) = Snapshots.TryCompress(Guard);
         if (newTree == null)
         {
             return null;
@@ -282,12 +282,12 @@ public class StateConsistentRule : Rule
             }
         }
         Event updatedResult = Result.PerformSubstitution(mergeMap);
-        return new($"comp({Label})", GuardStatements, newPremises, newTree, updatedResult);
+        return new($"comp({Label})", Guard, newPremises, newTree, updatedResult);
     }
 
-    public List<NonceMessage> NewNonces => (from p in _Premises where p.IsNew select (NonceMessage)p.Messages.Single()).ToList();
+    public List<NonceMessage> NewNonces => (from p in Premises where p.IsNew select (NonceMessage)p.Messages.Single()).ToList();
 
-    public IEnumerable<Event> NewEvents => from p in _Premises where p.IsNew select p;
+    public IEnumerable<Event> NewEvents => from p in Premises where p.IsNew select p;
 
     private bool CanComposeUpon(StateConsistentRule r, out SigmaFactory? sf, out List<(Snapshot, int, int)>? overallCorrespondence)
     {
@@ -295,7 +295,7 @@ public class StateConsistentRule : Rule
         foreach (Event premise in r.Premises)
         {
             sf = new();
-            if (Result.CanBeUnifiableWith(premise, GuardStatements, r.GuardStatements, sf))
+            if (Result.CanBeUnifiableWith(premise, Guard, r.Guard, sf))
             {
                 // If nonced declared in this rule are declared in the other r, then the two rules
                 // cannot be composed as they cross sessions.
@@ -315,7 +315,7 @@ public class StateConsistentRule : Rule
                     overallCorrespondence = new();
                     return true;
                 }
-                List<(Snapshot, int, int)>? overallCorres = DetermineSnapshotCorrespondencesWith(r, GuardStatements, r.GuardStatements, sf);
+                List<(Snapshot, int, int)>? overallCorres = DetermineSnapshotCorrespondencesWith(r, sf);
                 if (overallCorres != null)
                 {
                     overallCorrespondence = overallCorres;
@@ -338,7 +338,7 @@ public class StateConsistentRule : Rule
         SigmaMap fwdSigma = substitutions.CreateForwardMap();
         SigmaMap bwdSigma = substitutions.CreateBackwardMap();
 
-        Guard g = GuardStatements.PerformSubstitution(fwdSigma).Union(r.GuardStatements.PerformSubstitution(bwdSigma));
+        Guard g = Guard.PerformSubstitution(fwdSigma).Union(r.Guard.PerformSubstitution(bwdSigma));
 
         Dictionary<Event, Event> updatedPremises = new(Premises.Count + r.Premises.Count - 1);
         HashSet<Event> h = new(Premises.Count);

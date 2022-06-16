@@ -189,7 +189,7 @@ public class ParseTests
         {
             Rule generated = parser.Parse(src);
             AssertRulesEqual(expected, generated, src);
-            Assert.AreEqual(1, generated.GuardStatements.Ununified.Count);
+            Assert.AreEqual(1, generated.Guard.Ununified.Count);
         }
     }
 
@@ -416,7 +416,7 @@ public class ParseTests
     /// <param name="underTest">The rule under test.</param>
     private static void DebugEquivalence(Rule expected, Rule underTest)
     {
-        bool guardsMatch = expected.GuardStatements.Equals(underTest.GuardStatements);
+        bool guardsMatch = expected.Guard.Equals(underTest.Guard);
 
         HashSet<Event> expectedEvents = new(expected.Premises);
         HashSet<Event> underTestEvents = new(underTest.Premises);
