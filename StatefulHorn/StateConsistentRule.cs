@@ -156,7 +156,7 @@ public class StateConsistentRule : Rule
         SigmaMap fwdSigma = substitutions.CreateForwardMap();
         SigmaMap bwdSigma = substitutions.CreateBackwardMap();
 
-        Guard g = Guard.PerformSubstitution(fwdSigma).Union(r.Guard.PerformSubstitution(bwdSigma));
+        Guard g = Guard.Substitute(fwdSigma).Union(r.Guard.Substitute(bwdSigma));
 
         Dictionary<Event, Event> updatedPremises = new(Premises.Count + r.Premises.Count - 1);
         HashSet<Event> h = new(Premises.Count);
@@ -338,7 +338,7 @@ public class StateConsistentRule : Rule
         SigmaMap fwdSigma = substitutions.CreateForwardMap();
         SigmaMap bwdSigma = substitutions.CreateBackwardMap();
 
-        Guard g = Guard.PerformSubstitution(fwdSigma).Union(r.Guard.PerformSubstitution(bwdSigma));
+        Guard g = Guard.Substitute(fwdSigma).Union(r.Guard.Substitute(bwdSigma));
 
         Dictionary<Event, Event> updatedPremises = new(Premises.Count + r.Premises.Count - 1);
         HashSet<Event> h = new(Premises.Count);

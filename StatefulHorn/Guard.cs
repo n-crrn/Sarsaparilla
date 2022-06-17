@@ -1,39 +1,79 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
+using StatefulHorn.Messages;
+
 namespace StatefulHorn;
 
+/// <summary>
+/// Guards are applied to rules to indicate what values variables within the rule cannot take.
+/// In the broader context of Stateful Horn Clauses, these Guards provide the means by which
+/// conditional statements can be enforced within a system. Instances of this class are
+/// intended to be immutable.
+/// </summary>
 public class Guard
 {
+    /// <summary>
+    /// Most rules in most systems will not have a guard applied. To save creating many, many 
+    /// identical empty Guards, this field exists in the same way that string.Empty does.
+    /// </summary>
     public static readonly Guard Empty = new();
 
-    public Guard()
+    #region Constructors.
+
+    /// <summary>
+    /// The empty constructor. This is private to enforce the use of Guard.Empty where possible.
+    /// </summary>
+    private Guard()
     {
-        _Ununified = new();
+        Ununified = new Dictionary<IAssignableMessage, HashSet<IMessage>>();
     }
 
+    /// <summary>
+    /// Create a new guard with only one entry. This constructor tends to be used for unit tests.
+    /// </summary>
+    /// <param name="aMsg">The assignable message.</param>
+    /// <param name="vMsg">The banned value for the assignable message.</param>
     public Guard(IAssignableMessage aMsg, IMessage vMsg)
     {
-        _Ununified = new() { { aMsg, new() { vMsg } } };
+        Ununified = new Dictionary<IAssignableMessage, HashSet<IMessage>>() 
+        { 
+            { aMsg, new() { vMsg } } 
+        };
     }
 
-    private Guard(Dictionary<IAssignableMessage, HashSet<IMessage>> ununifiedComb)
-    {
-        _Ununified = ununifiedComb;
-    }
-
+    /// <summary>
+    /// Create a new guard based on the provided dictionary, which associated assignable values
+    /// with values that they cannot take.
+    /// </summary>
+    /// <param name="ununifedCombOrig">
+    /// Dictionary indexed by assignable messages, pointing to sets of values that they cannot
+    /// take.
+    /// </param>
     public Guard(IReadOnlyDictionary<IAssignableMessage, HashSet<IMessage>> ununifedCombOrig)
     {
-        _Ununified = new(ununifedCombOrig);
+        Ununified = new Dictionary<IAssignableMessage, HashSet<IMessage>>(ununifedCombOrig);
     }
 
+    /// <summary>
+    /// A method for constructing a Guard based upon a set of tuples rather than a Dictionary. 
+    /// This method is used by the RuleParser.
+    /// </summary>
+    /// <param name="ununifiedInput">
+    /// Set of tuples of assignable messages with their banned values.
+    /// </param>
+    /// <returns>A Guard reflecting the bans.</returns>
     public static Guard CreateFromSets(HashSet<(IAssignableMessage, IMessage)> ununifiedInput)
     {
-        Dictionary<IAssignableMessage, HashSet<IMessage>> ununifiedComb = new();
+        if (ununifiedInput.Count == 0)
+        {
+            return Empty;
+        }
 
+        Dictionary<IAssignableMessage, HashSet<IMessage>> ununifiedComb = new();
         foreach ((IAssignableMessage, IMessage) row in ununifiedInput)
         {
-            if(ununifiedComb.TryGetValue(row.Item1, out HashSet<IMessage>? values))
+            if (ununifiedComb.TryGetValue(row.Item1, out HashSet<IMessage>? values))
             {
                 values.Add(row.Item2);
             }
@@ -42,34 +82,108 @@ public class Guard
                 ununifiedComb[row.Item1] = new() { row.Item2 };
             }
         }
-
         return new(ununifiedComb);
     }
 
-    private readonly Dictionary<IAssignableMessage, HashSet<IMessage>> _Ununified;
+    #endregion
+    #region Properties.
 
-    public IReadOnlyDictionary<IAssignableMessage, HashSet<IMessage>> Ununified => _Ununified;
+    /// <summary>
+    /// The central dictionary of banned values.
+    /// </summary>
+    private IReadOnlyDictionary<IAssignableMessage, HashSet<IMessage>> Ununified { get; init; }
 
+    /// <summary>
+    /// True if there are no variable replacements blocked.
+    /// </summary>
+    public bool IsEmpty => Ununified.Count == 0;
+
+    /// <summary>
+    /// Cached calculated hash code.
+    /// </summary>
+    private int HashCode = 0;
+
+    #endregion
+    #region Message application.
+
+    /// <summary>
+    /// Determines if the given messages can be unified from msg1 to msg2 according to this Guard.
+    /// </summary>
+    /// <param name="msg1">The assignable message desired to be set.</param>
+    /// <param name="msg2">The value to be set to.</param>
+    /// <returns>True if </returns>
     public bool CanUnifyMessages(IAssignableMessage msg1, IMessage msg2)
     {
-        if (_Ununified.TryGetValue(msg1, out HashSet<IMessage>? bannedList))
+        if (Ununified.TryGetValue(msg1, out HashSet<IMessage>? bannedSet))
         {
-            return !bannedList.Contains(msg2);
+            return bannedSet.Contains(msg2);
         }
         return true;
     }
 
+    /// <summary>
+    /// Determine if the provided replacements are valid by the guard. This method will do an 
+    /// "overall" check, checking cross-references (where one variable refers to another) to
+    /// ensure correctness.
+    /// </summary>
+    /// <param name="subs">Dictionary of message substitutions.</param>
+    /// <returns>True if the proposed substitutions comply with this guard.</returns>
+    public bool CanUnifyAllMessages(IDictionary<VariableMessage, IMessage> subs)
+    {
+        foreach ((VariableMessage vMsg, IMessage otherMsg) in subs)
+        {
+            if (Ununified.TryGetValue(vMsg, out HashSet<IMessage>? bannedSet))
+            {
+                if (bannedSet.Contains(otherMsg))
+                {
+                    return false;
+                }
+                IEnumerable<VariableMessage> crossRef = from m in bannedSet
+                                                        where m is VariableMessage
+                                                        select (VariableMessage)m;
+                foreach (VariableMessage vm in crossRef)
+                {
+                    if (subs.TryGetValue(vm, out IMessage? nextValue) && otherMsg.Equals(nextValue))
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    #endregion
+    #region Guard operations.
+
+    /// <summary>
+    /// Merge the entries of two Guards into a new third one. The assumption of this rule is that
+    /// the variables involved at the end of the union will be the same variables in use as at the
+    /// start.
+    /// </summary>
+    /// <param name="other">Guard to merge with.</param>
+    /// <returns>A new guard containing restrictions from both Guards.</returns>
     public Guard Union(Guard other)
     {
+        if (IsEmpty && other.IsEmpty)
+        {
+            return Guard.Empty;
+        }
         Dictionary<IAssignableMessage, HashSet<IMessage>> comb = new();
-        ImportUnunifiedList(comb, _Ununified);
-        ImportUnunifiedList(comb, other._Ununified);
+        ImportUnunifiedList(comb, Ununified);
+        ImportUnunifiedList(comb, other.Ununified);
         return new(comb);
     }
 
+    /// <summary>
+    /// Conducts the merging of two dictionaries of replacements. This is used within the 
+    /// Union(...) method call.
+    /// </summary>
+    /// <param name="newDict">The dictionary that will be kept.</param>
+    /// <param name="oldDict">The dictionary items are being sorced from.</param>
     private static void ImportUnunifiedList(
-        Dictionary<IAssignableMessage, HashSet<IMessage>> newDict,
-        Dictionary<IAssignableMessage, HashSet<IMessage>> oldDict)
+        IDictionary<IAssignableMessage, HashSet<IMessage>> newDict,
+        IReadOnlyDictionary<IAssignableMessage, HashSet<IMessage>> oldDict)
     {
         foreach ((IAssignableMessage vMsg, HashSet<IMessage>? oldSet) in oldDict)
         {
@@ -84,12 +198,25 @@ public class Guard
         }
     }
 
+    /// <summary>
+    /// Return a Guard that only contains the assignables defined in the given set.
+    /// </summary>
+    /// <param name="varMsgs">Set of variable messages.</param>
+    /// <returns>
+    /// If the varMsgs are empty, return this Guard. Otherwise, return a new Guard where only
+    /// the assignables in the set are retained.
+    /// </returns>
     public Guard Intersect(HashSet<IMessage> varMsgs)
     {
+        if (varMsgs.Count == 0)
+        {
+            return this;
+        }
         Dictionary<IAssignableMessage, HashSet<IMessage>> newDict = new();
         foreach (IMessage vMsg in varMsgs)
         {
-            if (vMsg is IAssignableMessage aMsg && _Ununified.TryGetValue(aMsg, out HashSet<IMessage>? collection))
+            if (vMsg is IAssignableMessage aMsg 
+                && Ununified.TryGetValue(aMsg, out HashSet<IMessage>? collection))
             {
                 newDict[aMsg] = collection;
             }
@@ -97,17 +224,37 @@ public class Guard
         return new(newDict);
     }
 
-    public Guard PerformSubstitution(SigmaMap sigma)
+    /// <summary>
+    /// Return a guard where the variable mentions within the Guard have been substituted in 
+    /// accordance with the given SigmaMap. Where a left-hand-side variable is substituted, it is
+    /// removed entirely from the Guard.
+    /// </summary>
+    /// <param name="sigma">The map of replacements.</param>
+    /// <returns>
+    /// If an empty SigmaMap is provided, then this Guard is returned. Otherwise, a new
+    /// Guard object is created with the appropriate substitutions made.
+    /// </returns>
+    public Guard Substitute(SigmaMap sigma)
     {
-        return _Ununified.Count == 0 || sigma.IsEmpty ? this : new(Substitute(_Ununified, sigma));
+        return Ununified.Count == 0 
+            || sigma.IsEmpty ? this : new(SubstituteDictionary(Ununified, sigma));
     }
 
-    private static Dictionary<IAssignableMessage, HashSet<IMessage>> Substitute(
-        Dictionary<IAssignableMessage, HashSet<IMessage>> input, 
+    /// <summary>
+    /// Replace occurrences of variables in the dictionary input with values as specified by
+    /// sigma. If a left-hand-side variable is replaced (i.e. instanced), then remove it 
+    /// completely from the set.
+    /// </summary>
+    /// <param name="input">Dictionary with values to replace.</param>
+    /// <param name="sigma">Sigma map.</param>
+    /// <returns>
+    /// A new dictionary with variables replaced as specified.
+    /// </returns>
+    private static Dictionary<IAssignableMessage, HashSet<IMessage>> SubstituteDictionary(
+        IReadOnlyDictionary<IAssignableMessage, HashSet<IMessage>> input, 
         SigmaMap sigma)
     {
         Dictionary<IAssignableMessage, HashSet<IMessage>> updated = new();
-
         foreach ((IAssignableMessage vMsg, HashSet<IMessage> set) in input)
         {
             IMessage possRepl = vMsg.PerformSubstitution(sigma);
@@ -117,23 +264,53 @@ public class Guard
                 updated[setMsg] = new HashSet<IMessage>(from s in set select s.PerformSubstitution(sigma));
             }
         }
-
         return updated;
     }
 
-    public bool IsEmpty => _Ununified.Count == 0;
+    /// <summary>
+    /// Executes the IMessage.CollectVariables(...) method on all messages held within the Guard.
+    /// </summary>
+    /// <param name="varSet">Set to collect the variables.</param>
+    public void CollectVariables(HashSet<IMessage> varSet)
+    {
+        foreach ((IAssignableMessage assigner, HashSet<IMessage> banned) in Ununified)
+        {
+            assigner.CollectVariables(varSet);
+            foreach (IMessage b in banned)
+            {
+                b.CollectVariables(varSet);
+            }
+        }
+    }
 
+    /// <summary>
+    /// Expresses the central dictionary of terms as an enumeration of tuples, with each tuple
+    /// containing an assignable value and a value that it cannot take.
+    /// </summary>
+    /// <returns>Guard as a list of assignable and banned value tuples.</returns>
+    public IEnumerable<(IMessage, IMessage)> ToTuples()
+    {
+        foreach ((IAssignableMessage from, HashSet<IMessage> toSet) in Ununified)
+        {
+            foreach (IMessage to in toSet)
+            {
+                yield return (from, to);
+            }
+        }
+    }
+
+    #endregion
     #region Basic object overrides.
 
     public override string ToString()
     {
-        if (_Ununified.Count == 0)
+        if (Ununified.Count == 0)
         {
             return "<EMPTY>";
         }
 
         List<string> nonunif = new();
-        foreach ((IAssignableMessage vMsg, HashSet<IMessage> set) in _Ununified)
+        foreach ((IAssignableMessage vMsg, HashSet<IMessage> set) in Ununified)
         {
             foreach (IMessage msg in set)
             {
@@ -147,13 +324,13 @@ public class Guard
     {
         if (obj is Guard og)
         {
-            if (_Ununified.Count != og._Ununified.Count)
+            if (Ununified.Count != og.Ununified.Count)
             {
                 return false;
             }
-            foreach ((IAssignableMessage thisVMsg, HashSet<IMessage> thisSet) in _Ununified)
+            foreach ((IAssignableMessage thisVMsg, HashSet<IMessage> thisSet) in Ununified)
             {
-                if (!og._Ununified.TryGetValue(thisVMsg, out HashSet<IMessage>? otherSet))
+                if (!og.Ununified.TryGetValue(thisVMsg, out HashSet<IMessage>? otherSet))
                 {
                     return false;
                 }
@@ -167,32 +344,29 @@ public class Guard
         return false;
     }
 
-    private int _HashCode = 0;
-
     public override int GetHashCode()
     {
-        if (_Ununified.Count == 0)
+        if (Ununified.Count == 0)
         {
             return 0;
         }
-        if (_HashCode == 0)
+        if (HashCode == 0)
         {
-            _HashCode = 7727 * 7741;
-            foreach ((IAssignableMessage vMsg, HashSet<IMessage> set) in _Ununified)
+            HashCode = 7727 * 7741;
+            foreach ((IAssignableMessage vMsg, HashSet<IMessage> set) in Ununified)
             {
                 unchecked
                 {
-                    _HashCode = _HashCode * 7741 + vMsg.GetHashCode();
+                    HashCode = HashCode * 7741 + vMsg.GetHashCode();
                     foreach (IMessage m in set)
                     {
-                        _HashCode = _HashCode * 7741 + m.GetHashCode();
+                        HashCode = HashCode * 7741 + m.GetHashCode();
                     }
                 }
             }
         }
-        return _HashCode;
+        return HashCode;
     }
-
 
     #endregion
 }

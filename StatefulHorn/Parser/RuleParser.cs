@@ -850,7 +850,8 @@ public class RuleParser
 
     private static void ThrowIfGuardNotTransferred(Rule r, List<GuardPiece> original, string whole)
     {
-        if (r.Guard.Ununified.Count != original.Count)
+        List<(IMessage, IMessage)> tupleList = new(r.Guard.ToTuples());
+        if (tupleList.Count != original.Count)
         {
             throw new RuleParseException(whole, $"Guard referred to variables not in rule.");
         }

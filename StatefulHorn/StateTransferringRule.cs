@@ -77,7 +77,7 @@ public class StateTransferringRule : Rule
         }
         transformedRule.Snapshots.ActivateTransfers();
 
-        Guard combinedGuard = Guard.PerformSubstitution(fwd).Union(r.Guard.PerformSubstitution(bwd));
+        Guard combinedGuard = Guard.Substitute(fwd).Union(r.Guard.Substitute(bwd));
         return new StateConsistentRule($"({Label}) ⋈ ({r.Label})", combinedGuard, newPremises, transformedRule.Snapshots, transformedRule.Result);
     }
 

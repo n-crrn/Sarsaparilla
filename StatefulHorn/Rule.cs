@@ -311,7 +311,7 @@ public abstract class Rule
         }
 
         string newLabel = $"{Label} · {sigma}";
-        Guard newG = Guard.PerformSubstitution(sigma);
+        Guard newG = Guard.Substitute(sigma);
         HashSet<Event> newPremises = new(Premises.Count);
         foreach (Event p in Premises)
         {

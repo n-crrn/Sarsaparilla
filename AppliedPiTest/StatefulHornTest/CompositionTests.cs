@@ -131,18 +131,4 @@ public class CompositionTests
         Assert.IsNull(result, "Result should be null from failed attempt at composing.");
     }
 
-    private static void ShouldNotBeUnifiable(Event ev1, Event ev2)
-    {
-        Debug.WriteLine($"Attempted to unify {ev1} and {ev2}");
-        SigmaFactory sf = new();
-        bool canBeUnified = ev1.CanBeUnifiableWith(ev2, new(), new(), sf);
-        if (canBeUnified)
-        {
-            Debug.WriteLine("Sigma Maps are as follows:");
-            Debug.WriteLine(sf.CreateForwardMap().ToString());
-            Debug.WriteLine(sf.CreateBackwardMap().ToString());
-        }
-        Assert.IsFalse(canBeUnified);
-    }
-
 }

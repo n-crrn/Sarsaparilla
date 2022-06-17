@@ -16,7 +16,7 @@ public class RuleDescription
 {
     public RuleDescription(Rule r)
     {
-        GetGuardFromRule(r);
+        GuardStatements.AddRange(r.Guard.ToTuples());
         GetSnapshotsFromRule(r);
         GetPremisesFromRule(r);
         GetResultFromRule(r);
@@ -27,17 +27,6 @@ public class RuleDescription
     public List<(IMessage, IMessage)> GuardStatements { get; init; } = new();
 
     public bool HasGuard => GuardStatements.Count > 0;
-
-    private void GetGuardFromRule(Rule r)
-    {
-        foreach ((IAssignableMessage from, HashSet<IMessage> toSet) in r.Guard.Ununified)
-        {
-            foreach (IMessage to in toSet)
-            {
-                GuardStatements.Add((from, to));
-            }
-        }
-    }
 
     #endregion
     #region Snapshots

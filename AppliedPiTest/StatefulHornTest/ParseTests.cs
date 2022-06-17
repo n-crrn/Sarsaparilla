@@ -148,7 +148,7 @@ public class ParseTests
         // --- General check ---
         string generalLabelInput = $"{expectedLabel} = know(x), know(y) -[ ]-> know(enc(x, y))";
         Rule generalParsed = parser.Parse(generalLabelInput);
-        Rule generalExpected = CreateDefaultRuleWithGuard(expectedLabel, new());
+        Rule generalExpected = CreateDefaultRuleWithGuard(expectedLabel, null, null);
 
         // Note that the labels are not tested as part of rule equality, but we need to ensure
         // that the substance of the rules is correctly parsed.
@@ -158,7 +158,7 @@ public class ParseTests
         // --- With guard check ---
         string guardedLabelInput = $"{expectedLabel} = [x ~/> n[]] know(x), know(y) -[ ]-> know(enc(x, y))";
         Rule guardedParsed = parser.Parse(guardedLabelInput);
-        Rule guardedExpected = CreateDefaultRuleWithGuard(expectedLabel, new() { (new VariableMessage("x"), new NameMessage("n")) });
+        Rule guardedExpected = CreateDefaultRuleWithGuard(expectedLabel, new VariableMessage("x"), new NameMessage("n"));
         AssertRulesEqual(guardedExpected, guardedParsed, guardedLabelInput);
         Assert.AreEqual(expectedLabel, guardedParsed.Label, "Labels do not match for guarded case.");
 
@@ -183,13 +183,11 @@ public class ParseTests
 
         IMessage nameMsg = new NameMessage("name");
         VariableMessage xMsg = new("x");
-
-        Rule expected = CreateDefaultRuleWithGuard("r1", new() { (xMsg, nameMsg) });
+        Rule expected = CreateDefaultRuleWithGuard("r1", xMsg, nameMsg);
         foreach (string src in parsedRules)
         {
             Rule generated = parser.Parse(src);
             AssertRulesEqual(expected, generated, src);
-            Assert.AreEqual(1, generated.Guard.Ununified.Count);
         }
     }
 
@@ -209,9 +207,12 @@ public class ParseTests
     /// rule parsing need to be tested (e.g. guard parse testing, label testing).
     /// </summary>
     /// <param name="label">Label to set for the ruel.</param>
-    private Rule CreateDefaultRuleWithGuard(string label, List<(IAssignableMessage, IMessage)> ununified)
+    private Rule CreateDefaultRuleWithGuard(string label, IAssignableMessage? assign, IMessage? value)
     {
-        Factory.GuardStatements = Guard.CreateFromSets(new(ununified));
+        if (assign != null)
+        {
+            Factory.GuardStatements = new Guard(assign, value!);
+        }
         Factory.SetNextLabel(label);
         IMessage xMsg = new VariableMessage("x");
         IMessage yMsg = new VariableMessage("y");
@@ -333,7 +334,7 @@ public class ParseTests
         RuleParser parser = new();
 
         string premiseCheckSrc = "know(x), know(y), know(x) -[ ]-> know(enc(x, y))";
-        Rule expectedPremiseRule = CreateDefaultRuleWithGuard("premise", new());
+        Rule expectedPremiseRule = CreateDefaultRuleWithGuard("premise", null, null);
         AssertRulesEqual(expectedPremiseRule, parser.Parse(premiseCheckSrc), premiseCheckSrc);
 
         // The following messages and states are used multiple times below.

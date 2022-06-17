@@ -34,7 +34,7 @@ public class RuleFactory
     {
         Snapshots = new();
         Premises = new();
-        _GuardStatements = new();
+        _GuardStatements = Guard.Empty;
     }
 
     /// <summary>
@@ -45,7 +45,7 @@ public class RuleFactory
         Label = null;
         Snapshots.Clear();
         Premises.Clear();
-        _GuardStatements = new();
+        _GuardStatements = Guard.Empty;
     }
 
     private Guard _GuardStatements;

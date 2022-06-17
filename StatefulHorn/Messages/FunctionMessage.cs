@@ -96,7 +96,7 @@ public class FunctionMessage : IMessage
             sf.CanUnifyMessagesOneWay(_Parameters, fMsg._Parameters, gs);
     }
 
-    public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, new(), new(), new());
+    public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, Guard.Empty, Guard.Empty, new());
 
     public bool DetermineUnifiableSubstitution(IMessage other, Guard fwdGuard, Guard bwdGuard, SigmaFactory sf)
     {

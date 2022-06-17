@@ -116,7 +116,7 @@ public class TupleMessage : IMessage
         return other is TupleMessage tMsg && sf.CanUnifyMessagesOneWay(_Members, tMsg._Members, gs);
     }
 
-    public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, new(), new(), new());
+    public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, Guard.Empty, Guard.Empty, new());
 
     public bool DetermineUnifiableSubstitution(IMessage other, Guard fwdG, Guard bwdG, SigmaFactory sf)
     {

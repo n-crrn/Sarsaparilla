@@ -43,7 +43,7 @@ public abstract class BasicMessage : IMessage
         return DetermineUnifiedToSubstitution(other, sf) && sf.ForwardIsValidByGuard(gs);
     }
 
-    public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, new(), new(), new());
+    public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, Guard.Empty, Guard.Empty, new());
 
     public abstract bool DetermineUnifiableSubstitution(IMessage other, SigmaFactory sf);
 

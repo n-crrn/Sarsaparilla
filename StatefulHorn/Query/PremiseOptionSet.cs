@@ -31,7 +31,7 @@ public class PremiseOptionSet
         if (hc.BeforeRank(rank) && hc.CanResultIn(result, g, out sf))
         {
             HornClause updated = hc.Substitute(sf!.CreateForwardMap());
-            Guard updatedGuard = g.PerformSubstitution(sf!.CreateBackwardMap()).Union(updated.Guard);
+            Guard updatedGuard = g.Substitute(sf!.CreateBackwardMap()).Union(updated.Guard);
             List<QueryNode> nodes = new();
             foreach (IMessage premise in updated.Premises)
             {
@@ -170,7 +170,7 @@ public class PremiseOptionSet
             {
                 SigmaMap sm = sf.CreateForwardMap();
                 List<IMessage> updated = new(from m in fullOriginal select m.PerformSubstitution(sm));
-                Guard updatedGuard = g.PerformSubstitution(sm);
+                Guard updatedGuard = g.Substitute(sm);
                 optSet.Add(FromMessages(updated, updatedGuard, rank, qm, requester, SourceClause));
             }
         }

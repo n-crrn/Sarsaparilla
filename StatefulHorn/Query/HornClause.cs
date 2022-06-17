@@ -156,7 +156,7 @@ public class HornClause
             Parent = this,
             Rank = Rank,
             Source = new SubstitutionRuleSource(this, map),
-            Guard = Guard.PerformSubstitution(map)
+            Guard = Guard.Substitute(map)
         };
         return hc;
     }
@@ -238,7 +238,7 @@ public class HornClause
                         IMessage oResult = lastPass.Result.PerformSubstitution(bwdMap);
                         HornClause otherUpdated = new(oResult, oPremises)
                         {
-                            Guard = Guard.PerformSubstitution(fwdMap).Union(lastPass.Guard.PerformSubstitution(bwdMap))
+                            Guard = Guard.Substitute(fwdMap).Union(lastPass.Guard.Substitute(bwdMap))
                         };
 
                         // Final check - ensure result not in premise.
@@ -286,14 +286,7 @@ public class HornClause
         {
             otherPremise.CollectVariables(usefulVarSet);
         }
-        foreach ((IAssignableMessage assigner, HashSet<IMessage> banned) in Guard.Ununified)
-        {
-            assigner.CollectVariables(usefulVarSet);
-            foreach (IMessage b in banned)
-            {
-                b.CollectVariables(usefulVarSet);
-            }
-        }
+        Guard.CollectVariables(usefulVarSet);
 
         // Remove the useful variables from the suspects list.
         suspects.ExceptWith(usefulVarSet);
@@ -553,7 +546,7 @@ public class HornClause
     public StateConsistentRule ToStateConsistentRule(string label = "")
     {
         HashSet<Event> premiseEvents = new(from p in Premises select Event.Know(p));
-        return new(label, new(), premiseEvents, new(), Event.Know(Result));
+        return new(label, Guard.Empty, premiseEvents, new(), Event.Know(Result));
     }
 
     #endregion

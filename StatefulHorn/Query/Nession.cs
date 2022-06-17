@@ -165,7 +165,7 @@ public class Nession
                 newR.IdTag = r.IdTag;
                 updatedRules.Add(newR);
             }
-            return new(updatedCells, updatedRules, GuardStatements.PerformSubstitution(map));
+            return new(updatedCells, updatedRules, GuardStatements.Substitute(map));
         }
 
         public Frame ApplyTransfers(List<StateTransferringRule> transfers)
