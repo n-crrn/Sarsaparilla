@@ -17,7 +17,7 @@ public class VariableMessage : BasicMessage, IAssignableMessage
     public override bool DetermineUnifiedToSubstitution(IMessage other, SigmaFactory sf)
     {
         // A variable can unify with everything, including other variables.
-        return sf.TryAdd(this, other);
+        return sf.TryAdd(this, other, false);
     }
 
     public override bool DetermineUnifiableSubstitution(IMessage other, SigmaFactory sf)
@@ -26,7 +26,7 @@ public class VariableMessage : BasicMessage, IAssignableMessage
         // try the reverse combination, as it would result in a situation where, in
         // unifying two rules, we would just swap the variables rather than converge on a single
         // rule.
-        return sf.TryAdd(this, other);
+        return sf.TryAdd(this, other, true);
     }
 
     public override IMessage PerformSubstitution(SigmaMap sigma)

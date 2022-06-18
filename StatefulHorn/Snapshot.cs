@@ -154,29 +154,6 @@ public class Snapshot
     public bool HasImmediatePredecessor => Prior != null && Prior.O == Ordering.ModifiedOnceAfter;
 
     #endregion
-    #region Compression
-
-    public Snapshot? TryCompress(Guard g, SigmaFactory sf)
-    {
-        if (Prior != null && Prior.O == Ordering.ModifiedOnceAfter && Prior.S.Condition.CanBeUnifiableWith(Condition, g, g, sf))
-        {
-            SigmaMap? mergeMap = sf.TryCreateMergeMap();
-            if (mergeMap != null)
-            {
-                Snapshot newSS = new(Prior.S.Condition.CloneWithSubstitution(mergeMap));
-                newSS.Premises.UnionWith(from p in Prior.S.Premises select p.PerformSubstitution(mergeMap));
-                newSS.Premises.UnionWith(from p in Premises select p.PerformSubstitution(mergeMap));
-                newSS.TransfersTo = TransfersTo != null ?
-                    TransfersTo!.CloneWithSubstitution(mergeMap) :
-                    Prior.S.TransfersTo?.CloneWithSubstitution(mergeMap);
-                newSS.Prior = Prior.S.Prior;
-                return newSS;
-            }
-        }
-        return null;
-    }
-
-    #endregion
     #region Filtering
 
     public bool ContainsMessage(IMessage msg) => Condition.ContainsMessage(msg) || (Prior != null && Prior.S.ContainsMessage(msg));

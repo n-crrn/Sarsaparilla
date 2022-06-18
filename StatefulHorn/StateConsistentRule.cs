@@ -253,38 +253,6 @@ public class StateConsistentRule : Rule
 
     // === Updated Transform Code ===
 
-    public StateConsistentRule? TryCompressStates()
-    {
-        if (Snapshots.IsEmpty)
-        {
-            return null;
-        }
-        (SnapshotTree? newTree, SigmaFactory? sf) = Snapshots.TryCompress(Guard);
-        if (newTree == null)
-        {
-            return null;
-        }
-
-        Debug.Assert(sf != null);
-        SigmaMap? mergeMap = sf.TryCreateMergeMap();
-        if (mergeMap == null)
-        {
-            return null;
-        }
-
-        // Rebuild the ruleset based on the new snapshot tree and its applied SigmaFactory.
-        HashSet<Event> newPremises = new();
-        foreach (Snapshot ss in newTree.OrderedList)
-        {
-            foreach (Event prem in ss.Premises)
-            {
-                newPremises.Add(prem);
-            }
-        }
-        Event updatedResult = Result.PerformSubstitution(mergeMap);
-        return new($"comp({Label})", Guard, newPremises, newTree, updatedResult);
-    }
-
     public List<NonceMessage> NewNonces => (from p in Premises where p.IsNew select (NonceMessage)p.Messages.Single()).ToList();
 
     public IEnumerable<Event> NewEvents => from p in Premises where p.IsNew select p;

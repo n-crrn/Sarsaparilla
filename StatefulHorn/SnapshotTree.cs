@@ -97,36 +97,6 @@ public class SnapshotTree
         return newTree;
     }
 
-    /// <summary>
-    /// Attempts to fold states together to remove unnecessary variables at the tail of the traces.
-    /// </summary>
-    /// <param name="g">Guard statements.</param>
-    /// <returns>
-    /// If compression is possible, a new tree and the corresponding sigma transformations
-    /// that were required to make the compression possible. Otherwise two null values are
-    /// returned.
-    /// </returns>
-    public (SnapshotTree?, SigmaFactory?) TryCompress(Guard g)
-    {
-        SigmaFactory sf = new();
-        bool found = false;
-        List<Snapshot> newTraces = new();
-        foreach (Snapshot t in _Traces)
-        {
-            Snapshot? compressed = t.TryCompress(g, sf);
-            if (compressed != null)
-            {
-                found = true;
-                newTraces.Add(compressed);
-            }
-            else
-            {
-                newTraces.Add(t);
-            }
-        }
-        return found ? (new(newTraces), sf) : (null, null);
-    }
-
     #endregion
 
     private readonly List<Snapshot> _Traces;

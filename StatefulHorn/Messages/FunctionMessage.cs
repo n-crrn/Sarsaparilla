@@ -102,7 +102,7 @@ public class FunctionMessage : IMessage
     {
         if (other is VariableMessage)
         {
-            return sf.TryAdd(this, other);
+            return sf.TryAdd(this, other, true);
         }
         return other is FunctionMessage fMsg &&
             Name.Equals(fMsg.Name) &&

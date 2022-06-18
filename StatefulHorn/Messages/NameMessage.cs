@@ -22,7 +22,7 @@ public class NameMessage : BasicMessage
         {
             return Name == nmOther.Name;
         }
-        return other is VariableMessage && sf.TryAdd(this, other);
+        return other is VariableMessage && sf.TryAdd(this, other, true);
     }
 
     public override IMessage PerformSubstitution(SigmaMap sigma)

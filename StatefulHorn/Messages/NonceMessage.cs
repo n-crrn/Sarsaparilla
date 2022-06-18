@@ -17,7 +17,7 @@ public class NonceMessage : BasicMessage
         {
             return Name == nmOther.Name;
         }
-        return other is VariableMessage vr && sf.TryAdd(this, vr);
+        return other is VariableMessage vr && sf.TryAdd(this, vr, true);
     }
 
     public override IMessage PerformSubstitution(SigmaMap sigma)

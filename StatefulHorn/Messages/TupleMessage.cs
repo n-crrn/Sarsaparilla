@@ -122,7 +122,7 @@ public class TupleMessage : IMessage
     {
         if (other is VariableMessage)
         {
-            return sf.TryAdd(this, other);
+            return sf.TryAdd(this, other, true);
         }
         return other is TupleMessage tMsg && sf.CanUnifyMessagesBothWays(_Members, tMsg._Members, fwdG, bwdG);
     }

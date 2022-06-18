@@ -5,7 +5,7 @@ using System.Linq;
 namespace StatefulHorn;
 
 /// <summary>
-/// Represents the σ mapping, which can be considered a list of correspondences between
+/// Represents the σ mapping, which can be considered as a list of substitutions between
 /// IMessages. A σ mapping is generated for UnifiedTo and UnificiableWith operations,
 /// to allow new rules to be generated and reasoned about. Previously, the type
 /// List<(IMessage Variable, IMessage Value)> was used in its place, but it became 
