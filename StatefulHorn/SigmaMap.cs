@@ -11,80 +11,116 @@ namespace StatefulHorn;
 /// List<(IMessage Variable, IMessage Value)> was used in its place, but it became 
 /// apparent that there was a need to do reasoning on the type.
 /// </summary>
+/// <para>
+/// Note that experiments have been run trying to change the internal Map entry to 
+/// different types of dictionary. No speed improvements were noted in the test suite when
+/// doing this, and it is assessed that this is likely due to the normally small size of the 
+/// mapping - most rules will only have one or two replacements.
+/// </para>
 public class SigmaMap
 {
-    public static readonly SigmaMap Empty = new(Enumerable.Empty<(IMessage, IMessage)>());
-
-    public SigmaMap(IMessage variable, IMessage val)
-    {
-        _Map = new() { (variable, val) };
-    }
-
-    public SigmaMap(IEnumerable<(IMessage, IMessage)> zippedSubs)
-    {
-        _Map = new(zippedSubs);
-        _Map.Sort(EntryComparer);
-    }
-
-    private int EntryComparer((IMessage Variable, IMessage Value) e1, (IMessage Variable, IMessage Value) e2)
-    {
-        int cmp = e1.Variable.ToString().CompareTo(e2.Variable.ToString());
-        if (cmp == 0)
-        {
-            cmp = e1.Value.ToString().CompareTo(e2.Variable.ToString());
-        }
-        return cmp;
-    }
-
-    public SigmaMap Union(SigmaMap other) => new(_Map.Concat(other._Map));
+    /// <summary>
+    /// A SigmaMap with no replacements, meant to be used in order to reduce object creations.
+    /// </summary>
+    public static readonly SigmaMap Empty = new();
 
     /// <summary>
-    /// Conducts a transformation upon this transformation. Used to subscript variables away from
-    /// colliding within their soon-to-be-host rule.
+    /// Private constructor for the use of SigmaMap.Empty.
     /// </summary>
-    /// <param name="further">Substitutions to be applied to the substitutions of this map.</param>
-    /// <returns>A new SigmaMap.</returns>
-    public SigmaMap Substitute(SigmaMap further)
+    private SigmaMap()
     {
-        return new(from sub in _Map select (sub.Variable, sub.Value.PerformSubstitution(further)));
+        Map = new List<(IMessage, IMessage)>(0);
+    }
+
+    /// <summary>
+    /// Create a new SigmaMap with only one replacement. This occurrence is sufficiently common
+    /// that it deserves its own constructor.
+    /// </summary>
+    /// <param name="variable">Message to be replaced.</param>
+    /// <param name="val">Message it is to be replaced with.</param>
+    public SigmaMap(IMessage variable, IMessage val)
+    {
+        Map = new List<(IMessage, IMessage)>(1) { new(variable, val) };
+    }
+
+    /// <summary>
+    /// Create a SigmaMap from a dictionary, often used by SigmaFactory.
+    /// </summary>
+    /// <param name="zippedSubs">
+    /// Dictionary with the terms to be replaced as the keys and the messages they are to be
+    /// replaced with as the values.
+    /// </param>
+    public SigmaMap(IDictionary<VariableMessage, IMessage> zippedSubs)
+    {
+        List<(IMessage, IMessage)> m = new(zippedSubs.Count);
+        foreach (KeyValuePair<VariableMessage, IMessage> pair in zippedSubs)
+        {
+            m.Add((pair.Key, pair.Value));
+        }
+        Map = m;
+    }
+
+    /// <summary>
+    /// Create a SigmmMap from an enumeration of tuples. This tends to be used whenever a 
+    /// sequence of message replacements needs to be done, and there should be no
+    /// assumption made that the left-hand message is an IAssignableMessage.
+    /// </summary>
+    /// <param name="tuplePairs">
+    /// Sequence of replacements, with the left-hand tuple member being the message to be
+    /// replaced.
+    /// </param>
+    public SigmaMap(IEnumerable<(IMessage, IMessage)> tuplePairs)
+    {
+        List<(IMessage, IMessage)> m = new();
+        foreach ((IMessage varMsg, IMessage valMsg) in tuplePairs)
+        {
+            m.Add((varMsg, valMsg));
+        }
+        Map = m;
     }
 
     #region Basic properties and access.
 
-    private readonly List<(IMessage Variable, IMessage Value)> _Map;
+    /// <summary>
+    /// A member allowing for random access of the replacement pairs.
+    /// </summary>
+    public IReadOnlyList<(IMessage Variable, IMessage Value)> Map;
 
-    public IReadOnlyList<(IMessage Variable, IMessage Value)> Map => _Map;
+    /// <summary>
+    /// True if there are no replacements in this map.
+    /// </summary>
+    public bool IsEmpty => Map.Count == 0;
 
-    public bool TryGetValue(IMessage possVariable, out IMessage? value)
+    /// <summary>
+    /// Attempt to return a replacement value for the given variable.
+    /// </summary>
+    /// <param name="v">Variable message to search for.</param>
+    /// <param name="value">Value message return parameter. Set to null if not found.</param>
+    /// <returns>True if the variable is found.</returns>
+    public bool TryGetValue(VariableMessage v, out IMessage? value)
     {
-        if (possVariable is VariableMessage)
+        // There are typically one or messages only.
+        for (int i = 0; i < Map.Count; i++)
         {
-            foreach ((IMessage vr, IMessage val) in Map)
+            (IMessage vr, IMessage val) = Map[i];
+            if (v.Equals(vr))
             {
-                if (possVariable.Equals(vr))
-                {
-                    value = val;
-                    return true;
-                }
+                value = val;
+                return true;
             }
         }
         value = null;
         return false;
     }
 
-    public bool IsEmpty => Map.Count == 0;
-
-    public bool IsAllVariables
-    {
-        get
-        {
-            static bool bothVars((IMessage, IMessage) pair) => pair.Item1 is VariableMessage && pair.Item2 is VariableMessage;
-            return (from pair in Map select pair).All(bothVars);
-        }
-    }
-
+    /// <summary>
+    /// Cache for the variables contained within the replacement messages.
+    /// </summary>
     private HashSet<IMessage>? _InsertedVariables = null;
 
+    /// <summary>
+    /// Variable messages that will be inserted if the SigmaMap is used for substitutions.
+    /// </summary>
     public IReadOnlySet<IMessage> InsertedVariables
     {
         get
@@ -92,9 +128,9 @@ public class SigmaMap
             if (_InsertedVariables == null)
             {
                 _InsertedVariables = new();
-                foreach ((IMessage _, IMessage result) in _Map)
+                for (int i = 0; i < Map.Count; i++)
                 {
-                    result.CollectVariables(_InsertedVariables);
+                    Map[i].Value.CollectVariables(_InsertedVariables);
                 }
             }
             return _InsertedVariables;
@@ -115,24 +151,10 @@ public class SigmaMap
 
     public override bool Equals(object? obj)
     {
-        if (obj is SigmaMap sm && _Map.Count == sm._Map.Count)
-        {
-            for (int i = 0; i < _Map.Count; i++)
-            {
-#pragma warning disable IDE0042 // Deconstruct variable declaration - not sensible for this code.
-                (IMessage Variable, IMessage Value) thisEntry = _Map[i];
-                (IMessage Variable, IMessage Value) thatEntry = sm._Map[i];
-#pragma warning restore IDE0042 // Deconstruct variable declaration
-                if (!thisEntry.Variable.Equals(thatEntry.Variable) || !thisEntry.Variable.Equals(thatEntry.Variable))
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-        return false;
+        // Note that this method is rarely called outside of testing.
+        return obj is SigmaMap sm && Map.Count == sm.Map.Count && Map.ToHashSet().SetEquals(sm.Map);
     }
 
-    public override int GetHashCode() => _Map.Count == 0 ? 0 : _Map[0].GetHashCode();
+    public override int GetHashCode() => Map.Count; // As there is no ordering.
 
 }

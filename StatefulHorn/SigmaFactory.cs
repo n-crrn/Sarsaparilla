@@ -9,8 +9,8 @@ namespace StatefulHorn;
 /// An object used to generate SigmaMaps while ensuring that the mapping will be consistent with
 /// the previous ones added. This class is distinct from SigmaMap as, when computing unifications,
 /// the variables in each rule have to be treated distinctly in spite of their names and so you
-/// typically end up with two SigmaMaps: one transforming one rule, and the other transforming
-/// the other.
+/// typically end up with two SigmaMaps: one transforming one rule forward, and the other
+/// transforming the other backwards.
 /// </summary>
 public class SigmaFactory
 {
@@ -42,16 +42,29 @@ public class SigmaFactory
 
     public SigmaMap CreateForwardMap()
     {
-        return new(new List<(IMessage Variable, IMessage Value)>(from f in Forward select ((IMessage)f.Key, f.Value)));
+        if (Forward.Count == 0)
+        {
+            return SigmaMap.Empty;
+        }
+        return new(Forward);
     }
 
     public SigmaMap CreateBackwardMap()
     {
-        return new(new List<(IMessage Variable, IMessage Value)>(from b in Backward select ((IMessage)b.Key, b.Value)));
+        if (Backward.Count == 0)
+        {
+            return SigmaMap.Empty;
+        }
+        return new(Backward);
     }
 
     public SigmaMap? TryCreateMergeMap()
     {
+        if (Forward.Count == 0 && Backward.Count == 0)
+        {
+            return SigmaMap.Empty;
+        }
+
         Dictionary<VariableMessage, IMessage> merged = new(Forward);
         foreach ((VariableMessage key, IMessage value) in Backward)
         {
@@ -67,7 +80,7 @@ public class SigmaFactory
                 merged[key] = value;
             }
         }
-        return new(new List<(IMessage Variable, IMessage Value)>(from m in merged select ((IMessage)m.Key, m.Value)));
+        return new(merged);
     }
 
     /// <summary>
@@ -94,7 +107,7 @@ public class SigmaFactory
         VariableMessage newVar, 
         IMessage result)
     {
-        result = result.PerformSubstitution(new(from s in reverseSubs select ((IMessage)s.Key, s.Value)));
+        result = result.PerformSubstitution(new(reverseSubs));
 
         List<IMessage> varList = new(reverseSubs.Keys);
         SigmaMap thisReplacement = new(newVar, result);
@@ -170,7 +183,6 @@ public class SigmaFactory
             {
                 return false;
             }
-            // The guards need to be updated to protect var1 =/= var2 situations.
             SigmaMap fwdSm = new(list1[i], list2[i]);
             fwdGuard = fwdGuard.Substitute(fwdSm);
             SigmaMap bwdSm = new(list2[i], list1[i]);
