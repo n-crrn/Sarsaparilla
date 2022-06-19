@@ -100,6 +100,7 @@ public class Snapshot
         {
             TransfersTo = TransfersTo
         };
+        ss.Premises.UnionWith(Premises);
         if (Prior != null)
         {
             ss.Prior = new(Prior.S.CloneTrace(), Prior.O);
@@ -177,14 +178,7 @@ public class Snapshot
 
     internal void AddPremises(IEnumerable<Event> events)
     {
-        foreach (Event ev in events)
-        {
-            // Duplicated events don't make sense, so only add if not already added.
-            if (!Premises.Contains(ev))
-            {
-                Premises.Add(ev);
-            }
-        }
+        Premises.UnionWith(events);
     }
 
     internal void ReplacePremises(Event toBeReplaced, IEnumerable<Event> replacements)
@@ -204,10 +198,7 @@ public class Snapshot
             Snapshot? currentSS = this;
             while (currentSS != null)
             {
-                foreach (Event ev in currentSS.Premises)
-                {
-                    allEvents.Add(ev);
-                }
+                allEvents.UnionWith(currentSS.Premises);
                 currentSS = currentSS.Prior?.S;
             }
             return allEvents;

@@ -307,17 +307,18 @@ public abstract class Rule
     {
         if (sigma.IsEmpty)
         {
-            return Clone();
+            return this;
         }
 
         string newLabel = $"{Label} · {sigma}";
         Guard newG = Guard.Substitute(sigma);
+
+        SnapshotTree newTree = Snapshots.PerformSubstitutions(sigma);
         HashSet<Event> newPremises = new(Premises.Count);
         foreach (Event p in Premises)
         {
             newPremises.Add(p.PerformSubstitution(sigma));
         }
-        SnapshotTree newTree = Snapshots.PerformSubstitutions(sigma);
         return CreateDerivedRule(newLabel, newG, newPremises, newTree, sigma);
     }
 

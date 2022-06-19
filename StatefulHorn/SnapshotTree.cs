@@ -84,6 +84,16 @@ public class SnapshotTree
         return newTree;
     }
 
+    public HashSet<Event> CollectAllPremises()
+    {
+        HashSet<Event> premises = new();
+        foreach (Snapshot ss in _Traces)
+        {
+            premises.UnionWith(ss.EventsInTrace);
+        }
+        return premises;
+    }
+
     private List<Snapshot> CloneTraces() => new(from t in _Traces select t.CloneTrace());
 
     public SnapshotTree MergeWith(SnapshotTree otherTree)
