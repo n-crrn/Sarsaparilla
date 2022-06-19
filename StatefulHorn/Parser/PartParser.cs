@@ -8,7 +8,8 @@ namespace StatefulHorn.Parser;
 
 /// <summary>
 /// Namespace for methods dedicated to transforming correctly formatted strings into IMessage
-/// carrying structures such as States and Events.
+/// carrying structures such as States, Events and Messages. These methods are contained in
+/// the same namespace as their parsing code shares algorithms.
 /// </summary>
 public static class PartParser
 {
@@ -38,6 +39,13 @@ public static class PartParser
         return (null, err);
     }
 
+    /// <summary>
+    /// Parse the given text description of a state into an in-memory representation, or throw an
+    /// exception if the description is malformed.
+    /// </summary>
+    /// <param name="input">Textual description of the state.</param>
+    /// <returns>An in-memory representation of the state.</returns>
+    /// <exception cref="ArgumentException">Description does not make sense.</exception>
     public static State ParseState(string input)
     {
         (State? s, string? err) = TryParseState(input);
@@ -48,6 +56,18 @@ public static class PartParser
         return s;
     }
 
+    /// <summary>
+    /// Attempt to parse a comma-separated list of state descriptions. If all descriptions are 
+    /// parsed correct, a set of the states will be returned. Otherwise, an error message will
+    /// be provided. This method will check that no state cell (e.g. "cell1(...)") is not 
+    /// specified multiple times.
+    /// </summary>
+    /// <param name="input">The string containing the list of state descriptions.</param>
+    /// <returns>
+    /// A tuple, with the first element being the set of states found and the second a description
+    /// of any errors encountered during the parse. Either the set will be null or the description
+    /// will be null.
+    /// </returns>
     public static (HashSet<State>?, string?) TryParseStates(string input)
     {
         List<string> parts = new();
@@ -103,34 +123,6 @@ public static class PartParser
         return (states, null);
     }
 
-    public static readonly string LongKnowContainer = "know";
-    public static readonly string ShortKnowContainer = "k";
-    public static readonly string LongNewContainer = "new";
-    public static readonly string ShortNewContainer = "n";
-    public static readonly string LongInitContainer = "init";
-    public static readonly string ShortInitContainer = "i";
-    public static readonly string LongAcceptContainer = "accept";
-    public static readonly string ShortAcceptContainer = "a";
-    public static readonly string LongLeakContainer = "leak";
-    public static readonly string ShortLeakContainer = "l";
-    public static readonly string LongMakeContainer = "make";
-    public static readonly string ShortMakeContainer = "m";
-
-    public static readonly List<string> EventContainers = new() {
-        LongKnowContainer,
-        ShortKnowContainer,
-        LongNewContainer,
-        ShortNewContainer,
-        LongInitContainer,
-        ShortInitContainer,
-        LongAcceptContainer,
-        ShortAcceptContainer,
-        LongLeakContainer,
-        ShortLeakContainer,
-        LongMakeContainer,
-        ShortMakeContainer
-    };
-
     /// <summary>
     /// Attempt to parse a text description of an event into an in-memory representation of an
     /// event. Note that such descriptions can use acronyms for events: for instance, a know
@@ -172,23 +164,6 @@ public static class PartParser
                     return (Event.New(rcName), null);
                 }
                 return (null, "Wrong types for new event: must be nonce type.");
-            case "init":
-            case "i":
-                return (Event.Init(rc.Messages), null);
-            case "accept":
-            case "a":
-                return (Event.Accept(rc.Messages), null);
-            case "leak":
-            case "l":
-                if (rc.Messages.Count == 0)
-                {
-                    return (null, "There must be a message to leak.");
-                }
-                else if (rc.Messages.Count > 1)
-                {
-                    return (null, "Only one message can be leaked at a time.");
-                }
-                return (Event.Leak(rc.Messages[0]), null);
             case "make":
             case "m":
                 if (rc.Messages.Count != 1)
@@ -222,6 +197,13 @@ public static class PartParser
         return (msg, err);
     }
 
+    /// <summary>
+    /// Parse a text description of a message into an in-memory representation, or throw an
+    /// exception if the message is invalid.
+    /// </summary>
+    /// <param name="input">Text description of a message.</param>
+    /// <returns>The parsed message.</returns>
+    /// <exception cref="ArgumentException">Textual description did not make sense.</exception>
     public static IMessage ParseMessage(string input)
     {
         (IMessage? m, string? err) = TryParseMessage(input);
@@ -236,6 +218,15 @@ public static class PartParser
     #region Convenience types and methods.
 
     /// <summary>
+    /// Used to determine if a part parsed should be considered an event or a message. See
+    /// Result.IsEvent() for more details.
+    /// </summary>
+    private static readonly List<string> EventContainers = new()
+    {
+        "know", "k", "new", "n", "make", "m"
+    };
+
+    /// <summary>
     /// This is a privately declared record type that makes the declaration of the TryParse method
     /// below cleaner.
     /// </summary>
@@ -246,9 +237,16 @@ public static class PartParser
     ///   The list of messages read as part of the event or state. For instance, for "SD(init[])"
     ///   the list of messages would equal List&lt;IMessage&gt; { NameMessage("init") }.
     /// </param>
-    internal record Result(string Container, List<IMessage> Messages);
+    internal record Result(string Container, List<IMessage> Messages)
+    {
 
-    internal static bool IsEvent(this Result r) => EventContainers.Contains(r.Container);
+        /// <summary>
+        /// Indicates if this Result is describing an event instead of a method.
+        /// </summary>
+        /// <returns>True if the outer function call is an event.</returns>
+        public bool IsEvent() => EventContainers.Contains(Container);
+
+    }
 
     /// <summary>
     /// Attempts to parse the given input string into an encapsulating text and a message.

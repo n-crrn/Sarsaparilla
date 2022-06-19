@@ -100,43 +100,6 @@ public class ParseTests
     }
 
     /// <summary>
-    /// Check that all event name shortcuts (e.g. "k" for "know") all work.
-    /// </summary>
-    [TestMethod]
-    public void EventShortcutsCheck()
-    {
-        RuleParser parser = new();
-        string ruleSrcStart = "k(x), i(m), n([nonce]) -[ ]-> ";// k(t(x,m)), l(m), a(x)";
-        string[] endingsSrc = new string[]
-        {
-            "k(t(x, m))",
-            "l(m)",
-            "a(m)"
-        };
-        Event[] endings = new Event[]
-        {
-            Event.Know(new FunctionMessage("t", new() {new VariableMessage("x"), new VariableMessage("m")})),
-            Event.Leak(new VariableMessage("m")),
-            Event.Accept(new VariableMessage("m"))
-        };
-        Event[] premises = new Event[]
-        {
-            Event.Know(new VariableMessage("x")),
-            Event.Init(new VariableMessage("m")),
-            Event.New(new NonceMessage("nonce"))
-        };
-
-        for (int i = 0; i < endings.Length; i++)
-        {
-            Factory.SetNextLabel($"shortcut-{i}");
-            Factory.RegisterPremises(premises);
-            Rule expectedRule = Factory.CreateStateConsistentRule(endings[i]);
-            string ruleSrc = ruleSrcStart + endingsSrc[i];
-            AssertRulesEqual(expectedRule, parser.Parse(ruleSrc), ruleSrc);
-        }
-    }
-
-    /// <summary>
     /// Ensure labels are correctly parsed.
     /// </summary>
     [TestMethod]
@@ -265,26 +228,6 @@ public class ParseTests
     }
 
     /// <summary>
-    /// Check that invalid premises are caught during rule construction.
-    /// </summary>
-    [TestMethod]
-    public void PremiseParsingLogic()
-    {
-        string[] testStrings = new string[]
-        {
-            "accept(m1, m2) -[ ]-> know(m1)",
-            "leak(m1) -[ ]-> know(m2)",
-            "know(x) -[ ]-> know(x)"
-        };
-        RuleParser parser = new();
-        foreach (string ts in testStrings)
-        {
-            string errMsg = $"Fails to throw RuleConstructionException when parsing '{ts}'.";
-            Assert.ThrowsException<RuleConstructionException>(() => parser.Parse(ts), errMsg, errMsg);
-        }
-    }
-
-    /// <summary>
     /// Ensure that ordering inconsistencies are caught during rule parsing and construction.
     /// </summary>
     [TestMethod]
@@ -300,25 +243,6 @@ public class ParseTests
         {
             string errMsg = $"Fails to throw RuleParsingException when parsing '{ts}'.";
             Assert.ThrowsException<RuleParseException>(() => parser.Parse(ts), errMsg, errMsg);
-        }
-    }
-
-    /// <summary>
-    /// Ensure that invalid results are caught during rule construction.
-    /// </summary>
-    [TestMethod]
-    public void ResultParsingLogic()
-    {
-        string[] testStrings = new string[]
-        {
-            "know(m) -[ ]-> init(m)",
-            "know(m) -[ ]-> new([n])"
-        };
-        RuleParser parser = new();
-        foreach (string ts in testStrings)
-        {
-            string errMsg = $"Fails to throw RuleConstructionException when parsing '{ts}'.";
-            Assert.ThrowsException<RuleConstructionException>(() => parser.Parse(ts), errMsg, errMsg);
         }
     }
 
