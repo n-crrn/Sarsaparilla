@@ -150,8 +150,8 @@ public class HornClause
             return Clone();
         }
 
-        IMessage updatedResult = Result.PerformSubstitution(map);
-        HornClause hc = new(updatedResult, from p in Premises select p.PerformSubstitution(map))
+        IMessage updatedResult = Result.Substitute(map);
+        HornClause hc = new(updatedResult, from p in Premises select p.Substitute(map))
         {
             Parent = this,
             Rank = Rank,
@@ -234,8 +234,8 @@ public class HornClause
                         SigmaMap bwdMap = sf.CreateBackwardMap();
 
                         HornClause thisUpdated = Substitute(fwdMap);
-                        IEnumerable<IMessage> oPremises = (from op in lastPass.Premises where !op.Equals(msg) select op.PerformSubstitution(bwdMap)).Concat(thisUpdated.Premises);
-                        IMessage oResult = lastPass.Result.PerformSubstitution(bwdMap);
+                        IEnumerable<IMessage> oPremises = (from op in lastPass.Premises where !op.Equals(msg) select op.Substitute(bwdMap)).Concat(thisUpdated.Premises);
+                        IMessage oResult = lastPass.Result.Substitute(bwdMap);
                         HornClause otherUpdated = new(oResult, oPremises)
                         {
                             Guard = Guard.Substitute(fwdMap).Union(lastPass.Guard.Substitute(bwdMap))

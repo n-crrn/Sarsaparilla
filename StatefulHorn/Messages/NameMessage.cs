@@ -1,5 +1,8 @@
 ﻿namespace StatefulHorn.Messages;
 
+/// <summary>
+/// A message representing a basic constant symbol of the knowledge system.
+/// </summary>
 public class NameMessage : BasicMessage
 {
     /// <summary>
@@ -7,6 +10,10 @@ public class NameMessage : BasicMessage
     /// </summary>
     public static readonly NameMessage Any = new("Any");
 
+    /// <summary>
+    /// Create a new NameMessage with the given text name.
+    /// </summary>
+    /// <param name="n">Name for the message.</param>
     public NameMessage(string n) : base(n) { }
 
     public override bool ContainsVariables => false;
@@ -25,7 +32,7 @@ public class NameMessage : BasicMessage
         return other is VariableMessage && sf.TryAdd(this, other, true);
     }
 
-    public override IMessage PerformSubstitution(SigmaMap sigma)
+    public override IMessage Substitute(SigmaMap sigma)
     {
         return this;
     }

@@ -37,10 +37,6 @@ public class QueryNode
 
     public IMessage Message { get; init; }
 
-    //public HashSet<IMessage> Actual { get; init; } = new();
-
-    //internal List<QueryResult> Result { get; init; } = new();
-
     public Guard Guard { get; init; }
 
     public int Rank { get; init; }
@@ -232,12 +228,6 @@ public class QueryNode
             {
                 Status = QNStatus.Proven;
                 Changed = true;
-                /*foreach (PremiseOptionSet pos in SuccessfulOptionSets)
-                {
-                    QueryResult qr = pos.CreateSuccessResult(Message, When)!;
-                    //Result.Add(qr);
-                    Actual.Add(qr.Actual!);
-                }*/
             }
         }
         return Changed;

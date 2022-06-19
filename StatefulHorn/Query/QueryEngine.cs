@@ -77,7 +77,6 @@ public class QueryEngine
 
     public async Task Execute(
         Action? onStartNextLevel,
-        //Action<Attack>? onGlobalAttackFound,
         Action<Nession, IReadOnlySet<HornClause>, Attack?>? onAttackAssessed,
         Action? onCompletion,
         int maxDepth = UseDefaultDepth,

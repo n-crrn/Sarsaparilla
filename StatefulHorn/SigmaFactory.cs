@@ -95,7 +95,7 @@ public class SigmaFactory
         List<VariableMessage> keys = new(Forward.Keys);
         foreach (VariableMessage vm in keys)
         {
-            Forward[vm] = Forward[vm].PerformSubstitution(sm);
+            Forward[vm] = Forward[vm].Substitute(sm);
         }
     }
 
@@ -124,14 +124,14 @@ public class SigmaFactory
         VariableMessage newVar, 
         IMessage result)
     {
-        result = result.PerformSubstitution(new(reverseSubs));
+        result = result.Substitute(new(reverseSubs));
 
         List<IMessage> varList = new(reverseSubs.Keys);
         SigmaMap thisReplacement = new(newVar, result);
         for (int i = 0; i < varList.Count; i++)
         {
             VariableMessage varItem = (VariableMessage)varList[i];
-            reverseSubs[varItem] = reverseSubs[varItem].PerformSubstitution(thisReplacement);
+            reverseSubs[varItem] = reverseSubs[varItem].Substitute(thisReplacement);
         }
 
         aheadSubs[newVar] = result;
@@ -202,7 +202,10 @@ public class SigmaFactory
     /// <returns>
     /// True if a set of substitutions exists that convert the members in list1 to list.2
     /// </returns>
-    public bool CanUnifyMessagesOneWay(List<IMessage> list1, List<IMessage> list2, Guard g)
+    public bool CanUnifyMessagesOneWay(
+        IReadOnlyList<IMessage> list1, 
+        IReadOnlyList<IMessage> list2, 
+        Guard g)
     {
         if (list1.Count != list2.Count)
         {
@@ -229,7 +232,11 @@ public class SigmaFactory
     /// <param name="fwdGuard">The guard for the forward messages.</param>
     /// <param name="bwdGuard">The guard for the backward messages.</param>
     /// <returns></returns>
-    public bool CanUnifyMessagesBothWays(List<IMessage> list1, List<IMessage> list2, Guard fwdGuard, Guard bwdGuard)
+    public bool CanUnifyMessagesBothWays(
+        IReadOnlyList<IMessage> list1, 
+        IReadOnlyList<IMessage> list2, 
+        Guard fwdGuard, 
+        Guard bwdGuard)
     {
         if (list1.Count != list2.Count)
         {

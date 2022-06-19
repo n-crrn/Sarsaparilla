@@ -102,7 +102,7 @@ internal class QueryResult
     {
         return new(
             Query,
-            Actual!.PerformSubstitution(transformation.CreateBackwardMap()),
+            Actual!.Substitute(transformation.CreateBackwardMap()),
             Rank,
             When,
             transformation,

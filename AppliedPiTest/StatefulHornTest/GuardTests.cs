@@ -69,4 +69,5 @@ public class GuardTests
         bool succeed = check.DetermineUnifiableSubstitution(query, Guard.Empty, Guard.Empty, sf);
         Assert.IsTrue(succeed, "Failed to find unifiable substitution with empty guard.");
     }
+
 }

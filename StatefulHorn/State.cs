@@ -16,7 +16,7 @@ public class State : ISigmaUnifiable, IComparable<State>
 
     public State CloneWithSubstitution(SigmaMap substitutions)
     {
-        return new State(Name, Value.PerformSubstitution(substitutions));
+        return new State(Name, Value.Substitute(substitutions));
     }
 
     public string Name { get; init; }

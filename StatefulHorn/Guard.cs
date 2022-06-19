@@ -257,11 +257,11 @@ public class Guard
         Dictionary<IAssignableMessage, HashSet<IMessage>> updated = new();
         foreach ((IAssignableMessage vMsg, HashSet<IMessage> set) in input)
         {
-            IMessage possRepl = vMsg.PerformSubstitution(sigma);
+            IMessage possRepl = vMsg.Substitute(sigma);
             // Skip the value if it is now defined.
             if (possRepl is IAssignableMessage setMsg)
             {
-                updated[setMsg] = new HashSet<IMessage>(from s in set select s.PerformSubstitution(sigma));
+                updated[setMsg] = new HashSet<IMessage>(from s in set select s.Substitute(sigma));
             }
         }
         return updated;

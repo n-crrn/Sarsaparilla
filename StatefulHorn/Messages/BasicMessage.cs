@@ -18,12 +18,9 @@ public abstract class BasicMessage : IMessage
 
     public abstract bool ContainsVariables { get; }
 
-    public bool ContainsFunctionNamed(string name) => false;
+    public virtual void CollectVariables(ISet<IMessage> varSet) { /* Nothing to do. */ }
 
-    // FIXME: May as well use HashSet<VariableMessage> for the parameter type.
-    public virtual void CollectVariables(HashSet<IMessage> varSet) { /* Nothing to do. */ }
-
-    public void CollectMessages(HashSet<IMessage> msgSet, Predicate<IMessage> selector)
+    public void CollectMessages(ISet<IMessage> msgSet, Predicate<IMessage> selector)
     {
         if (selector(this))
         {
@@ -52,7 +49,7 @@ public abstract class BasicMessage : IMessage
         return DetermineUnifiableSubstitution(other, sf) && sf.ForwardIsValidByGuard(fwdGuard) && sf.BackwardIsValidByGuard(bwdGuard);
     }
 
-    public abstract IMessage PerformSubstitution(SigmaMap sigma);
+    public abstract IMessage Substitute(SigmaMap sigma);
 
     public override abstract string ToString();
 

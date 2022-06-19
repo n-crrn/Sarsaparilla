@@ -3,13 +3,22 @@ using System.Diagnostics;
 
 namespace StatefulHorn.Messages;
 
+/// <summary>
+/// Represents a message that can be replaced within a message.
+/// </summary>
 public class VariableMessage : BasicMessage, IAssignableMessage
 {
+    /// <summary>
+    /// Creates a new VariableMessage with the given name.
+    /// </summary>
+    /// <param name="n">Name of the variable.</param>
     public VariableMessage(string n) : base(n) { }
+
+    #region BasicMessage/IMessage implementation.
 
     public override bool ContainsVariables => true;
 
-    public override void CollectVariables(HashSet<IMessage> varSet)
+    public override void CollectVariables(ISet<IMessage> varSet)
     {
         _ = varSet.Add(this);
     }
@@ -29,7 +38,7 @@ public class VariableMessage : BasicMessage, IAssignableMessage
         return sf.TryAdd(this, other, true);
     }
 
-    public override IMessage PerformSubstitution(SigmaMap sigma)
+    public override IMessage Substitute(SigmaMap sigma)
     {
         if (sigma.TryGetValue(this, out IMessage? val))
         {
@@ -38,6 +47,8 @@ public class VariableMessage : BasicMessage, IAssignableMessage
         }
         return this;
     }
+
+    #endregion
 
     public override string ToString() => Name;
 }

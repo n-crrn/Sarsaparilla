@@ -20,7 +20,7 @@ public class NonceMessage : BasicMessage
         return other is VariableMessage vr && sf.TryAdd(this, vr, true);
     }
 
-    public override IMessage PerformSubstitution(SigmaMap sigma)
+    public override IMessage Substitute(SigmaMap sigma)
     {
         return this;
     }

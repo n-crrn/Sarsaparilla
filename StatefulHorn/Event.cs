@@ -52,7 +52,7 @@ public class Event : ISigmaUnifiable
 
     public static Event Make(IMessage msg) => new(Type.Make, new IMessage[] { msg });
 
-    public Event PerformSubstitution(SigmaMap sigma) => new(EventType, from m in _Messages select m.PerformSubstitution(sigma));
+    public Event PerformSubstitution(SigmaMap sigma) => new(EventType, from m in _Messages select m.Substitute(sigma));
 
     #endregion
 

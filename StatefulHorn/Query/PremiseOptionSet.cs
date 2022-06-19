@@ -106,7 +106,7 @@ public class PremiseOptionSet
         {
             QueryResult thisClauseResult = QueryResult.ResolvedKnowledge(
                 query,
-                query.PerformSubstitution(SigmaFactory.CreateBackwardMap()),
+                query.Substitute(SigmaFactory.CreateBackwardMap()),
                 SourceClause,
                 SigmaFactory,
                 when);
@@ -114,7 +114,7 @@ public class PremiseOptionSet
         }
         return QueryResult.Compose(
             query,
-            query.PerformSubstitution(SigmaFactory.CreateBackwardMap()),
+            query.Substitute(SigmaFactory.CreateBackwardMap()),
             when,
             SigmaFactory,
             premiseResults);
@@ -169,7 +169,7 @@ public class PremiseOptionSet
             if (sf.CanUnifyMessagesOneWay(original, opt, g) && !sf.IsEmpty)
             {
                 SigmaMap sm = sf.CreateForwardMap();
-                List<IMessage> updated = new(from m in fullOriginal select m.PerformSubstitution(sm));
+                List<IMessage> updated = new(from m in fullOriginal select m.Substitute(sm));
                 Guard updatedGuard = g.Substitute(sm);
                 optSet.Add(FromMessages(updated, updatedGuard, rank, qm, requester, SourceClause));
             }
