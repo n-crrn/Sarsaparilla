@@ -1,4 +1,17 @@
-﻿.premise {
+﻿.linear-element {
+    font-size: small;
+    opacity: 90%;
+}
+
+.linear-element::after {
+    content: ", ";
+}
+
+.linear-element:last-of-type::after {
+    content: "";
+}
+
+.premise {
     margin-left: 2px;
     margin-right: 2px;
 }

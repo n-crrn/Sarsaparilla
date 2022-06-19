@@ -5,28 +5,45 @@
 @using StatefulHorn
 @using StatefulHorn.Query
 
-@if (HornClause != null)
-{
-    <RightArrowOperation>
-        <Left>
-            @foreach (IMessage premise in HornClause.Premises)
-            {
-                <div class='premise'>
-                    @FormatUtils.FormatLabel(premise.ToString())
-                </div>
-            }
-        </Left>
-        <Right>
-            <div class='result'>
-                @FormatUtils.FormatLabel(HornClause.Result.ToString())
+<div class='outer'>
+    @if (HornClause != null)
+    {
+        if (!HornClause.Guard.IsEmpty)
+        {
+            <div class='guard'>
+                [
+                    @foreach ((IMessage msg1, IMessage msg2) in HornClause.Guard.ToTuples())
+                    {
+                        <span class='linear-element'>
+                            @FormatUtils.FormatLabel(@msg1.ToString())
+                            <span class='op'>~/⤳</span> 
+                            @FormatUtils.FormatLabel(@msg2.ToString())
+                        </span>
+                    }
+                ]
             </div>
-        </Right>
-    </RightArrowOperation>
-}
-else
-{
-    <p class='no-clause-message'>No clause set.</p>
-}
+        }
+        <RightArrowOperation>
+            <Left>
+                @foreach (IMessage premise in HornClause.Premises)
+                {
+                    <div class='premise'>
+                        @FormatUtils.FormatLabel(premise.ToString())
+                    </div>
+                }
+            </Left>
+            <Right>
+                <div class='result'>
+                    @FormatUtils.FormatLabel(HornClause.Result.ToString())
+                </div>
+            </Right>
+        </RightArrowOperation>
+    }
+    else
+    {
+        <p class='no-clause-message'>No clause set.</p>
+    }
+</div>
 
 @code {
 
