@@ -1,12 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using StatefulHorn.Messages;
 using StatefulHorn.Query.Origin;
 
 namespace StatefulHorn.Query;
 
+/// <summary>
+/// The implementation of a Ranked Horn Clause. A horn clause is a structure that has a set of 
+/// premises that lead to a conclusion. A Ranked Horn Clause has, in addition, a integer value
+/// called "rank" that determines an order of precedence that the clauses provide premises
+/// based on results. Guard information is also attached.
+/// </summary>
 public class HornClause
 {
     public HornClause(IMessage result, IEnumerable<IMessage> premises, Guard? guard = null)
@@ -14,114 +19,29 @@ public class HornClause
         Guard = guard ?? Guard.Empty;
         Premises = new SortedSet<IMessage>(premises, MessageUtils.SortComparer);
         Result = result;
-
-        int premiseComplexity = Premises.Count == 0 ? 0 : (from p in Premises select p.FindMaximumDepth()).Max();
-        int resultComplexity = Result.FindMaximumDepth();
-        Complexity = Math.Max(premiseComplexity, resultComplexity);
-        IncreasesDepthBy = resultComplexity - premiseComplexity;
-
-        CalculateHashCode();
-        CollectVariables();
-        CanBeSelfReferential = DetermineSelfReferential();
-        Debug.Assert(Variables != null);
+        HashCode = result.GetHashCode();
+        Variables = CollectVariables();
     }
-
-    #region Properties.
-
-    public Guard Guard { get; init; }
-
-    public IReadOnlySet<IMessage> Premises { get; init; }
-
-    public IMessage Result { get; init; }
-
-    public bool ComplexResult => Result is FunctionMessage || Result is TupleMessage;
 
     /// <summary>
-    /// This is a publicly setable boolean used by some algorithms that work with HornClauses, 
-    /// such as the horn clause elaboration within the query engine.
+    /// Collect all variable messages used within the clause, and add them to the one set.
     /// </summary>
-    public bool Mark { get; set; }
-
-    public HornClause? Parent { get; private set; }
-
-    public int Rank { get; set; } = -1;
-
-    public bool BeforeRank(int r) => Rank == -1 || r == -1 || Rank <= r;
-
-    internal static int RatchetRank(int r1, int r2)
-    {
-        if (r1 == -1)
-        {
-            return r2;
-        }
-        if (r2 == -1)
-        {
-            return r1;
-        }
-        return Math.Min(r1, r2);
-    }
-
-    public IRuleSource? Source { get; set; }
-
-    public int Complexity { get; init; }
-
-    public int IncreasesDepthBy { get; init; }
-
-    public IReadOnlySet<IMessage> Variables { get; private set; }
-
-    private void CollectVariables()
+    /// <returns>Set of all variable messages.</returns>
+    private HashSet<IMessage> CollectVariables()
     {
         HashSet<IMessage> allVars = new();
         foreach (IMessage premise in Premises)
         {
             premise.CollectVariables(allVars);
         }
-        Variables = allVars;
+        return allVars;
     }
 
-    public bool ContainsMessage(IMessage msg)
-    {
-        return Result.ContainsMessage(msg) || (from p in Premises where p.ContainsMessage(msg) select p).Any();
-    }
-
-    public bool ContainsNonce
-    {
-        get
-        {
-            static bool nonceFinder(IMessage msg) => msg is NonceMessage;
-            HashSet<IMessage> nonces = new();
-            foreach (IMessage msg in Premises)
-            {
-                msg.CollectMessages(nonces, nonceFinder);
-                if (nonces.Count > 0)
-                {
-                    return true;
-                }
-            }
-            Result.CollectMessages(nonces, nonceFinder);
-            return nonces.Count > 0;
-        }
-    }
-
-    public bool IsKnownFrom(HashSet<IMessage> knowledge)
-    {
-        HashSet<IMessage> foundUnknowns = new();
-        foreach (IMessage p in Premises)
-        {
-            if (p is not NonceMessage)
-            {
-                p.CollectMessages(foundUnknowns, (msg) => msg is NameMessage && !knowledge.Contains(msg));
-                if (foundUnknowns.Count > 0)
-                {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    public bool IsResolved => Variables.Count == 0;
-
+    /// <summary>
+    /// Determine if the result of this clause is referential with itself. This is used to 
+    /// det
+    /// </summary>
+    /// <returns></returns>
     private bool DetermineSelfReferential()
     {
         if (Result is VariableMessage)
@@ -138,22 +58,127 @@ public class HornClause
         return false;
     }
 
-    public bool CanBeSelfReferential { get; private set; }
+    #region Properties.
+
+    /// <summary>
+    /// Guard statement indicating which variable substitutions cannot be conducted with this
+    /// clause.
+    /// </summary>
+    public Guard Guard { get; init; }
+
+    /// <summary>Premises for the Clause.</summary>
+    public IReadOnlySet<IMessage> Premises { get; init; }
+
+    /// <summary>Result message of the Clause.</summary>
+    public IMessage Result { get; init; }
+
+    /// <summary>
+    /// Indicates that the Horn Clause will result in a non-atomic message. Used when there is
+    /// a need to restrict the combinations of compositions and elaborations of clauses.
+    /// </summary>
+    public bool ComplexResult => Result is FunctionMessage || Result is TupleMessage;
+
+    /// <summary>
+    /// This is a publicly setable boolean used by some algorithms that work with HornClauses
+    /// without requiring some sort of external map.
+    /// </summary>
+    public bool Mark { get; set; }
+
+    /// <summary>
+    /// The value of rank used for a Horn Clause that can be applied at any point in a system.
+    /// </summary>
+    public const int InfiniteRank = -1;
+
+    /// <summary>
+    /// An integer indicating the ordering of this Horn Clause. 
+    /// </summary>
+    public int Rank { get; set; } = InfiniteRank;
+
+    /// <summary>
+    /// Indicates that this rule can be treated as occurring before the given rank by the
+    /// rules of the rank system.
+    /// </summary>
+    /// <param name="r">Rank to compare with.</param>
+    /// <returns>True if this rule should be treated as occurring before rank r.</returns>
+    public bool BeforeRank(int r) => Rank == -1 || r == -1 || Rank <= r;
+
+    /// <summary>
+    /// When two rules are combined, or a result is derived from a combination of clauses, this
+    /// method returns the new rank of the result or rule. The ordering of rank values provided
+    /// does not matter.
+    /// </summary>
+    /// <param name="r1">First rank value.</param>
+    /// <param name="r2">Second rank value.</param>
+    /// <returns>The combined rank.</returns>
+    internal static int RatchetRank(int r1, int r2)
+    {
+        if (r1 == -1)
+        {
+            return r2;
+        }
+        if (r2 == -1)
+        {
+            return r1;
+        }
+        return Math.Min(r1, r2);
+    }
+
+    public IRuleSource? Source { get; set; }
+
+    /// <summary>
+    /// Cache for IncreasesDepthBy.
+    /// </summary>
+    private int _IncreasesDepthBy = int.MinValue;
+
+    /// <summary>
+    /// The maximum difference of nesting count between the result of the Horn Clause and its
+    /// premises.
+    /// </summary>
+    public int IncreasesDepthBy
+    {
+        get
+        {
+            if (_IncreasesDepthBy == int.MinValue)
+            {
+                int premiseComplexity = Premises.Count == 0 ? 0 : (from p in Premises select p.FindMaximumDepth()).Max();
+                int resultComplexity = Result.FindMaximumDepth();
+                _IncreasesDepthBy = resultComplexity - premiseComplexity;
+            }
+            return _IncreasesDepthBy;
+        }
+    }
+
+    /// <summary>
+    /// Set of variable messages used within the Horn Clause.
+    /// </summary>
+    public IReadOnlySet<IMessage> Variables { get; init; }
+
+    /// <summary>
+    /// Cache for the hash code calculation.
+    /// </summary>
+    private readonly int HashCode;
 
     #endregion
     #region Operations.
 
+    /// <summary>
+    /// Substitute messages within the Horn Clause as described in the provided Sigma Map.
+    /// </summary>
+    /// <param name="map">Substitutions to make.</param>
+    /// <returns>
+    /// A Horn Clause with the substitutions made. This Horn Clause is not modified, but may be
+    /// returned if the Sigma Map is empty.
+    /// </returns>
     public HornClause Substitute(SigmaMap map)
     {
         if (map.IsEmpty)
         {
-            return Clone();
+            return this;
         }
 
         IMessage updatedResult = Result.Substitute(map);
         HornClause hc = new(updatedResult, from p in Premises select p.Substitute(map))
         {
-            Parent = this,
             Rank = Rank,
             Source = new SubstitutionRuleSource(this, map),
             Guard = Guard.Substitute(map)
@@ -169,7 +194,6 @@ public class HornClause
             {
                 HornClause innerHC = new(member, Premises)
                 {
-                    Parent = Parent ?? this,
                     Rank = Rank,
                     Source = new OperationRuleSource(this, OperationRuleSource.Op.Detuple),
                     Guard = Guard
@@ -190,7 +214,6 @@ public class HornClause
     {
         HornClause hc = new(Result, Premises)
         {
-            Parent = Parent,
             Rank = Rank,
             Source = Source,
             Guard = Guard
@@ -218,7 +241,7 @@ public class HornClause
         HornClause lastPass = other;
         bool changed = true;
         bool substitutionDone = false;
-        bool maySelfReference = CanBeSelfReferential;
+        bool maySelfReference = DetermineSelfReferential();
 
         do
         {
@@ -244,10 +267,8 @@ public class HornClause
                         // Final check - ensure result not in premise.
                         if (!otherUpdated.Premises.Contains(otherUpdated.Result))
                         {
-                            otherUpdated.Parent = this;
                             otherUpdated.Rank = RatchetRank(Rank, lastPass.Rank); // FIXME: Too simple.
                             otherUpdated.Source = new CompositionRuleSource(this, other);
-                            //otherUpdated.Mark = true;
                             lastPass = otherUpdated;
                             changed = true;
                             break;
@@ -303,6 +324,14 @@ public class HornClause
         };
     }
 
+    /// <summary>
+    /// Determines if this Horn Clause can be used as a more general - or at worst equivalent - 
+    /// version of the given Horn Clause. For instance, the clause "f(a), b[] -> g(a, b[])" implies 
+    /// "f(d[]), b[] -> g(d[], b[])". Rank is considered in determining this, but the Guards will
+    /// only pass if they are equivalent.
+    /// </summary>
+    /// <param name="hc">Horn Clause to check.</param>
+    /// <returns>True if this Horn Clause can imply hc.</returns>
     public bool Implies(HornClause hc)
     {
         if (hc.Premises.Count < Premises.Count)
@@ -349,6 +378,18 @@ public class HornClause
         return false;
     }
 
+    /// <summary>
+    /// Determine if this Horn Clause can have substitutions applied that result in deriving the
+    /// message possResult while complying with the guard bwdGuard. In effect, this is checking
+    /// the unifiability of the results while accounting for possible dangling variables.
+    /// </summary>
+    /// <param name="possResult">Result to test unifiability with.</param>
+    /// <param name="bwdGuard">Guard protecting possResult.</param>
+    /// <param name="sf">
+    /// Storage of the subtitutions required to make this Horn Clause match the requested result.
+    /// If no match is possible, it is set to null.
+    /// </param>
+    /// <returns>True if this Horn Clause can result in possResult.</returns>
     public bool CanResultIn(IMessage possResult, Guard bwdGuard, out SigmaFactory? sf)
     {
         sf = new();
@@ -367,6 +408,7 @@ public class HornClause
             }
             return true;
         }
+        sf = null;
         return false;
     }
 
@@ -455,7 +497,7 @@ public class HornClause
                 nextSet.AddRange(from p in processed1 where !p.Mark select p);
             }
 
-            appliers.RemoveAll((hc) => !hc.Mark || hc.CanBeSelfReferential);
+            appliers.RemoveAll((hc) => !hc.Mark || hc.DetermineSelfReferential());
             foreach (HornClause a in appliers)
             {
                 a.Mark = false;
@@ -506,25 +548,13 @@ public class HornClause
     {
         return obj is HornClause hc &&
             Rank == hc.Rank &&
-            EqualsIgnoringRank(hc);
-    }
-
-    public bool EqualsIgnoringRank(HornClause hc)
-    {
-        return Premises.Count == hc.Premises.Count &&
+            Premises.Count == hc.Premises.Count &&
             Result.Equals(hc.Result) &&
             Premises.SetEquals(hc.Premises) &&
             Guard.Equals(hc.Guard);
     }
 
-    private int Hash;
-
-    private void CalculateHashCode()
-    {
-        Hash = Result.GetHashCode();
-    }
-
-    public override int GetHashCode() => Hash;
+    public override int GetHashCode() => HashCode;
 
     public override string ToString() => Rank.ToString() + "#" + string.Join(", ", Premises) + " -> " + Result.ToString();
 
