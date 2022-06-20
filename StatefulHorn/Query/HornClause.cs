@@ -186,6 +186,14 @@ public class HornClause
         return hc;
     }
 
+    /// <summary>
+    /// If this Horn Clause results in a tuple, then it will be split into a series of Horn Clauses
+    /// that result in the individual components of the tuple. Otherwise, the Horn Clause is
+    /// returned as is.
+    /// </summary>
+    /// <returns>
+    /// A unordered sequence of Horn Clauses leading to the components of the result.
+    /// </returns>
     public IEnumerable<HornClause> DetupleResult()
     {
         if (Result is TupleMessage tMsg)
@@ -210,17 +218,16 @@ public class HornClause
         }
     }
 
-    private HornClause Clone()
-    {
-        HornClause hc = new(Result, Premises)
-        {
-            Rank = Rank,
-            Source = Source,
-            Guard = Guard
-        };
-        return hc;
-    }
-
+    /// <summary>
+    /// Compose this Horn Clause upon another where the other has a premise that is unifiable with
+    /// the result of this one. This method will also remove any plain variable premises that are
+    /// not reflected in the result.
+    /// </summary>
+    /// <param name="other">Horn Clause to compose upon.</param>
+    /// <returns>
+    /// Null if this Horn Clause could not be composed upon other. Otherwise, a new Horn Clause is
+    /// returned reflecting the composition and scrubbed of loose variables.
+    /// </returns>
     public HornClause? ComposeUponAndScrub(HornClause other)
     {
         HornClause? composed = ComposeUpon(other);
@@ -231,6 +238,15 @@ public class HornClause
         return composed;
     }
 
+    /// <summary>
+    /// Compose this Horn Clause upon another where the other has a prmeise that is unifiable with
+    /// the result of this one.
+    /// </summary>
+    /// <param name="other">Horn Clause to compose upon.</param>
+    /// <returns>
+    /// Null if the result of this clause cannot be unified to a premise of other. Otherwise, a new
+    /// Horn Clause is returned describing the new composed clause.
+    /// </returns>
     public HornClause? ComposeUpon(HornClause other)
     {
         if (!ComplexResult && Result is not NameMessage || Rank != other.Rank && Rank != -1 && other.Rank != -1)
@@ -283,6 +299,16 @@ public class HornClause
         return substitutionDone ? lastPass : null;
     }
 
+    /// <summary>
+    /// Remove loose variables - that is, premises that are composed of a single variable that
+    /// do not appear in the result. As these premises can be simply replaced with constants
+    /// such as 'true[]' that are known by any attacker, there is no value retaining them with
+    /// the rule.
+    /// </summary>
+    /// <returns>
+    /// This Horn Clause if there are no loose variables. Otherwise, a new Horn Clause with the
+    /// loose/dangling variable premises removed.
+    /// </returns>
     public HornClause ScrubLooseVariables()
     {
         // Split the premises into variables and non-variables.
@@ -561,6 +587,15 @@ public class HornClause
     #endregion
     #region Rule conversions.
 
+    /// <summary>
+    /// Attempt to return a Horn Clause version of the given State Consistent Rule. This will
+    /// succeed if the rule does not have any state specifications.
+    /// </summary>
+    /// <param name="scr">State Consistent Rule to translate.</param>
+    /// <returns>
+    /// Null if the given State Consistent Rule is reliant on state. Otherwise, the Horn 
+    /// Clause equivalent rule is returned.
+    /// </returns>
     public static HornClause? FromStateConsistentRule(StateConsistentRule scr)
     {
         if (scr.Snapshots.IsEmpty)
@@ -573,6 +608,11 @@ public class HornClause
         return null;
     }
 
+    /// <summary>
+    /// Create a stateless State Consistent Rule that is the equivalent of this Horn Clause.
+    /// </summary>
+    /// <param name="label">User understandable description of the new rule.</param>
+    /// <returns>The Horn Clause as a State Consistent Rule.</returns>
     public StateConsistentRule ToStateConsistentRule(string label = "")
     {
         HashSet<Event> premiseEvents = new(from p in Premises select Event.Know(p));
