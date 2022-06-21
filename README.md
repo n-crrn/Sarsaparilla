@@ -3,6 +3,7 @@
 This is the repository for the "State Aware Research Studying All Protocols' Authoritative
 Representation In Latest Logic Analyser". The analyser is written by Nick Curran with 
 the aim of attaining a Master in Computer Science through The University of Queensland.
+Please note that this analyser is not yet fully functional.
 
 ## Solution Structure
 
@@ -33,8 +34,6 @@ composed of the following projects:
    research into new protocol representations.
 
 ## Licensing
-
-This project is not released to the public.
 
 All files in this project are provided subject to the GNU General Public License version 3.
 The details of this license are included in the file [COPYING.txt](/COPYING.txt).
