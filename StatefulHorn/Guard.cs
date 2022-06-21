@@ -116,7 +116,7 @@ public class Guard
     {
         if (Ununified.TryGetValue(msg1, out HashSet<IMessage>? bannedSet))
         {
-            return bannedSet.Contains(msg2);
+            return !bannedSet.Contains(msg2);
         }
         return true;
     }

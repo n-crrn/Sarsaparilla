@@ -35,7 +35,7 @@ public class QueryTests
             "(15) = -[ (SD(m), c1) ]-> k(m)",
             "(16) = k(x)(d1) -[ (SD(m), d1) ]-> <d1: SD(h(m, x))>"
         };
-        await DoTest(ruleSet, "<bob_l[], bob_r[]>", "SD(init[])", true);//, false);
+        await DoTest(ruleSet, "<bob_l[], bob_r[]>", "SD(init[])", true);
     }
 
     [TestMethod]
@@ -63,7 +63,7 @@ public class QueryTests
             "-[ (SD(m), a0) ]-> k(m)"
         };
 
-        await DoTest(ruleSet, "h(init[], left[])", "SD(init[])", true); //, true);
+        await DoTest(ruleSet, "h(init[], left[])", "SD(init[])", true);
         await DoTest(ruleSet, "<[bobl], [bobr]>", "SD(init[])", false);
 
         ruleSet.Add("-[ (SD(m), a0) ]-> <a0: SD(init[])>");
@@ -78,7 +78,7 @@ public class QueryTests
             "-[ ]-> k(n[])",
             "k(x) -[ ]-> k(test(x))"
         };
-        await DoTest(ruleSet, "test(n[])", "SD(init[])", true); // false, true);
+        await DoTest(ruleSet, "test(n[])", "SD(init[])", true);
     }
 
     [TestMethod]
@@ -90,7 +90,7 @@ public class QueryTests
             "k(c[]) -[ ]-> k(d[])",
             "k(d[]) -[ ]-> k(s[])"
         };
-        await DoTest(ruleSet, "s[]", "SD(init[])", true); // false, true);
+        await DoTest(ruleSet, "s[]", "SD(init[])", true);
     }
 
     [TestMethod]
@@ -104,8 +104,8 @@ public class QueryTests
             "-[ ]-> k(a[])",
             "-[ ]-> k(b[])"
         };
-        await DoTest(ruleSet, "enc(a[], b[])", initState, false); // false, false);
-        await DoTest(ruleSet, "enc(b[], a[])", initState, true); // false, true);
+        await DoTest(ruleSet, "enc(a[], b[])", initState, false);
+        await DoTest(ruleSet, "enc(b[], a[])", initState, true);
 
         List<string> ruleSet2 = new()
         {
@@ -114,8 +114,15 @@ public class QueryTests
             "[x ~/> test1[]] k(x)(a0) -[ (SD(init[]), a0) ]-> <a0: SD(x)>",
             "-[ (SD(m), a0) ]-> k(h(m))"
         };
-        await DoTest(ruleSet2, "h(test1[])", initState, false); //  false, false);
-        await DoTest(ruleSet2, "h(test2[])", initState, true); // true, false);
+        await DoTest(ruleSet2, "h(test1[])", initState, false);
+        await DoTest(ruleSet2, "h(test2[])", initState, true); 
+
+        List<string> ruleSet3 = new()
+        {
+            "-[ ]-> k(mf@x@cell(<h(A[]), B[]>))",
+            "[mf ~/> h(A[])] k(mf@x@cell(<mf, x>)) -[ ]-> k(s[])"
+        };
+        await DoTest(ruleSet3, "s[]", initState, false);
     }
 
     [TestMethod]
@@ -130,7 +137,7 @@ public class QueryTests
             "-[ ]-> k(enc(something[], pk(key[])))",
             "-[ ]-> k(key[])"
         };
-        await DoTest(ruleSet, "something[]", initState, true); // false, true);
+        await DoTest(ruleSet, "something[]", initState, true);
     }
 
     [TestMethod]
@@ -147,7 +154,7 @@ public class QueryTests
             "-[ ]-> k(cell1(dec(enc(something[], pk(key[])), key[])))",
             "-[ ]-> k(key[])"
         };
-        await DoTest(ruleSet, "cell2(something[])", initState, true); // false, true);
+        await DoTest(ruleSet, "cell2(something[])", initState, true);
     }
 
     [TestMethod]
@@ -178,7 +185,7 @@ public class QueryTests
             "k(LetCell(dec(enc(x, pk(y)), y))) -[ ]-> k(LetCell(x))",
             "k(LetCell(<x, y>)) -[ ]-> k(x)"
         };
-        await DoTest(ruleSet, "value1[]", initState, true); // false, true);
+        await DoTest(ruleSet, "value1[]", initState, true);
     }
 
     [TestMethod]
@@ -195,7 +202,7 @@ public class QueryTests
             "k(LetCell(dec(enc(x, pk(y)), y))) -[ ]-> k(LetCell(x))",
             "k(LetCell(<x, y>)) -[ ]-> k(x)"
         };
-        await DoTest(ruleSet, "value1[]", initState, true); //, false);
+        await DoTest(ruleSet, "value1[]", initState, true);
 
         List<string> ruleSet2 = new()
         {
@@ -203,7 +210,7 @@ public class QueryTests
             "n([bobl])(a0), n([bobr])(a0) -[ (Channel(init[]), a0) ]-> m(enc(<init[], [bobl], [bobr]>, pk(sksd[])))",
             "k(enc(<init[], sl, sr>, pk(sksd[]))), k(right[]) -[ ]-> k(sr)"
         };
-        await DoTest(ruleSet2, "[bobr]", initState, true); //, false);
+        await DoTest(ruleSet2, "[bobr]", initState, true);
     }
 
     [TestMethod]
@@ -219,7 +226,7 @@ public class QueryTests
             "k(x@cell(x)) -[ ]-> k(x)",
             "k(dec(enc(x, y), y)) -[ ]-> k(x)"
         };
-        await DoTest(ruleSet, "s[]", initState, true);// false, true);
+        await DoTest(ruleSet, "s[]", initState, true);
     }
 
     private async Task DoTest(

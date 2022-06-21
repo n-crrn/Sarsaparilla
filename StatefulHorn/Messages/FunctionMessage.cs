@@ -113,9 +113,13 @@ public class FunctionMessage : IMessage
 
     public bool IsUnifiableWith(IMessage other) => DetermineUnifiableSubstitution(other, Guard.Empty, Guard.Empty, new());
 
-    public bool DetermineUnifiableSubstitution(IMessage other, Guard fwdGuard, Guard bwdGuard, SigmaFactory sf)
+    public bool DetermineUnifiableSubstitution(
+        IMessage other, 
+        Guard fwdGuard, 
+        Guard bwdGuard, 
+        SigmaFactory sf)
     {
-        if (other is VariableMessage)
+        if (other is VariableMessage vOther && bwdGuard.CanUnifyMessages(vOther, this))
         {
             return sf.TryAdd(this, other, true);
         }

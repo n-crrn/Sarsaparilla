@@ -426,7 +426,9 @@ public class HornClause
     public bool CanResultIn(IMessage possResult, Guard bwdGuard, out SigmaFactory? sf)
     {
         sf = new();
-        if (Result.DetermineUnifiableSubstitution(possResult, Guard, bwdGuard, sf))
+        if (Result.DetermineUnifiableSubstitution(possResult, Guard, bwdGuard, sf) 
+            && sf.ForwardIsValidByGuard(Guard) 
+            && sf.BackwardIsValidByGuard(bwdGuard))
         {
             HashSet<IMessage> resultVars = new();
             Result.CollectVariables(resultVars);

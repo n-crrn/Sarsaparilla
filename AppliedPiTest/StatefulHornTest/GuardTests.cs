@@ -70,4 +70,22 @@ public class GuardTests
         Assert.IsTrue(succeed, "Failed to find unifiable substitution with empty guard.");
     }
 
+    [TestMethod]
+    public void TupleFunctionGuardTest()
+    {
+        IMessage hashAMsg = new FunctionMessage("h", new() { new NameMessage("A") });
+        IMessage bMsg = new NameMessage("B");
+        IAssignableMessage mfMsg = new VariableMessage("mf");
+        IMessage xMsg = new VariableMessage("x");
+        
+        IMessage tuple1Msg = new TupleMessage(new List<IMessage>() { hashAMsg, bMsg });
+        IMessage tuple2Msg = new TupleMessage(new List<IMessage>() { mfMsg, xMsg });
+
+        Guard g = new(mfMsg, hashAMsg);
+        const string mfxCell = "mf@x@cell";
+        IMessage testMsg1 = new FunctionMessage(mfxCell, new List<IMessage>() { tuple1Msg });
+        IMessage testMsg2 = new FunctionMessage(mfxCell, new List<IMessage>() { tuple2Msg });
+        Assert.IsFalse(testMsg2.DetermineUnifiedToSubstitution(testMsg1, g, new()));
+    }
+
 }
