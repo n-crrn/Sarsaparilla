@@ -20,6 +20,13 @@
     margin-bottom: 20px;
 }
 
+.frame-header {
+    padding: 5px;
+    font-weight: bold;
+    background-color: var(--foreground-theme-color, darkgray);
+    color: var(--background-theme-color, black);
+}
+
 .state-change-premises {
     align-items: center;
     margin-bottom: 10px;
