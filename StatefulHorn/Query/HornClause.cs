@@ -14,13 +14,20 @@ namespace StatefulHorn.Query;
 /// </summary>
 public class HornClause
 {
+    /// <summary>Create a new Horn Clause.</summary>
+    /// <param name="result">
+    /// Resulting message from the clause. The variables within the result must appear in one or
+    /// more 
+    /// </param>
+    /// <param name="premises">The premises leading to the result.</param>
+    /// <param name="guard">Restrictions on variables.</param>
     public HornClause(IMessage result, IEnumerable<IMessage> premises, Guard? guard = null)
     {
-        Guard = guard ?? Guard.Empty;
         Premises = new SortedSet<IMessage>(premises, MessageUtils.SortComparer);
         Result = result;
         HashCode = result.GetHashCode();
         Variables = CollectVariables();
+        Guard = guard == null ? Guard.Empty : guard.Filter(Variables);
     }
 
     /// <summary>
@@ -64,13 +71,13 @@ public class HornClause
     /// Guard statement indicating which variable substitutions cannot be conducted with this
     /// clause.
     /// </summary>
-    public Guard Guard { get; init; }
+    public Guard Guard { get; private init; }
 
     /// <summary>Premises for the Clause.</summary>
-    public IReadOnlySet<IMessage> Premises { get; init; }
+    public IReadOnlySet<IMessage> Premises { get; private init; }
 
     /// <summary>Result message of the Clause.</summary>
-    public IMessage Result { get; init; }
+    public IMessage Result { get; private init; }
 
     /// <summary>
     /// Indicates that the Horn Clause will result in a non-atomic message. Used when there is

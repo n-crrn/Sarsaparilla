@@ -97,6 +97,15 @@ public class HornClauseTests
         Assert.IsTrue(hc2_1.Implies(hc2_2), "Failed on function implier.");
     }
 
+    [TestMethod]
+    public void GuardFilterTest()
+    {
+        Guard g = new(new VariableMessage("x"), new NameMessage("A"));
+        List<IMessage> constMsgs = new() { new NameMessage("A"), new NameMessage("B") };
+        HornClause hc1 = new(new NameMessage("C"), constMsgs, g);
+        Assert.IsTrue(hc1.Guard.IsEmpty, "Guard not filtered.");
+    }
+
     #endregion
     #region Convenience methods.
 

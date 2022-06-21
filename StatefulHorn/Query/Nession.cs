@@ -625,11 +625,10 @@ public class Nession
                                     where p.IsKnow
                                     select p.Messages.Single();
                     }
-                    HornClause mkClause = new(mkPremise.Messages.Single(), kPremises)
+                    HornClause mkClause = new(mkPremise.Messages.Single(), kPremises, f.GuardStatements)
                     {
                         Rank = rank,
-                        Source = new NessionRuleSource(this, rank, TransferringRulesForState(rank, stateI, true).ToList(), sc.TransferRule!),
-                        Guard = f.GuardStatements
+                        Source = new NessionRuleSource(this, rank, TransferringRulesForState(rank, stateI, true).ToList(), sc.TransferRule!)
                     };
                     clauses.Add(mkClause);
                 }
@@ -649,11 +648,10 @@ public class Nession
                     premises.UnionWith(InnerKnowsForState(rank, cellOffset));
                     transferRules.AddRange(TransferringRulesForState(rank, cellOffset));
                 }
-                HornClause rClause = new(r.Result.Messages.Single(), premises)
+                HornClause rClause = new(r.Result.Messages.Single(), premises, g)
                 {
                     Rank = rank,
-                    Source = new NessionRuleSource(this, rank, transferRules, r),
-                    Guard = g
+                    Source = new NessionRuleSource(this, rank, transferRules, r)
                 };
                 clauses.Add(rClause);
 
@@ -662,11 +660,10 @@ public class Nession
                 {
                     if (ep.EventType == Event.Type.Make)
                     {
-                        HornClause mkClause = new(ep.Messages.Single(), premises)
+                        HornClause mkClause = new(ep.Messages.Single(), premises, g)
                         {
                             Rank = rank,
-                            Source = new NessionRuleSource(this, rank, transferRules, r),
-                            Guard = g
+                            Source = new NessionRuleSource(this, rank, transferRules, r)
                         };
                         clauses.Add(mkClause);
                     }

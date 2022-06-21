@@ -24,7 +24,7 @@ public abstract class Rule
         Label = lbl;
         Snapshots = ss;
         Premises = prems;
-        Guard = g.IsEmpty ? g : g.Intersect(CollectAllVariables());
+        Guard = g.IsEmpty ? g : g.Filter(CollectAllVariables());
     }
 
     #region Properties.

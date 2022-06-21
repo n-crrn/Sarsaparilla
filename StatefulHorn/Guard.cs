@@ -206,11 +206,11 @@ public class Guard
     /// If the varMsgs are empty, return this Guard. Otherwise, return a new Guard where only
     /// the assignables in the set are retained.
     /// </returns>
-    public Guard Intersect(HashSet<IMessage> varMsgs)
+    public Guard Filter(IReadOnlySet<IMessage> varMsgs)
     {
-        if (varMsgs.Count == 0)
+        if (varMsgs.Count == 0 || IsEmpty)
         {
-            return this;
+            return Guard.Empty;
         }
         Dictionary<IAssignableMessage, HashSet<IMessage>> newDict = new();
         foreach (IMessage vMsg in varMsgs)
