@@ -1,23 +1,33 @@
-﻿.outer {
+﻿/*
+ * The following theme values are supported:
+ *   --background-theme-color
+ *   --foreground-theme-color
+ */
 
+.outer {
+    padding-top: 5px;
+    padding-left: 5px;
 }
 
-.description {
-    padding: 5px;
-    margin: 0px;
+.attack-summary {
+    background-color: var(--foreground-theme-color, darkgray);
+    color: var(--background-theme-color, black);
     font-weight: bold;
+    padding: 5px;
 }
 
-.fact-item {
-    padding: 2px;
+.rule-listing {
     padding-left: 20px;
-    margin: 0px;
+    border-left: 5px solid grey;
 }
 
-.rule-item {
-    padding: 2px;
+.transformation {
     padding-left: 20px;
-    border-bottom: var(--background-theme-color, black);
+    opacity: 90%;
+}
+
+.premise-listing {
+    border-left: 5px solid grey;
 }
 
 .no-attack-message {

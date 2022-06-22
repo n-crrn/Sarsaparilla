@@ -7,34 +7,24 @@
 <div class='outer'>
     @if (Attack != null)
     {
-        <div class='facts-listing'>
-            @if (Attack.Facts.Any())
+        <div class='attack-summary'>
+            <span class='query-message'>@Attack.Query</span>
+            @if (!Attack.Actual.Equals(Attack.Query))
             {
-                <p class='description'>The following facts are initially known:</p>
-                @foreach (IMessage fact in Attack.Facts)
-                {
-                    <div class='fact-item'>@FormatUtils.FormatLabel(fact.ToString())</div>
-                }
+                <span class='query-as'>( as @Attack.Actual )</span>
             }
-            else
+            @if (!Attack.Transformation.IsEmpty)
             {
-                <p class='description'>No facts required.</p>
+                <span class='transformation'>@Attack.Transformation</span>
             }
         </div>
-        <div class='rules-listing'>
-            @if (Attack.Rules.Any())
+        <div class='rule-listing'>
+            <RuleSourceDisplay Rule=@Attack.Clause/>
+        </div>
+        <div class='premise-listing'>
+            @foreach (Attack premiseAttack in Attack.Premises.Values)
             {
-                <p class='description'>The following rules are used in the attack:</p>
-                @foreach (HornClause rule in Attack.Rules)
-                {
-                    <div class='rule-item'>
-                        <RuleSourceDisplay Rule=@rule/>
-                    </div>
-                }
-            }
-            else
-            {
-                <p class='description'>No rules required.</p>
+                <AttackDisplay Attack=@premiseAttack />
             }
         </div>
     }

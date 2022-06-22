@@ -53,19 +53,19 @@ public class QueryEngine
 
     #region Properties.
 
-    public List<IMessage> Queries { get; init; }
+    public List<IMessage> Queries { get; private init; }
 
-    public List<State> InitStates { get; init; }
+    public List<State> InitStates { get; private init; }
 
-    public State? When { get; init; }
+    public State? When { get; private init; }
 
-    public List<HornClause> KnowledgeRules { get; init; }
+    public List<HornClause> KnowledgeRules { get; private init; }
 
-    public List<StateConsistentRule> SystemRules { get; init; }
+    public List<StateConsistentRule> SystemRules { get; private init; }
 
-    public List<StateTransferringRule> TransferringRules { get; init; }
+    public List<StateTransferringRule> TransferringRules { get; private init; }
 
-    public int ElaborationLimit { get; init; }
+    public int ElaborationLimit { get; private init; }
 
     #endregion
     #region Highest level query management - multiple executions.
@@ -122,11 +122,10 @@ public class QueryEngine
                     HashSet<HornClause> clauses = new();
                     queryNession.CollectHornClauses(clauses);
                     clauses.UnionWith(KnowledgeRules);
-                    QueryResult result = CheckQuery(query, clauses, n.FindStateVariables());
-                    Attack? foundAttack = result.Found ? new(result.Facts!, result.Knowledge!) : null;
+                    Attack? foundAttack = CheckQuery(query, clauses, n.FindStateVariables());
                     queryNession.FoundAttack = foundAttack;
                     queryNession.FoundSystemClauses = clauses;
-                    atLeastOneAttack |= result.Found;
+                    atLeastOneAttack |= foundAttack != null;
                 }
                 if (atLeastOneAttack)
                 {
@@ -156,7 +155,7 @@ public class QueryEngine
 
     const int MaxTerms = 1000;
 
-    private QueryResult CheckQuery(IMessage query, HashSet<HornClause> clauses, HashSet<IMessage> stateVars)
+    private Attack? CheckQuery(IMessage query, HashSet<HornClause> clauses, HashSet<IMessage> stateVars)
     {
         int maxRank = 0;
         foreach (HornClause hc in clauses)
@@ -166,7 +165,7 @@ public class QueryEngine
 
         if (!PreQueryCheck(query, clauses))
         {
-            return QueryResult.Failed(query, maxRank, When);
+            return null;
         }
 
         QueryNodeMatrix matrix = new(stateVars, When);
@@ -196,8 +195,7 @@ public class QueryEngine
         {
             kingNode.FinalAssess();
         }
-        QueryResult? qr = kingNode.GetStateConsistentProof(stateVars);
-        return qr ?? QueryResult.Failed(query, maxRank, When);
+        return kingNode.GetStateConsistentProof(stateVars);
     }
 
     /// <summary>

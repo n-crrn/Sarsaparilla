@@ -69,7 +69,24 @@ public class QueryNode
     #endregion
     #region Result generation.
 
-    internal IEnumerable<IMessage> GetResolvedPossibilities() => from qr in GetResults() select qr.Actual!;
+    public IEnumerable<IMessage> GetPossibilities()
+    {
+        Dictionary<IMessage, IMessage?> emptyDict = new();
+        foreach (PremiseOptionSet pos in SuccessfulOptionSets)
+        {
+            Attack? att = pos.CreateSuccessResult(Message, When, emptyDict);
+            if (att != null)
+            {
+                yield return att.Actual;
+            }
+        }
+        if (Status == QNStatus.Unresolvable)
+        {
+            yield return Message;
+        }
+    }
+
+    /*internal IEnumerable<IMessage> GetResolvedPossibilities() => from qr in GetResults() select qr.Actual!;
 
     internal IEnumerable<QueryResult> GetResults() => GetResults(new Dictionary<IMessage, IMessage?>());
 
@@ -90,7 +107,7 @@ public class QueryNode
         {
             yield return QueryResult.Unresolved((VariableMessage)Message, Rank, When);
         }
-    }
+    }*/
 
     #endregion
     #region Rule assessment.
@@ -254,21 +271,29 @@ public class QueryNode
         return lookup;
     }
 
-    internal QueryResult? GetStateConsistentProof(HashSet<IMessage> stateVars)
+    /// <summary>
+    /// Attempt to find an attack that maintains the consistency of the given variable messages.
+    /// </summary>
+    /// <param name="stateVars">Variable messages to keep consistent.</param>
+    /// <returns>If an attack is found, it is returned. Otherwise, null.</returns>
+    public Attack? GetStateConsistentProof(HashSet<IMessage> stateVars)
     {
-        IDictionary<IMessage, IMessage?> lookup = CreateStateVariablesLookup(stateVars);
+        return GetStateConsistentProof(CreateStateVariablesLookup(stateVars));
+    }
+
+    public Attack? GetStateConsistentProof(IDictionary<IMessage, IMessage?> lookup) 
+    { 
         if (Status == QNStatus.Proven)
         {
             foreach (PremiseOptionSet pos in SuccessfulOptionSets)
             {
-                QueryResult? qr = pos.CreateSuccessResult(Message, When, lookup);
-                if (qr != null)
+                Attack? att = pos.CreateSuccessResult(Message, When, lookup);
+                if (att != null)
                 {
-                    return qr;
+                    return att;
                 }
             }
         }
-
         return null;
     }
 

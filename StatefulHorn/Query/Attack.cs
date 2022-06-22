@@ -8,100 +8,84 @@ namespace StatefulHorn.Query;
 public class Attack
 {
 
-    public Attack(IEnumerable<IMessage> facts, IEnumerable<HornClause> knowledge)
+    public Attack(
+        IMessage query,
+        IMessage actual,
+        HornClause clause,
+        SigmaFactory transform,
+        IEnumerable<Attack> premiseAttacks,
+        State? when)
     {
-        Facts = new HashSet<IMessage>(facts);
-        Rules = new List<HornClause>(knowledge);
+        Query = query;
+        Actual = actual;
+        Clause = clause;
+        Transformation = transform;
+        When = when;
+
+        Dictionary<IMessage, Attack> pAttacks = new();
+        foreach (Attack a in premiseAttacks)
+        {
+            pAttacks[a.Actual] = a;
+        }
+        Premises = pAttacks;
     }
+
+    /*public static Attack Unresolved(IMessage unresolved, State? when)
+    {
+        return new(unresolved, unresolved, null, new(), Enumerable.Empty<Attack>(), when);
+    }*/
 
     #region Properties.
 
-    public IReadOnlySet<IMessage> Facts { get; init; }
+    public IMessage Query { get; private init; }
 
-    public IReadOnlyList<HornClause> Rules { get; init; }
+    public IMessage Actual { get; private init; }
 
-    #endregion
-    #region Composition.
+    public HornClause Clause { get; private init; }
 
-    public static Attack Compose(IEnumerable<Attack> subAttacks)
-    {
-        IEnumerable<IMessage> allFacts = new List<IMessage>();
-        IEnumerable<HornClause> allClauses = new List<HornClause>();
+    public SigmaFactory Transformation { get; private init; }
 
-        foreach (Attack a in subAttacks)
-        {
-            allFacts = allFacts.Concat(a.Facts);
-            allClauses = allClauses.Concat(a.Rules);
-        }
+    public IDictionary<IMessage, Attack> Premises { get; private init; }
 
-        return new(allFacts, allClauses);
-    }
+    public State? When { get; private init; }
 
     #endregion
     #region String descriptions.
 
-    public override string ToString() => $"Attack based on {Facts.Count} fact(s) and {Rules.Count} rule(s).";
+    public override string ToString() => $"Attack found for {Query} ({Actual})";
 
     public string DescribeSources()
     {
         StringWriter writer = new();
-        DescribeSources(writer);
+        DescribeSources(writer, 0);
         return writer.ToString();
     }
 
-    public void DescribeSources(TextWriter writer)
+    private void DescribeSources(TextWriter writer, int indent = 0)
     {
-        writer.WriteLine(ToString());
-        writer.WriteLine("=== Facts ===");
-        writer.WriteLine(string.Join('\n', Facts));
-        writer.WriteLine("=== Rules and their sources ===");
-        foreach (HornClause rule in Rules)
+        WriteLine(writer, indent, $"{Query} as {Actual} by transform set {Transformation}.");
+        WriteLine(writer, indent, $"Based on clause {Clause}.");
+        if (Premises.Count == 0)
         {
-            if (rule.Source == null)
+            WriteLine(writer, indent + 1, "No premises.");
+        }
+        else
+        {
+            WriteLine(writer, indent + 1, "Premises: " + string.Join(",", Premises.Keys));
+            foreach (Attack premAttack in Premises.Values)
             {
-                writer.WriteLine($"{rule}, provided a priori.");
-            }
-            else
-            {
-                writer.WriteLine($"{rule}, sourced from:");
-                DescribeRuleSources(writer, rule.Source, 1);
+                premAttack.DescribeSources(writer, indent + 2);
             }
         }
     }
 
-    private void DescribeRuleSources(TextWriter writer, IRuleSource src, int indent)
+    private static void WriteLine(TextWriter writer, int indent, string text)
     {
-        const int indentSpaceCount = 2;
-        writer.Write(IndentLines(src.Describe(), indentSpaceCount * indent));
-        List<IRuleSource> furtherSources = src.Dependencies;
-        if (furtherSources.Count > 0)
+        for (int i = 0; i < indent; i++)
         {
-            for (int i = 0; i < indentSpaceCount * indent; i++)
-            {
-                writer.Write(' ');
-            }
-            writer.WriteLine("...based on...");
-            foreach (IRuleSource innerRuleSrc in furtherSources)
-            {
-                DescribeRuleSources(writer, innerRuleSrc, indent + 1);
-            }
+            writer.Write("  ");
         }
-    }
-
-    private static string IndentLines(string input, int spaceCount)
-    {
-        StringBuilder builder = new();
-        string[] lines = input.Split('\n');
-        foreach (string l in lines)
-        {
-            for (int i = 0; i < spaceCount; i++)
-            {
-                builder.Append(' ');
-            }
-            builder.Append(l);
-            builder.Append('\n');
-        }
-        return builder.ToString();
+        writer.WriteLine(text);
     }
 
     #endregion

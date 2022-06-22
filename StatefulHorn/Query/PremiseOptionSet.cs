@@ -75,7 +75,7 @@ public class PremiseOptionSet
 
     public bool HasFailed => (from qn in Nodes where qn.ResultFailed select qn).Any();
 
-    internal QueryResult? CreateSuccessResult(
+    public Attack? CreateSuccessResult(
         IMessage query,
         State? when,
         IDictionary<IMessage, IMessage?> stateVarValues)
@@ -87,37 +87,35 @@ public class PremiseOptionSet
 
         if (Nodes.Count == 0)
         {
-            return QueryResult.ResolvedKnowledge(query, query, SourceClause!, new SigmaFactory(), when);
+            return new Attack(
+                query, 
+                query.Substitute(SigmaFactory.CreateBackwardMap()), 
+                SourceClause!, 
+                new(), 
+                Enumerable.Empty<Attack>(), 
+                null);
         }
 
-        //List<QueryResult> premiseResults = new(from n in Nodes select n.GetResults(stateVarValues).First());
-        List<QueryResult> premiseResults = new();
+        List<Attack> premiseAttacks = new();
         foreach (QueryNode n in Nodes)
         {
-            List<QueryResult> possResults = new(n.GetResults(stateVarValues));
-            if (possResults.Count == 0)
+            if (n.Status != QNStatus.Unresolvable)
             {
-                return null;
+                Attack? possAttack = n.GetStateConsistentProof(stateVarValues);
+                if (possAttack == null)
+                {
+                    return null;
+                }
+                premiseAttacks.Add(possAttack);
             }
-            premiseResults.Add(possResults[0]);
         }
-
-        if (SourceClause != null)
-        {
-            QueryResult thisClauseResult = QueryResult.ResolvedKnowledge(
-                query,
-                query.Substitute(SigmaFactory.CreateBackwardMap()),
-                SourceClause,
-                SigmaFactory,
-                when);
-            premiseResults.Add(thisClauseResult);
-        }
-        return QueryResult.Compose(
+        return new Attack(
             query,
             query.Substitute(SigmaFactory.CreateBackwardMap()),
-            when,
+            SourceClause!,
             SigmaFactory,
-            premiseResults);
+            premiseAttacks,
+            when);
     }
 
     public bool PartialSuccess
@@ -156,7 +154,7 @@ public class PremiseOptionSet
             if (n.Status == QNStatus.Proven)
             {
                 original.Add(n.Message);
-                options = AddToOptionsList(options, n.GetResolvedPossibilities().ToList());
+                options = AddToOptionsList(options, n.GetPossibilities().ToList());
             }
         }
 
