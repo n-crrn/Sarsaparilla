@@ -71,31 +71,9 @@ public class QueryNodeMatrix
                     toCheck.Enqueue(n);
                 }
             }
-            if (next.ResultFailed)
-            {
-                SpreadFailure(next);
-            }
             next.ClearChanged();
         }
         return newNodes;
-    }
-
-    // FIXME: Add an output feature.
-
-    private void SpreadFailure(QueryNode qn)
-    {
-        if (qn.ResultFailed)
-        {
-            List<QueryNode> nodeLine = FoundNodes[qn.Message];
-            foreach (QueryNode otherQN in nodeLine)
-            {
-                if (qn.Guard.Equals(otherQN.Guard) && qn.Rank > otherQN.Rank)
-                {
-                    //qn.Status = QNStatus.Failed;
-                    otherQN.ForcedFailure(qn);
-                }
-            }
-        }
     }
 
 }

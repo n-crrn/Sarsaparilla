@@ -12,7 +12,7 @@ namespace StatefulHorn.Query;
 public class PremiseOptionSet
 {
 
-    private PremiseOptionSet(List<QueryNode> nodes, SigmaFactory sf, HornClause? hc)
+    private PremiseOptionSet(List<QueryNode> nodes, SigmaFactory sf, HornClause hc)
     {
         Nodes = nodes;
         SigmaFactory = sf;
@@ -48,17 +48,12 @@ public class PremiseOptionSet
         IReadOnlyList<IMessage> msgList,
         Guard g,
         int rank,
+        HornClause hc,
         QueryNodeMatrix qm,
-        QueryNode? requester = null,
-        HornClause? hc = null)
+        QueryNode? requester = null)
     {
         List<QueryNode> nodes = new(from m in msgList select qm.RequestNode(m, rank, g, requester));
         return new(nodes, new(), hc);
-    }
-
-    public static PremiseOptionSet LaterFailure(QueryNode qn)
-    {
-        return new(new() { qn }, new(), null);
     }
 
     public IReadOnlyList<QueryNode> Nodes { get; }
@@ -67,7 +62,7 @@ public class PremiseOptionSet
 
     private readonly SigmaFactory SigmaFactory;
 
-    private readonly HornClause? SourceClause;
+    private readonly HornClause SourceClause;
 
     public bool IsEmpty => Nodes.Count == 0;
 
@@ -91,7 +86,7 @@ public class PremiseOptionSet
                 query, 
                 query.Substitute(SigmaFactory.CreateBackwardMap()), 
                 SourceClause!, 
-                new(), 
+                SigmaFactory, 
                 Enumerable.Empty<Attack>(), 
                 null);
         }
@@ -169,7 +164,7 @@ public class PremiseOptionSet
                 SigmaMap sm = sf.CreateForwardMap();
                 List<IMessage> updated = new(from m in fullOriginal select m.Substitute(sm));
                 Guard updatedGuard = g.Substitute(sm);
-                optSet.Add(FromMessages(updated, updatedGuard, rank, qm, requester, SourceClause));
+                optSet.Add(FromMessages(updated, updatedGuard, rank, SourceClause, qm, requester));
             }
         }
         return optSet;

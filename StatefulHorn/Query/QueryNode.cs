@@ -59,13 +59,6 @@ public class QueryNode
 
     public readonly List<PremiseOptionSet> SuccessfulOptionSets = new();
 
-    public void ForcedFailure(QueryNode laterNode)
-    {
-        FailedOptionSets.AddRange(OptionSets);
-        OptionSets.Clear();
-        FailedOptionSets.Add(PremiseOptionSet.LaterFailure(laterNode));
-    }
-
     #endregion
     #region Result generation.
 
@@ -85,29 +78,6 @@ public class QueryNode
             yield return Message;
         }
     }
-
-    /*internal IEnumerable<IMessage> GetResolvedPossibilities() => from qr in GetResults() select qr.Actual!;
-
-    internal IEnumerable<QueryResult> GetResults() => GetResults(new Dictionary<IMessage, IMessage?>());
-
-    internal IEnumerable<QueryResult> GetResults(IDictionary<IMessage, IMessage?> stateVarValues)
-    {
-        foreach (PremiseOptionSet pos in SuccessfulOptionSets)
-        {
-            // This dictionary risks being modified as it is passed down through
-            // the query tree.
-            Dictionary<IMessage, IMessage?> copySVV = new(stateVarValues);
-            QueryResult? qr = pos.CreateSuccessResult(Message, When, copySVV);
-            if (qr != null)
-            {
-                yield return qr;
-            }
-        }
-        if (Status == QNStatus.Unresolvable)
-        {
-            yield return QueryResult.Unresolved((VariableMessage)Message, Rank, When);
-        }
-    }*/
 
     #endregion
     #region Rule assessment.
@@ -141,7 +111,9 @@ public class QueryNode
 
         if (Message is TupleMessage tMsg)
         {
-            PremiseOptionSet pos = PremiseOptionSet.FromMessages(tMsg.Members, Guard, Rank, matrix, this);
+            // Auto-generate a new horn clause for tuple assembly.
+            HornClause tupleHc = new(Message, tMsg.Members, Guard);
+            PremiseOptionSet pos = PremiseOptionSet.FromMessages(tMsg.Members, Guard, Rank, tupleHc, matrix, this);
             OptionSets.Add(pos);
             premiseNodes.AddRange(pos.InProgressNodes);
         }
