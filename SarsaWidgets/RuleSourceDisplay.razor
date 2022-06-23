@@ -10,60 +10,66 @@
 <div class='outer'>
     @if (Rule != null)
     {
-        <div class='rule-description'>
-            <HornClauseDisplay HornClause=@Rule/>
-        </div>
-        @if (Rule.Source == null)
-        {
-            <div class='a-priori'>Provided a priori.</div>
-        }
-        else
-        {
-            <div class='dependencies'>
-                @if (Rule.Source is CompositionRuleSource crSource)
-                {
-                    <div class='description'>Composition of …</div>
-                    <RuleSourceDisplay Rule=@crSource.Composer/>
-                    <div class='description'>… upon …</div>
-                    <RuleSourceDisplay Rule=@crSource.ComposedUpon/>
-                }
-                else if (Rule.Source is KnowledgeRuleSource krSource)
-                {
-                    <div class='description'>Derived from knowledge rule …</div>
-                    <RuleDisplay Rule=@krSource.Source/>
-                }
-                else if (Rule.Source is NessionRuleSource nrSource)
-                {
-                    @* It is assumed that the nession is displayed with the *@
-                    <div class='description'>From frame @nrSource.FrameIndex of nession.</div>
-                    @if (nrSource.StateTransfers.Count > 0)
-                    {
-                        <div class='description'>State transfers leading to frame are …</div>
-                        @foreach (StateTransferringRule str in nrSource.StateTransfers)
-                        {
-                            <RuleDisplay Rule=@str/>
-                        }
-                    }
-                    <div class='description'>Original rule was …</div>
-                    <RuleDisplay Rule=@nrSource.OriginalRule/>
-                }
-                else if (Rule.Source is OperationRuleSource opSource)
-                {
-                    <div class='description'>@opSource.Operation …</div>
-                    <RuleSourceDisplay Rule=@opSource.OriginalRule/>
-                }
-                else if (Rule.Source is SubstitutionRuleSource subSource)
-                {
-                    <div class='description'>Substitution of …</div>
-                    <SigmaMapDisplay Map=@subSource.Substitution/>
-                    <div class='description'>… upon …</div>
-                    <RuleSourceDisplay Rule=@subSource.OriginalRule/>
-                }
-                else
-                {
-                    throw new NotImplementedException($"Unrecognised IRuleSource type '{Rule.Source.GetType()}'");
-                }
+        <div class='top-line'>
+            <div class='rule-description'>
+                <HornClauseDisplay HornClause=@Rule/>
             </div>
+            <button @onclick=ToggleExpanded>@ExpandIcon</button>
+        </div>
+        @if (Expanded)
+        {
+            @if (Rule.Source == null)
+            {
+                <div class='a-priori'>Provided a priori.</div>
+            }
+            else
+            {
+                <div class='dependencies'>
+                    @if (Rule.Source is CompositionRuleSource crSource)
+                    {
+                        <div class='description'>Composition of …</div>
+                        <RuleSourceDisplay Rule=@crSource.Composer/>
+                        <div class='description'>… upon …</div>
+                        <RuleSourceDisplay Rule=@crSource.ComposedUpon/>
+                    }
+                    else if (Rule.Source is KnowledgeRuleSource krSource)
+                    {
+                        <div class='description'>Derived from knowledge rule …</div>
+                        <RuleDisplay Rule=@krSource.Source/>
+                    }
+                    else if (Rule.Source is NessionRuleSource nrSource)
+                    {
+                        @* It is assumed that the nession is displayed with the *@
+                        <div class='description'>From frame @nrSource.FrameIndex of nession.</div>
+                        @if (nrSource.StateTransfers.Count > 0)
+                        {
+                            <div class='description'>State transfers leading to frame are …</div>
+                            @foreach (StateTransferringRule str in nrSource.StateTransfers)
+                            {
+                                <RuleDisplay Rule=@str/>
+                            }
+                        }
+                        <div class='description'>Original rule was …</div>
+                        <RuleDisplay Rule=@nrSource.OriginalRule/>
+                    }
+                    else if (Rule.Source is OperationRuleSource opSource)
+                    {
+                        <div class='description'>@opSource.Operation …</div>
+                        <RuleSourceDisplay Rule=@opSource.OriginalRule/>
+                    }
+                    else if (Rule.Source is SubstitutionRuleSource subSource)
+                    {
+                        <div class='description'>Substitution of …</div>
+                        <SigmaMapDisplay Map=@subSource.Substitution/>
+                        <div class='description'>… upon …</div>
+                        <RuleSourceDisplay Rule=@subSource.OriginalRule/>
+                    }
+                    else
+                    {
+                        throw new NotImplementedException($"Unrecognised IRuleSource type '{Rule.Source.GetType()}'");
+                    }
+                </div>
+            }
         }
     }
     else
@@ -76,5 +82,15 @@
 
     [Parameter]
     public HornClause? Rule { get; set; }
+
+    [Parameter]
+    public bool Expanded { get; set; }
+
+    private void ToggleExpanded()
+    {
+        Expanded = !Expanded;
+    }
+
+    private string ExpandIcon => Expanded ? "▲" : "▼";
 
 }

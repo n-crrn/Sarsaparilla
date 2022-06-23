@@ -7,26 +7,35 @@
 <div class='outer'>
     @if (Attack != null)
     {
-        <div class='attack-summary'>
-            <span class='query-message'>@Attack.Query</span>
-            @if (!Attack.Actual.Equals(Attack.Query))
+        <div class='summary-line'>
+            <div class='attack-summary'>
+                <span class='query-message'>@Attack.Query</span>
+                @if (!Attack.Actual.Equals(Attack.Query))
+                {
+                    <span class='query-as'>( as @Attack.Actual )</span>
+                }
+                @if (!Attack.Transformation.IsEmpty)
+                {
+                    <span class='transformation'>@Attack.Transformation</span>
+                }
+            </div>
+            @if (Attack.Premises.Count > 0)
             {
-                <span class='query-as'>( as @Attack.Actual )</span>
-            }
-            @if (!Attack.Transformation.IsEmpty)
-            {
-                <span class='transformation'>@Attack.Transformation</span>
+                <button @onclick=ToggleExpanded>@ExpandIcon</button>
             }
         </div>
         <div class='rule-listing'>
             <RuleSourceDisplay Rule=@Attack.Clause/>
         </div>
-        <div class='premise-listing'>
+        @if (Expanded)
+        {
+            <div class='premise-listing'>
             @foreach (Attack premiseAttack in Attack.Premises.Values)
             {
                 <AttackDisplay Attack=@premiseAttack />
             }
-        </div>
+            </div>
+        }
     }
     else
     {
@@ -38,5 +47,12 @@
 
     [Parameter]
     public Attack? Attack { get; set; }
+
+    [Parameter]
+    public bool Expanded { get; set; }
+
+    private void ToggleExpanded() => Expanded = !Expanded;
+
+    private string ExpandIcon => Expanded ? "▲" : "▼";
 
 }

@@ -50,7 +50,8 @@
                             <div class='upper'>
                                 @if (CurrentAttack != null)
                                 {
-                                    <AttackDisplay Attack=@CurrentAttack/>
+                                    <p class='attack-intro'>Attack details as follows:</p>
+                                    <AttackDisplay Attack=@CurrentAttack Expanded=true/>
                                 }
                                 else
                                 {

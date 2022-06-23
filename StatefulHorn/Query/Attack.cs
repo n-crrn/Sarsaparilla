@@ -30,11 +30,6 @@ public class Attack
         Premises = pAttacks;
     }
 
-    /*public static Attack Unresolved(IMessage unresolved, State? when)
-    {
-        return new(unresolved, unresolved, null, new(), Enumerable.Empty<Attack>(), when);
-    }*/
-
     #region Properties.
 
     public IMessage Query { get; private init; }

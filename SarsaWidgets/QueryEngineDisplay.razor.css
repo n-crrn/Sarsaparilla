@@ -107,6 +107,10 @@
 
 /* --- Nession attack display --- */
 
+.attack-intro {
+    margin: 2px;
+}
+
 .nession-attack-view {
     flex-grow: 1;
     flex-shrink: 4;

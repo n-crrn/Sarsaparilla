@@ -2,9 +2,23 @@
     
 }
 
+.top-line {
+    display: flex;
+    flex-direction: row;
+}
+
 .rule-description {
+    flex-grow: 1;
     margin: 5px;
     margin-bottom: 0px;
+}
+
+.top-line button {
+    flex-grow: 0;
+    flex-basis: 0;
+    margin-top: 5px;
+    margin-left: 5px;
+    margin-bottom: 5px;
 }
 
 .description {
