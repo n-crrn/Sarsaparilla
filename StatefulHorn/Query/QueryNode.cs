@@ -67,7 +67,7 @@ public class QueryNode
         Dictionary<IMessage, IMessage?> emptyDict = new();
         foreach (PremiseOptionSet pos in SuccessfulOptionSets)
         {
-            Attack? att = pos.CreateSuccessResult(Message, When, emptyDict);
+            Attack? att = pos.CreateSuccessResult(Message, When, Guard, emptyDict);
             if (att != null)
             {
                 yield return att.Actual;
@@ -259,7 +259,7 @@ public class QueryNode
         {
             foreach (PremiseOptionSet pos in SuccessfulOptionSets)
             {
-                Attack? att = pos.CreateSuccessResult(Message, When, lookup);
+                Attack? att = pos.CreateSuccessResult(Message, When, Guard, lookup);
                 if (att != null)
                 {
                     return att;

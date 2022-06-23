@@ -169,7 +169,7 @@ process
         // In this first example, there is a process that is capable of generating
         // h(h(value)) but it must be run at least twice to do so. This is a test
         // of a channel being made public from its inner scope.
-        /*string piSource1 =
+        string piSource1 =
 @"free pubC: channel.
 free value: bitstring.
 const holder: bitstring.
@@ -187,7 +187,7 @@ process
          | ( out(c, holder);
              in(c, v: bitstring) ) ) ).
 ";
-        await DoTest(piSource1, true);*/
+        await DoTest(piSource1, true);
 
         // In this second example, the channel is again made public but the process
         // can only run once. Therefore, h(h(value)) cannot be generated.
@@ -211,7 +211,7 @@ process
 ";
         await DoTest(piSource2, false); 
 
-        /*// In this final example, the channel is made public and the process is replicated.
+        // In this final example, the channel is made public and the process is replicated.
         // However, the magic transformation occurs in its concurrent process.
         string piSource3 =
 @"free pubC: channel.
@@ -228,7 +228,90 @@ process
        ( out(pubC, c); out(c, holder); in(c, v: bitstring) )
        | ( in(c, inRead: bitstring); out(c, h(inRead)) ) )
 ";
-        await DoTest(piSource3, true);*/
+        await DoTest(piSource3, true);
+    }
+
+    [TestMethod]
+    public async Task LetIfTest()
+    {
+        // The difference between the two models below is the if test at the end of the SD macro.
+        string piSource1 =
+            @"type key.
+
+const left: bitstring.
+const right: bitstring.
+
+fun h(bitstring, bitstring): bitstring.
+fun pk(key): key.
+fun enc(bitstring, key): bitstring.
+reduc forall x: bitstring, y: key; dec(enc(x, pk(y)), y) = x.
+
+query attacker(s).
+
+free publicChannel: channel.
+free bobl: bitstring [private].
+free bobr: bitstring [private].
+free s: bitstring [private].
+free mStart: bitstring [private].
+
+let SD(b: channel, sk: key) =
+  new mStart: bitstring;   (* State value of the security device. *)
+  in(b, x: bitstring);     (* Arbitrary value. *)
+  let mUpdated: bitstring = h(mStart, x) in
+  out(b, mUpdated);          (* Send state value, simulate read. *)
+  in(b, match: bitstring);
+  if match <> mUpdated then
+    out(publicChannel, s).
+
+process
+  new b: channel;
+  new k: key;
+  ( SD(b, k) | 
+    ( new arb: bitstring;
+      out(b, arb);
+      in(b, readValue: bitstring);
+      out(b, readValue) ) ) 
+  | in(publicChannel, w: bitstring).";
+        await DoTest(piSource1, false);
+
+        string piSource2 =
+            @"type key.
+
+const left: bitstring.
+const right: bitstring.
+
+fun h(bitstring, bitstring): bitstring.
+fun pk(key): key.
+fun enc(bitstring, key): bitstring.
+reduc forall x: bitstring, y: key; dec(enc(x, pk(y)), y) = x.
+
+query attacker(s).
+
+free publicChannel: channel.
+free bobl: bitstring [private].
+free bobr: bitstring [private].
+free s: bitstring [private].
+free mStart: bitstring [private].
+
+let SD(b: channel, sk: key) =
+  new mStart: bitstring;   (* State value of the security device. *)
+  in(b, x: bitstring);     (* Arbitrary value. *)
+  let mUpdated: bitstring = h(mStart, x) in
+  out(b, mUpdated);          (* Send state value, simulate read. *)
+  in(b, match: bitstring);
+  if match = mUpdated then
+    out(publicChannel, s).
+
+process
+  new b: channel;
+  new k: key;
+  ( SD(b, k) | 
+    ( new arb: bitstring;
+      out(b, arb);
+      in(b, readValue: bitstring);
+      out(b, readValue) ) ) 
+  | in(publicChannel, w: bitstring).";
+        await DoTest(piSource2, true);
     }
 
     [TestMethod]

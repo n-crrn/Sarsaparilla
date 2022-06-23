@@ -73,6 +73,7 @@ public class PremiseOptionSet
     public Attack? CreateSuccessResult(
         IMessage query,
         State? when,
+        Guard g,
         IDictionary<IMessage, IMessage?> stateVarValues)
     {
         if (!((HasSucceeded || PartialSuccess) && IsConsistentWithStateVariables(stateVarValues)))
@@ -92,8 +93,10 @@ public class PremiseOptionSet
         }
 
         List<Attack> premiseAttacks = new();
-        foreach (QueryNode n in Nodes)
+        List<QueryNode> matchingNode = new();
+        for (int i = 0; i < Nodes.Count; i++)
         {
+            QueryNode n = Nodes[i];
             if (n.Status != QNStatus.Unresolvable)
             {
                 Attack? possAttack = n.GetStateConsistentProof(stateVarValues);
@@ -102,13 +105,28 @@ public class PremiseOptionSet
                     return null;
                 }
                 premiseAttacks.Add(possAttack);
+                matchingNode.Add(n);
+            }
+        }
+        // All backward maps need to be applied for the final, actual value to be correct.
+        IMessage finalActual = query.Substitute(SigmaFactory.CreateBackwardMap());
+        // As there may be several layers of substitutions, this next Sigma Factory does 
+        // need to be generated from scratch.
+        SigmaFactory attackSF = new(SigmaFactory);
+        for (int i = 0; i < premiseAttacks.Count; i++)
+        {
+            Attack a = premiseAttacks[i];
+            finalActual = finalActual.Substitute(a.Transformation.CreateBackwardMap());
+            if (!a.Actual.DetermineUnifiableSubstitution(a.Query, g, matchingNode[i].Guard, attackSF))
+            {
+                return null;
             }
         }
         return new Attack(
             query,
-            query.Substitute(SigmaFactory.CreateBackwardMap()),
+            finalActual,
             SourceClause!,
-            SigmaFactory,
+            attackSF,
             premiseAttacks,
             when);
     }
