@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace StatefulHorn.Query;
@@ -15,12 +12,19 @@ namespace StatefulHorn.Query;
 public class NessionManager
 {
 
+    /// <summary>
+    /// Create a new NessionManager that will generate nessions from the given initial states with
+    /// the given initial set of rules.
+    /// </summary>
+    /// <param name="init">Initial states.</param>
+    /// <param name="systemRules">State Consistent Rules of the system.</param>
+    /// <param name="transferringRules">State Transferring Rules of the system.</param>
     public NessionManager(
         IEnumerable<State> init,
         List<StateConsistentRule> systemRules,
         List<StateTransferringRule> transferringRules)
     {
-        InitialConditions = new(init);
+        InitialConditions = new HashSet<State>(init);
         SystemRules = systemRules;
         TransferringRules = transferringRules;
 
@@ -29,27 +33,30 @@ public class NessionManager
             SystemRules[idTag].IdTag = idTag;
         }
 
-        Knitter = KnitPattern.From(TransferringRules, SystemRules);
+        Knitter = KnitPattern.From(transferringRules, systemRules);
     }
 
     #region Properties.
 
-    public HashSet<State> InitialConditions { get; init; }
+    public IReadOnlySet<State> InitialConditions { get; private init; }
 
-    public List<StateConsistentRule> SystemRules { get; init; }
+    public IReadOnlyList<StateConsistentRule> SystemRules { get; private init; }
 
-    public List<StateTransferringRule> TransferringRules { get; init; }
+    public IReadOnlyList<StateTransferringRule> TransferringRules { get; private init; }
 
     private readonly KnitPattern Knitter;
 
-    public IReadOnlyList<Nession>? FoundNessions;
+    public IReadOnlyList<Nession>? FoundNessions { get; private set; }
 
     #endregion
     #region Horn clause generation.
 
     private bool CancelElaborate = false;
 
-    public async Task Elaborate(Func<List<Nession>, bool> finishedFunc, int numberOfSubElaborations, bool checkFinishIteratively = false)
+    public async Task Elaborate(
+        Func<List<Nession>, bool> finishedFunc, 
+        int numberOfSubElaborations, 
+        bool checkFinishIteratively = false)
     {
         if (CancelElaborate)
         {
@@ -64,10 +71,12 @@ public class NessionManager
         List<Nession> processed = new();
         for (int elabCounter = 0; true; elabCounter++)
         {
-            foreach (StateConsistentRule scr in SystemRules)
+            for (int i = 0; i < SystemRules.Count; i++)
             {
-                foreach (Nession initN in nextLevel)
+                StateConsistentRule scr = SystemRules[i];
+                for (int j = 0; j < nextLevel.Count; j++)
                 {
+                    Nession initN = nextLevel[j];
                     nextLevelIter.AddRange(initN.TryApplySystemRule(scr));
                 }
 
@@ -90,8 +99,9 @@ public class NessionManager
                 Nession thisSeed = nextLevel[i];
                 bool prefixAccounted = false;
                 List<List<StateTransferringRule>> matchingTR = Knitter.GetTransferGroups(thisSeed);
-                foreach (List<StateTransferringRule> transferRules in matchingTR)
+                for (int j = 0; j < matchingTR.Count; j++)
                 {
+                    List<StateTransferringRule> transferRules = matchingTR[j];
                     (Nession? updated, bool canKeep) = thisSeed.TryApplyMultipleTransfers(transferRules);
                     prefixAccounted |= canKeep;
                     if (updated != null)
@@ -128,6 +138,9 @@ public class NessionManager
         }
     }
 
+    /// <summary>
+    /// Tells the elaboration loop to cease next time it has completed allocating system rules.
+    /// </summary>
     public void CancelElaboration()
     {
         CancelElaborate = true;

@@ -13,37 +13,50 @@ namespace StatefulHorn.Query;
 /// </summary>
 public class Nession
 {
+
+    /// <summary>
+    /// Create a new Nession with the first frame's state cells set with the given states.
+    /// </summary>
+    /// <param name="initStates">Starting states of the nession.</param>
     public Nession(IEnumerable<State> initStates)
     {
         List<State> states = new(initStates);
         states.Sort();
         List<StateCell> cells = new(from s in initStates select new StateCell(s, null));
-        History.Add(new(cells, new(), null));
+        _History.Add(new(cells, new(), null));
     }
 
-    private Nession(Rule? initRule, IEnumerable<Frame> frames, int lastVNumber)
+    /// <summary>
+    /// Internal structure that is called for the purposes of cloning and substituting. As this
+    /// is starting a new nession based on an old one, it 
+    /// </summary>
+    /// <param name="frames">Frames to use.</param>
+    /// <param name="lastVNumber">
+    /// Last vNumber used within the Nession. See the VNumber member for details on its 
+    /// significance.
+    /// </param>
+    private Nession(IEnumerable<Frame> frames, int lastVNumber)
     {
-        InitialRule = initRule;
-        History.AddRange(frames);
+        _History.AddRange(frames);
         UpdateNonceDeclarations();
         VNumber = lastVNumber;
     }
 
     #region Properties.
 
-    public List<Frame> History { get; } = new();
+    private readonly List<Frame> _History = new();
 
-    // Used when determining if the Nession can be integrated with another Nession.
-    public Rule? InitialRule { get; init; }
+    public IReadOnlyList<Frame> History => _History;
 
-    private HashSet<Event> NonceDeclarations { get; } = new();
+    private readonly HashSet<Event> NonceDeclarations = new();
 
-    // Used to simplify identification by the user.
+    /// <summary>
+    /// String tag that is used to provide a user-readable description identifying this Nession.
+    /// </summary>
     public string Label { get; set; } = "";
 
     /// <summary>
-    /// A property that can be set if the QueryEngine determines that there is an attack on this
-    /// Nession.
+    /// An attack that has been found on this nession. This is set by the QueryEngine.
     /// </summary>
     public Attack? FoundAttack { get; set; }
 
@@ -53,12 +66,54 @@ public class Nession
     /// </summary>
     public IReadOnlySet<HornClause>? FoundSystemClauses { get; set; }
 
+    /// <summary>
+    /// A value that provides the next unique subscript for the application of variables in rules.
+    /// </summary>
+    private int VNumber = 0;
+
+    #endregion
+    #region Private convenience.
+
+    private string NextVNumber()
+    {
+        VNumber++;
+        return $"v{VNumber}";
+    }
+
+    private void StepBackVNumber()
+    {
+        VNumber--;
+    }
+
+    private void UpdateNonceDeclarations()
+    {
+        NonceDeclarations.Clear();
+        foreach (Frame f in _History)
+        {
+            NonceDeclarations.UnionWith(f.NewEventsInStateChangeRules());
+            foreach (StateConsistentRule scr in f.Rules)
+            {
+                NonceDeclarations.UnionWith(scr.NewEvents);
+            }
+        }
+    }
+
     #endregion
     #region Nested Frame class and support classes.
 
+    /// <summary>
+    /// Represents a named cell within a frame, which contains a value. This named value is used
+    /// to determine which rules can apply in a frame, and which values the cell may take in the
+    /// following frames.
+    /// </summary>
     public class StateCell : IComparable, IComparable<StateCell>
     {
 
+        /// <summary>
+        /// Create a new cell containing the given value. If the 
+        /// </summary>
+        /// <param name="c"></param>
+        /// <param name="transfer"></param>
         public StateCell(State c, StateTransferringRule? transfer = null)
         {
             Condition = c;
@@ -125,9 +180,9 @@ public class Nession
 
         public Frame Clone() => new(new(from c in Cells select c.DeepCopy()), new(Rules), GuardStatements);
 
-        public List<StateCell> Cells { get; init; }
+        public List<StateCell> Cells { get; private init; }
 
-        public HashSet<StateConsistentRule> Rules { get; init; }
+        public HashSet<StateConsistentRule> Rules { get; private init; }
 
         public Guard GuardStatements { get; init; }
 
@@ -256,61 +311,52 @@ public class Nession
     }
 
     #endregion
-    #region Private convenience.
-
-    private void UpdateNonceDeclarations()
-    {
-        NonceDeclarations.Clear();
-        foreach (Frame f in History)
-        {
-            NonceDeclarations.UnionWith(f.NewEventsInStateChangeRules());
-            foreach (StateConsistentRule scr in f.Rules)
-            {
-                NonceDeclarations.UnionWith(scr.NewEvents);
-            }
-        }
-    }
-
-    // Unique subscript for individual rule applications.
-    private int VNumber = 0;
-
-    private string NextVNumber()
-    {
-        VNumber++;
-        return $"v{VNumber}";
-    }
-
-    private void StepBackVNumber()
-    {
-        VNumber--;
-    }
-
-    #endregion
     #region State transferring rule application.
 
+    /// <summary>
+    /// Perform the substitution of a set of messages with another set of messages throughout a
+    /// Nession.
+    /// </summary>
+    /// <param name="map">Map of value replacements.</param>
+    /// <returns>
+    /// A new Nession with the values replaced. If an empty SigmaMap is provided, the Nession is
+    /// effectively cloned.
+    /// </returns>
     public Nession Substitute(SigmaMap map)
     {
         if (map.IsEmpty)
         {
-            return new(InitialRule, from f in History select f.Clone(), VNumber);
+            return new(_History, VNumber);
         }
-        return new(InitialRule, from f in History select f.Substitute(map), VNumber);
+        return new(from f in _History select f.Substitute(map), VNumber);
     }
 
+    /// <summary>
+    /// Attempt to apply multiple State Transferring Rules at once. If any of the given rules 
+    /// cannot be applied, none of the rules are applied.
+    /// </summary>
+    /// <param name="transfers">List of State Transferring Rules to attempt to apply.</param>
+    /// <returns>
+    /// A tuple of two values. If the rules could not be applied, then (null, false) is returned.
+    /// Otherwise, the first value is the new Nession with the rules applied, and the second is 
+    /// true if the previous Nession is still a prefix to the new one. This can be used to 
+    /// determine whether an old Nession needs to be retained for further processing at the 
+    /// NessionManager level.
+    /// </returns>
     public (Nession?, bool) TryApplyMultipleTransfers(List<StateTransferringRule> transfers)
     {
         // Create tranfer rule working list, and make variables unique.
-        List<StateTransferringRule> subTransfers = new();
-        foreach (StateTransferringRule r in transfers)
+        List<StateTransferringRule> subTransfers = new(transfers.Count);
+        for (int i = 0; i < transfers.Count; i++)
         {
-            subTransfers.Add((StateTransferringRule)r.SubscriptVariables(NextVNumber()));
+            subTransfers.Add((StateTransferringRule)transfers[i].SubscriptVariables(NextVNumber()));
         }
 
         // Sort out the sigma maps.
         SigmaFactory sf = new();
-        foreach (StateTransferringRule str in subTransfers)
+        for (int i = 0; i < subTransfers.Count; i++)
         {
-            if (!CanApplyRule(str, sf))
+            if (!CanApplyRule(subTransfers[i], sf))
             {
                 return (null, false);
             }
@@ -326,12 +372,12 @@ public class Nession
         }
 
         // Create new frame.
-        Frame nextFrame = updated.History[^1].ApplyTransfers(subTransfers);
-        if (nextFrame.CellsEqual(updated.History[^1]))
+        Frame nextFrame = updated._History[^1].ApplyTransfers(subTransfers);
+        if (nextFrame.CellsEqual(updated._History[^1]))
         {
             return (null, false);
         }
-        updated.History.Add(nextFrame);
+        updated._History.Add(nextFrame);
         updated.UpdateNonceDeclarations();
         return (updated, bwdMap.IsEmpty);
     }
@@ -344,13 +390,14 @@ public class Nession
         }
 
         bool match = true;
-        foreach (Snapshot ss in r.Snapshots.Traces)
+        for (int i = 0; i < r.Snapshots.Traces.Count; i++)
         {
-            int historyId = History.Count - 1;
+            Snapshot ss = r.Snapshots.Traces[i];
+            int historyId = _History.Count - 1;
             string scName = ss.Condition.Name;
 
             // Current snapshot MUST match.
-            Frame hf = History[historyId];
+            Frame hf = _History[historyId];
             State? nessionCondition = hf.GetStateByName(scName);
             if (nessionCondition == null ||
                 !ss.Condition.CanBeUnifiableWith(nessionCondition, hf.GuardStatements, r.Guard, sf))
@@ -365,7 +412,7 @@ public class Nession
             historyId--;
             while (prev != null && historyId >= 0)
             {
-                hf = History[historyId];
+                hf = _History[historyId];
                 nessionCondition = hf.GetStateByName(scName);
                 if (nessionCondition == null)
                 {
@@ -426,11 +473,10 @@ public class Nession
 
     public List<Nession> TryApplySystemRule(StateConsistentRule scr)
     {
-        //Debug.Assert(!scr.Snapshots.IsEmpty);
         List<Nession> generated = new() { this };
 
         // Do a check to ensure that we don't have the same rule already added.
-        foreach (StateConsistentRule existingRule in History[^1].Rules)
+        foreach (StateConsistentRule existingRule in _History[^1].Rules)
         {
             if (existingRule.MatchesTagOf(scr))
             {
@@ -450,14 +496,14 @@ public class Nession
             updatedRule.IdTag = scr.IdTag;
             if (bwdMap.IsEmpty)
             {
-                Frame historyFrame = History[^1];
+                Frame historyFrame = _History[^1];
                 historyFrame.Rules.Add(updatedRule);
                 UpdateNonceDeclarations();
             }
             else
             {
                 Nession updatedNession = Substitute(bwdMap);
-                Frame historyFrame = updatedNession.History[^1];
+                Frame historyFrame = updatedNession._History[^1];
                 historyFrame.Rules.Add(updatedRule);
                 updatedNession.UpdateNonceDeclarations();
                 generated.Add(updatedNession);
@@ -477,7 +523,7 @@ public class Nession
     public Nession? MatchingWhenAtEnd(State when)
     {
         // When has to match ONE of the states in the final frame.
-        foreach (StateCell c in History[^1].Cells)
+        foreach (StateCell c in _History[^1].Cells)
         {
             SigmaFactory sf = new();
 
@@ -518,14 +564,14 @@ public class Nession
 
     public HashSet<Event> PremisesForState(string cell)
     {
-        int cellOffset = History[^1].GetCellOffsetByName(cell);
-        return new(InnerPremisesForState(History.Count - 1, cellOffset));
+        int cellOffset = _History[^1].GetCellOffsetByName(cell);
+        return new(InnerPremisesForState(_History.Count - 1, cellOffset));
     }
 
     private IEnumerable<Event> InnerPremisesForState(int historyIndex, int cellOffset)
     {
         // See if this has already been determined.
-        Frame f = History[historyIndex];
+        Frame f = _History[historyIndex];
         StateCell c = f.Cells[cellOffset];
         if (c.CachedPremises != null)
         {
@@ -548,7 +594,7 @@ public class Nession
             {
                 foreach (Snapshot ss in c.TransferRule.Snapshots.Traces)
                 {
-                    int innerCellOffset = History[historyIndex - 1].GetCellOffsetByName(ss.Condition.Name);
+                    int innerCellOffset = _History[historyIndex - 1].GetCellOffsetByName(ss.Condition.Name);
                     if (innerCellOffset != cellOffset)
                     {
                         allPremises.UnionWith(InnerPremisesForState(historyIndex - 1, innerCellOffset));
@@ -567,10 +613,17 @@ public class Nession
         return from ev in InnerPremisesForState(historyIndex, cellOffset) where ev.IsKnow select ev.Messages[0];
     }
 
+    /// <summary>
+    /// Collect all of the rules that led to a given cell in a frame being set.
+    /// </summary>
+    /// <param name="historyIndex"></param>
+    /// <param name="cellOffset"></param>
+    /// <param name="skipImmediate"></param>
+    /// <returns></returns>
     private HashSet<StateTransferringRule> TransferringRulesForState(int historyIndex, int cellOffset, bool skipImmediate = false)
     {
         // Check if this has already been determined.
-        Frame f = History[historyIndex];
+        Frame f = _History[historyIndex];
         StateCell c = f.Cells[cellOffset];
         if (c.CachedLeadupRules != null)
         {
@@ -607,9 +660,9 @@ public class Nession
     public void CollectHornClauses(HashSet<HornClause> clauses)
     {
         List<StateTransferringRule> accumulator = new();
-        for (int rank = 0; rank < History.Count; rank++)
+        for (int rank = 0; rank < _History.Count; rank++)
         {
-            Frame f = History[rank];
+            Frame f = _History[rank];
 
             // Collect make statements - go through each cell rule.
             for (int stateI = 0; stateI < f.Cells.Count; stateI++)
@@ -678,7 +731,7 @@ public class Nession
     public HashSet<IMessage> FindStateVariables()
     {
         HashSet<IMessage> varSet = new();
-        foreach (Frame f in History)
+        foreach (Frame f in _History)
         {
             foreach (StateCell c in f.Cells)
             {
@@ -693,17 +746,17 @@ public class Nession
     #endregion
     #region Basic object overrides.
 
-    public override string ToString() => string.Join("\n", from f in History select f.ToString());
+    public override string ToString() => string.Join("\n", from f in _History select f.ToString());
 
     public override bool Equals(object? obj)
     {
         if (obj is Nession n)
         {
-            if (n.History.Count == History.Count)
+            if (n._History.Count == _History.Count)
             {
-                for (int i = 0; i < History.Count; i++)
+                for (int i = 0; i < _History.Count; i++)
                 {
-                    if (!History[i].Equals(n.History[i]))
+                    if (!_History[i].Equals(n._History[i]))
                     {
                         return false;
                     }
@@ -714,7 +767,7 @@ public class Nession
         return false;
     }
 
-    public override int GetHashCode() => History[^1].Cells.First().GetHashCode();
+    public override int GetHashCode() => _History[^1].Cells.First().GetHashCode();
 
     #endregion
 
