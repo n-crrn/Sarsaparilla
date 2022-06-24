@@ -26,8 +26,9 @@ public class NessionManager
     {
         InitialConditions = new HashSet<State>(init);
         SystemRules = systemRules;
-        TransferringRules = transferringRules;
 
+        // This ID tagging allows for very quick assessment of which rule is which by the Nession
+        // methods. This is an important optimisation.
         for (int idTag = 0; idTag < SystemRules.Count; idTag++)
         {
             SystemRules[idTag].IdTag = idTag;
@@ -38,14 +39,21 @@ public class NessionManager
 
     #region Properties.
 
-    public IReadOnlySet<State> InitialConditions { get; private init; }
+    /// <summary>The initial set of state conditions.</summary>
+    private readonly IReadOnlySet<State> InitialConditions;
 
-    public IReadOnlyList<StateConsistentRule> SystemRules { get; private init; }
+    /// <summary>The State Consistent Rules that can be applied.</summary>
+    private readonly IReadOnlyList<StateConsistentRule> SystemRules;
 
-    public IReadOnlyList<StateTransferringRule> TransferringRules { get; private init; }
-
+    /// <summary>
+    /// An object for retrieving sets of State Transferring Rules that can be applied together.
+    /// </summary>
     private readonly KnitPattern Knitter;
 
+    /// <summary>
+    /// The list of Nessions that were created at the last elaboration. This is null if 
+    /// Elaboration(...) has not been called.
+    /// </summary>
     public IReadOnlyList<Nession>? FoundNessions { get; private set; }
 
     #endregion
@@ -53,24 +61,43 @@ public class NessionManager
 
     private bool CancelElaborate = false;
 
+    /// <summary>
+    /// Generate nessions from scratch based on the conditions that the NessionManager was
+    /// created with.
+    /// </summary>
+    /// <param name="finishedFunc">
+    /// Function that is called with new nessions. The function can return true to indicate that
+    /// further nessions do not need to be generated. This return value will be respected if
+    /// checkFinishIteratively is also true.
+    /// </param>
+    /// <param name="numberOfSubElaborations">
+    /// Number of times system (State Consistent Rules) are applied to the generated nessions.
+    /// Between each application, State Transfer Rules are applied to extend the nessions.
+    /// </param>
+    /// <param name="checkFinishIteratively">
+    /// If true, finishedFunc is called on every nession on every elaboration to see if the 
+    /// desired end condition has been encountered. Otherwise, finishedFunc is called on 
+    /// every nession on the conclusion of the elaboration.
+    /// </param>
+    /// <returns></returns>
     public async Task Elaborate(
         Func<List<Nession>, bool> finishedFunc, 
         int numberOfSubElaborations, 
         bool checkFinishIteratively = false)
     {
-        if (CancelElaborate)
-        {
-            CancelElaborate = false;
-        }
-
-        Nession initSeed = new(InitialConditions);
-
-        // Determine what states are possible.
-        List<Nession> nextLevel = new() { initSeed };
+        // The following two lists are swapped throughout the run of the elaboration loop as the
+        // nessions in one list are elaborated and stored in the other.
+        List<Nession> nextLevel = new() { new(InitialConditions) };
         List<Nession> nextLevelIter = new();
+
+        // Nessions that are not elaborated further are stored in this list. This list will
+        // eventually be stored as FoundNessions.
         List<Nession> processed = new();
+
+        // Elaboration loop.
         for (int elabCounter = 0; true; elabCounter++)
         {
+            // Apply system rules (State Consistent Rules).
             for (int i = 0; i < SystemRules.Count; i++)
             {
                 StateConsistentRule scr = SystemRules[i];
@@ -94,6 +121,7 @@ public class NessionManager
                 goto finishElaborate;
             }
 
+            // Extend nessions with State Transfer Rules.
             for (int i = 0; i < nextLevel.Count; i++)
             {
                 Nession thisSeed = nextLevel[i];
@@ -117,9 +145,10 @@ public class NessionManager
                 }
             }
 
+            // If there are no new state, cease the elaboration. Otherwise, swap the lists in 
+            // preparation for the next loop.
             if (nextLevelIter.Count == 0)
             {
-                // There were no new states found. In this case, we cease the elaboration here.
                 break;
             }
             processed.AddRange(nextLevel);
@@ -128,9 +157,11 @@ public class NessionManager
         }
 
     finishElaborate:
+        // Store the found result.
         processed.AddRange(nextLevel);
         FoundNessions = processed;
 
+        // Run finishedFunc if it has not yet been run.
         if (!checkFinishIteratively)
         {
             processed.Reverse();
@@ -149,6 +180,8 @@ public class NessionManager
     #endregion
     #region Debugging.
 
+    /// <summary>Output a textual description of the nessions within the manager.</summary>
+    /// <param name="writer">TextWriter to write description to.</param>
     public void DescribeAllNessions(TextWriter writer)
     {
         if (FoundNessions == null)
@@ -167,4 +200,5 @@ public class NessionManager
     }
 
     #endregion
+
 }
