@@ -62,7 +62,7 @@ public class Snapshot
     public Snapshot PerformSubstitutions(SigmaMap substitutions)
     {
         Snapshot ss = new(Condition.CloneWithSubstitution(substitutions), Label);
-        ss.Premises.UnionWith(from p in Premises select p.PerformSubstitution(substitutions));
+        ss.Premises.UnionWith(from p in Premises select p.Substitute(substitutions));
         ss.TransfersTo = TransfersTo?.CloneWithSubstitution(substitutions);
         ss.Prior = Prior == null ? null : new(Prior.S.PerformSubstitutions(substitutions), Prior.O);
         return ss;

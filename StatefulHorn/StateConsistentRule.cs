@@ -125,7 +125,7 @@ public class StateConsistentRule : Rule
 
     public override Rule CreateDerivedRule(string label, Guard g, HashSet<Event> prems, SnapshotTree ss, SigmaMap substitutions)
     {
-        return new StateConsistentRule(label, g, prems, ss, Result.PerformSubstitution(substitutions));
+        return new StateConsistentRule(label, g, prems, ss, Result.Substitute(substitutions));
     }
 
     private bool CanComposeWith(Rule r, out SigmaFactory? sf)
@@ -160,16 +160,16 @@ public class StateConsistentRule : Rule
         HashSet<Event> h = new(Premises.Count);
         foreach (Event premEv in Premises)
         {
-            Event newEv = premEv.PerformSubstitution(fwdSigma);
+            Event newEv = premEv.Substitute(fwdSigma);
             updatedPremises[premEv] = newEv;
             h.Add(newEv);
         }
         List<Event> otherFilteredPremises = new(r.Premises.Count - 1);
-        Event updatedResult = Result.PerformSubstitution(fwdSigma);
+        Event updatedResult = Result.Substitute(fwdSigma);
         Event? e0 = null;
         foreach (Event rPremEv in r.Premises)
         {
-            Event newEv = rPremEv.PerformSubstitution(bwdSigma);
+            Event newEv = rPremEv.Substitute(bwdSigma);
             if (!updatedResult.Equals(newEv))
             {
                 updatedPremises[rPremEv] = newEv;
@@ -310,16 +310,16 @@ public class StateConsistentRule : Rule
         HashSet<Event> h = new(Premises.Count);
         foreach (Event premEv in Premises)
         {
-            Event newEv = premEv.PerformSubstitution(fwdSigma);
+            Event newEv = premEv.Substitute(fwdSigma);
             updatedPremises[premEv] = newEv;
             h.Add(newEv);
         }
         List<Event> otherFilteredPremises = new(r.Premises.Count - 1);
-        Event updatedResult = Result.PerformSubstitution(fwdSigma);
+        Event updatedResult = Result.Substitute(fwdSigma);
         Event? e0 = null;
         foreach (Event rPremEv in r.Premises)
         {
-            Event newEv = rPremEv.PerformSubstitution(bwdSigma);
+            Event newEv = rPremEv.Substitute(bwdSigma);
             if (!updatedResult.Equals(newEv))
             {
                 updatedPremises[rPremEv] = newEv;
@@ -381,7 +381,7 @@ public class StateConsistentRule : Rule
                 {
                     ss = ss.Prior!.S;
                 }
-                ss.AddPremises(from ap in guide.Premises select ap.PerformSubstitution(fwdSigma));
+                ss.AddPremises(from ap in guide.Premises select ap.Substitute(fwdSigma));
             }
         }
         foreach (Event ofPremises in otherFilteredPremises)
@@ -390,7 +390,7 @@ public class StateConsistentRule : Rule
         }
 
         string lbl = $"({Label}) ○_{{{Result}}} ({r.Label})";
-        StateConsistentRule output = new(lbl, g, h, newTree, r.Result.PerformSubstitution(bwdSigma));
+        StateConsistentRule output = new(lbl, g, h, newTree, r.Result.Substitute(bwdSigma));
 
         // Final check - if this is a StateConsistentRule, then we need to ensure that the result
         // is not in the premise. It can only be done at this point.

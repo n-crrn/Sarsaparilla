@@ -320,7 +320,7 @@ public abstract class Rule
         HashSet<Event> newPremises = new(Premises.Count);
         foreach (Event p in Premises)
         {
-            newPremises.Add(p.PerformSubstitution(sigma));
+            newPremises.Add(p.Substitute(sigma));
         }
         return CreateDerivedRule(newLabel, newG, newPremises, newTree, sigma);
     }
