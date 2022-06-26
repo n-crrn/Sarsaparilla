@@ -9,7 +9,8 @@ public partial class Nession
     /// <summary>
     /// Represents a named cell within a frame, which contains a value. This named value is used
     /// to determine which rules can apply in a frame, and which values the cell may take in the
-    /// following frames.
+    /// following frames. State Cells are ordered within a Nession Frame alphabetically. By doing
+    /// this, indices can be used to predictably and quickly access cells within a Frame.
     /// </summary>
     public class StateCell : IComparable, IComparable<StateCell>
     {

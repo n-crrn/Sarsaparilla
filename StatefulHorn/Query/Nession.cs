@@ -195,6 +195,18 @@ public partial class Nession
         return (updated, bwdMap.IsEmpty);
     }
 
+    /// <summary>
+    /// Returns true if the given rule can be applied to the final history Frame of this Nession, 
+    /// regardless of whether that application is as a State Consistent Rule or State Transferring
+    /// Rule.
+    /// </summary>
+    /// <param name="r">Rule to test.</param>
+    /// <param name="sf">Storage of required substitutions for the rule to be acceptable.</param>
+    /// <returns>True if the given rule can be applied.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown if an expected-to-exist State Cell is found to not exist. This is a consistency
+    /// issue within the Nession, and should not be experienced by normal user code.
+    /// </exception>
     public bool CanApplyRule(Rule r, SigmaFactory sf)
     {
         if (!RuleValidByNonces(r))
@@ -387,6 +399,17 @@ public partial class Nession
         return null;
     }
 
+    /// <summary>
+    /// Return premises required to achieve the condition of the State Cell with the given name
+    /// in the final frame, with the exception of premises that are just variables. This method
+    /// is used in the Query Engine to correct queries in preparation for execution with a when
+    /// clause.
+    /// </summary>
+    /// <param name="cellName">Name of the State Cell.</param>
+    /// <returns>
+    /// A sequence of messages (rather than events) used to derive the condition of the requested
+    /// State Cell.
+    /// </returns>
     public HashSet<IMessage> FinalStateNonVariablePremises(string cellName)
     {
         HashSet<IMessage> filtered = new();
@@ -404,12 +427,28 @@ public partial class Nession
     #endregion
     #region Nession object opererations.
 
-    public HashSet<Event> PremisesForState(string cell)
+    /// <summary>
+    /// Find all of the premises required to derive the final condition of the requested State
+    /// Cell.
+    /// </summary>
+    /// <param name="cell">Name of the cell to retrieve premises for.</param>
+    /// <returns>
+    /// Set of all events that are required for the State Cell to achieve its final condition.
+    /// </returns>
+    private HashSet<Event> PremisesForState(string cell)
     {
         int cellOffset = _History[^1].GetCellOffsetByName(cell);
         return new(InnerPremisesForState(_History.Count - 1, cellOffset));
     }
 
+    /// <summary>
+    /// Return as a sequence the events that are required to occur for the State Cell at the given
+    /// offset within the given frame to achieve its final state. Note that the same event may be
+    /// returned multiple times.
+    /// </summary>
+    /// <param name="historyIndex">History frame for the requested State Cell.</param>
+    /// <param name="cellOffset">The index of the cell within the frame.</param>
+    /// <returns>A sequence of required premise events.</returns>
     private IEnumerable<Event> InnerPremisesForState(int historyIndex, int cellOffset)
     {
         // See if this has already been determined.
@@ -450,6 +489,12 @@ public partial class Nession
         return allPremises;
     }
 
+    /// <summary>
+    /// Return the Know premises required to achieve the given State Cell's condition.
+    /// </summary>
+    /// <param name="historyIndex">THe index of the history frame of the State Cell.</param>
+    /// <param name="cellOffset">The index of the cell within the frame.</param>
+    /// <returns></returns>
     private IEnumerable<IMessage> InnerKnowsForState(int historyIndex, int cellOffset)
     {
         return from ev in InnerPremisesForState(historyIndex, cellOffset) where ev.IsKnow select ev.Messages[0];
@@ -502,6 +547,10 @@ public partial class Nession
         return rules;
     }
 
+    /// <summary>
+    /// Derive Horn Clauses from the Nession and insert them into the given set.
+    /// </summary>
+    /// <param name="clauses">Set to insert derived Horn Clauses into.</param>
     public void CollectHornClauses(HashSet<HornClause> clauses)
     {
         List<StateTransferringRule> accumulator = new();
@@ -585,8 +634,6 @@ public partial class Nession
         }
         return varSet;
     }
-
-
 
     #endregion
     #region Basic object overrides.

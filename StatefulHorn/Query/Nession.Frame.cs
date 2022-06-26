@@ -35,6 +35,9 @@ public partial class Nession
             GuardStatements = guard ?? Guard.Empty;
         }
 
+        /// <summary>
+        /// The list of State Cells in alphabetical order of their name.
+        /// </summary>
         public IReadOnlyList<StateCell> Cells { get; private init; }
 
         /// <summary>
@@ -44,12 +47,23 @@ public partial class Nession
         /// </summary>
         public HashSet<StateConsistentRule> Rules { get; private init; }
 
+        /// <summary>
+        /// The collective guard in force for the whole Frame. This prevents contradicting rules
+        /// from being part of the same frame.
+        /// </summary>
         public Guard GuardStatements { get; private init; }
 
+        /// <summary>
+        /// Return a State Cell based on its name. If there is no cell with the given name, then
+        /// null is return.
+        /// </summary>
+        /// <param name="name">Name of the State Cell requested.</param>
+        /// <returns>The condition of the State Cell, or null if the Cell does not exist.</returns>
         public State? GetStateByName(string name)
         {
-            foreach (StateCell s in Cells)
+            for (int i = 0; i < Cells.Count; i++)
             {
+                StateCell s = Cells[i];
                 if (s.Condition.Name == name)
                 {
                     return s.Condition;
@@ -58,7 +72,18 @@ public partial class Nession
             return null;
         }
 
-        internal int GetCellOffsetByName(string name)
+        /// <summary>
+        /// Returns the offset of the State Cell within the Frame.
+        /// </summary>
+        /// <param name="name">State Cell name.</param>
+        /// <returns>
+        /// An integer giving the offset of the cell, which can be used for quicker access than 
+        /// the name.
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// Thrown if no State Cell exists with the name.
+        /// </exception>
+        public int GetCellOffsetByName(string name)
         {
             for (int i = 0; i < Cells.Count; i++)
             {
@@ -70,6 +95,15 @@ public partial class Nession
             throw new ArgumentException($"No cell named '{name}' within Nession");
         }
 
+        /// <summary>
+        /// Perform a message substitution of ALL messages within the Frame, affecting all State
+        /// Cells and rules.
+        /// </summary>
+        /// <param name="map">Substitutions to enact.</param>
+        /// <returns>
+        /// A new Frame with all messages substituted. If the map is empty, this is effectively a
+        /// cloning operation.
+        /// </returns>
         public Frame Substitute(SigmaMap map)
         {
             List<StateCell> updatedCells = new(from c in Cells select c.Substitute(map));
@@ -83,7 +117,15 @@ public partial class Nession
             return new(updatedCells, updatedRules, GuardStatements.Substitute(map));
         }
 
-        public Frame ApplyTransfers(List<StateTransferringRule> transfers)
+        /// <summary>
+        /// Apply all of the given State Transferring Rules to generate the next Nession Frame.
+        /// </summary>
+        /// <param name="transfers">List of rules to apply to create new Frame.</param>
+        /// <returns>New extended Frame.</returns>
+        /// <exception cref="ArgumentException">
+        /// Thrown if one or more of the rules could not be applied.
+        /// </exception>
+        public Frame ApplyTransfers(IReadOnlyList<StateTransferringRule> transfers)
         {
             // It is assumed that the required sigma map applications have been conducted on both
             // this Nession and on the given rules.
@@ -115,12 +157,15 @@ public partial class Nession
             return new(nextCells, new(), gs);
         }
 
-        public bool ResultsContainMessage(IMessage msg) => (from r in Rules where r.Result.ContainsMessage(msg) select r).Any();
-
+        /// <summary>
+        /// Return all New Events in the State Transfer Rules leading to this cell.
+        /// </summary>
+        /// <returns>Sequence of New Events.</returns>
         public IEnumerable<Event> NewEventsInStateChangeRules()
         {
-            foreach (StateCell sc in Cells)
+            for (int i = 0; i < Cells.Count; i++)
             {
+                StateCell sc = Cells[i];
                 if (sc.TransferRule != null)
                 {
                     foreach (Event ev in sc.TransferRule.Premises)
@@ -136,6 +181,12 @@ public partial class Nession
 
         public override string ToString() => string.Join(", ", from c in Cells select c.Condition.ToString());
 
+        /// <summary>
+        /// Converts the given enumerable of rules to a set of their IdTags. Used as part of
+        /// Nession equality comparison.
+        /// </summary>
+        /// <param name="rules">Rules to convert.</param>
+        /// <returns>Set of the IdTags set on the rules.</returns>
         private static HashSet<int> RulesToIds(IEnumerable<StateConsistentRule> rules)
         {
             HashSet<int> hs = new();
@@ -155,6 +206,11 @@ public partial class Nession
                 Equals(GuardStatements, f.GuardStatements);
         }
 
+        /// <summary>
+        /// Returns true if the State Cell conditions are the same as those in the other Frame.
+        /// </summary>
+        /// <param name="other">Frame to compare cells against.</param>
+        /// <returns>True if cells found to be equal.</returns>
         public bool CellsEqual(Frame other)
         {
             for (int i = 0; i < Cells.Count; i++)
