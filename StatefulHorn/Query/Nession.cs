@@ -49,10 +49,19 @@ public partial class Nession
 
     #region Properties.
 
+    /// <summary>
+    /// The internally accessible list of history frames.
+    /// </summary>
     private readonly List<Frame> _History = new();
 
+    /// <summary>
+    /// The publicly accessible list of history frames, typically used for display purposes.
+    /// </summary>
     public IReadOnlyList<Frame> History => _History;
 
+    /// <summary>
+    /// The set of nonces that have been declared by a New event so far in this nession.
+    /// </summary>
     private readonly HashSet<Event> NonceDeclarations = new();
 
     /// <summary>
@@ -79,17 +88,28 @@ public partial class Nession
     #endregion
     #region Private convenience.
 
+    /// <summary>
+    /// Retrieve the next guaranteed unique subscript for variables.
+    /// </summary>
+    /// <returns>A string of form v{number}.</returns>
     private string NextVNumber()
     {
         VNumber++;
         return $"v{VNumber}";
     }
 
+    /// <summary>
+    /// If a string retrieved using NextVNumber() is found to be not required, then this method may
+    /// be called to make that string available again.
+    /// </summary>
     private void StepBackVNumber()
     {
         VNumber--;
     }
 
+    /// <summary>
+    /// Performs a complete update of the set of new events held by the nession.
+    /// </summary>
     private void UpdateNonceDeclarations()
     {
         NonceDeclarations.Clear();
@@ -244,14 +264,24 @@ public partial class Nession
         return match;
     }
 
+    /// <summary>
+    /// Returns true if the rule does not declare any nonces that have been previously declared,
+    /// and that it does not use nonces that have not been created.
+    /// </summary>
+    /// <param name="r">Rule to check.</param>
+    /// <returns>
+    /// True if the rule's use of nonces does not preclude its use in the final frame.
+    /// </returns>
     private bool RuleValidByNonces(Rule r)
     {
-        if (r.NonceDeclarations.Any((ev) => NonceDeclarations.Contains(ev))) // Do not allow redeclaration of nonces.
+        if (r.NonceDeclarations.Any((ev) => NonceDeclarations.Contains(ev))) 
         {
+            // Do not allow redeclaration of nonces.
             return false;
         }
-        foreach (NonceMessage nMsg in r.NoncesRequired) // Ensure used nonces have been previously declared.
+        foreach (NonceMessage nMsg in r.NoncesRequired) 
         {
+            // Ensure used nonces have been previously declared.
             if (!NonceDeclarations.Contains(Event.New(nMsg)))
             {
                 string held = string.Join(", ", NonceDeclarations);
@@ -264,6 +294,16 @@ public partial class Nession
     #endregion
     #region System rule application.
 
+    /// <summary>
+    /// Attempt to apply the given State Consistent Rule to the final history frame.
+    /// </summary>
+    /// <param name="scr">Rule to attempt to add.</param>
+    /// <returns>
+    /// A list of either one or two nessions. If the rule can be added without requiring 
+    /// substitution of prior messages in the nession, then only this nession is returned.
+    /// Otherwise, both the original nession and the new nession with the applied 
+    /// system rule is returned.
+    /// </returns>
     public List<Nession> TryApplySystemRule(StateConsistentRule scr)
     {
         List<Nession> generated = new() { this };
@@ -291,7 +331,7 @@ public partial class Nession
             {
                 Frame historyFrame = _History[^1];
                 historyFrame.Rules.Add(updatedRule);
-                UpdateNonceDeclarations();
+                NonceDeclarations.UnionWith(updatedRule.NonceDeclarations);
             }
             else
             {
@@ -313,6 +353,15 @@ public partial class Nession
     #endregion
     #region When state instantiation and querying.
 
+    /// <summary>
+    /// Attempts to return a version of this nession where the given state cell is unifiable
+    /// with a State Cell in the final frame.
+    /// </summary>
+    /// <param name="when">State cell to be unifiable with.</param>
+    /// <returns>
+    /// If possible, a version of this Nession (i.e. with substitutions made) that has a final
+    /// State Cell that is unifiable with the parameter when. Otherwise null is returned.
+    /// </returns>
     public Nession? MatchingWhenAtEnd(State when)
     {
         // When has to match ONE of the states in the final frame.
@@ -409,11 +458,14 @@ public partial class Nession
     /// <summary>
     /// Collect all of the rules that led to a given cell in a frame being set.
     /// </summary>
-    /// <param name="historyIndex"></param>
-    /// <param name="cellOffset"></param>
-    /// <param name="skipImmediate"></param>
-    /// <returns></returns>
-    private HashSet<StateTransferringRule> TransferringRulesForState(int historyIndex, int cellOffset, bool skipImmediate = false)
+    /// <param name="historyIndex">Which frame the State Cell exists in.</param>
+    /// <param name="cellOffset">Which State Cell to find the rules for.</param>
+    /// <param name="skipImmediate">Skip the rule that immediately leads to this cell.</param>
+    /// <returns>The set of rules that led to this State Cell being in its condition.</returns>
+    private HashSet<StateTransferringRule> TransferringRulesForState(
+        int historyIndex,
+        int cellOffset,
+        bool skipImmediate = false)
     {
         // Check if this has already been determined.
         Frame f = _History[historyIndex];

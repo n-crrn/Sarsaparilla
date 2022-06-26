@@ -30,12 +30,24 @@ public partial class Nession
             TransferRule = transfer;
         }
 
+        /// <summary>The state represented within the cell.</summary>
         public State Condition { get; private init; }
 
+        /// <summary>
+        /// The State Transferring Rule that led to this state's creation, if there was one.
+        /// </summary>
         public StateTransferringRule? TransferRule { get; private init; }
 
+        /// <summary>
+        /// This member is used by Nession to store the full list of premises that led to this
+        /// State Cell holding this value.
+        /// </summary>
         internal HashSet<Event>? CachedPremises;
 
+        /// <summary>
+        /// This member is used by Nession to store the full list of rules that led to this State
+        /// Cell holding this value.
+        /// </summary>
         internal HashSet<StateTransferringRule>? CachedLeadupRules;
 
         /// <summary>
