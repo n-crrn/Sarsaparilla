@@ -213,12 +213,13 @@ public class Guard
             return Guard.Empty;
         }
         Dictionary<IAssignableMessage, HashSet<IMessage>> newDict = new();
-        foreach (IMessage vMsg in varMsgs)
+        foreach ((IAssignableMessage aMsg, HashSet<IMessage> bans) in Ununified)
         {
-            if (vMsg is IAssignableMessage aMsg 
-                && Ununified.TryGetValue(aMsg, out HashSet<IMessage>? collection))
+            HashSet<IMessage> allVars = new();
+            aMsg.CollectVariables(allVars);
+            if (allVars.Intersect(varMsgs).Any())
             {
-                newDict[aMsg] = collection;
+                newDict[aMsg] = bans;
             }
         }
         return new(newDict);

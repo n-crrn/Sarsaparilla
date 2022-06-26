@@ -142,8 +142,8 @@ public class ParseTests
     {
         RuleParser parser = new();
 
+        // Check handling of basic case.
         string[] parsedRules = ContractExpandRuleString("[x ~/> name[]] know(x), know(y) -[ ]-> know(enc(x, y))");
-
         IMessage nameMsg = new NameMessage("name");
         VariableMessage xMsg = new("x");
         Rule expected = CreateDefaultRuleWithGuard("r1", xMsg, nameMsg);
@@ -152,6 +152,26 @@ public class ParseTests
             Rule generated = parser.Parse(src);
             AssertRulesEqual(expected, generated, src);
         }
+
+        string complexRuleSrc = "[<x, y> ~/> <h(t1[]), t2[]>, z ~/> c[]] k(x), k(y), k(z) -[ ]-> know(b(x, y, z))";
+        NameMessage t1Msg = new("t1");
+        NameMessage t2Msg = new("t2");
+        NameMessage cMsg = new("c");
+        TupleVariableMessage xyMsg = new("x", "y");
+        FunctionMessage ht1 = new("h", new() { t1Msg });
+        TupleMessage ht1t2Msg = new(new() { ht1, t2Msg });
+        VariableMessage yMsg = new("y");
+        VariableMessage zMsg = new("z");
+        FunctionMessage bXYZMsg = new("b", new() { xMsg, yMsg, zMsg });
+        Factory.GuardStatements = new(new Dictionary<IAssignableMessage, HashSet<IMessage>>()
+        {
+            { xyMsg, new() { ht1t2Msg } },
+            { zMsg, new() { cMsg } }
+        });
+        Factory.RegisterPremises(Event.Know(xMsg), Event.Know(yMsg), Event.Know(zMsg));
+        StateConsistentRule complexExpected = Factory.CreateStateConsistentRule(Event.Know(bXYZMsg));
+        Rule complexGenerated = parser.Parse(complexRuleSrc);
+        AssertRulesEqual(complexExpected, complexGenerated, complexRuleSrc);
     }
 
     private static string[] ContractExpandRuleString(string inputRule)

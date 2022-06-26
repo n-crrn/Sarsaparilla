@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace StatefulHorn.Messages;
 
@@ -17,6 +18,15 @@ public class TupleVariableMessage : TupleMessage, IAssignableMessage
     {
         Ensure(this);
     }
+
+    /// <summary>
+    /// Create a new tuple variable message based on a sequence of variable names. This
+    /// constructor is intended for use with unit tests.
+    /// </summary>
+    /// <param name="varNames">Sequence of variable names.</param>
+    public TupleVariableMessage(params string[] varNames) 
+        : base(from vn in varNames select new VariableMessage(vn))
+    { }
 
     /// <summary>
     /// Ensures that the given TupleMessage can be treated as a TupleVariableMessage.
@@ -37,6 +47,28 @@ public class TupleVariableMessage : TupleMessage, IAssignableMessage
             if (memberMsg is not IAssignableMessage)
             {
                 throw new ArgumentException($"Tuple {tMsg} contains non-variable members.");
+            }
+        }
+        return new(tMsg.Members);
+    }
+
+    /// <summary>
+    /// If the provided TupleMessage can be treated as a TupleVariableMessage, then return it as
+    /// such.
+    /// </summary>
+    /// <param name="tMsg">TupleMessage to assess.</param>
+    /// <returns>The provided tMsg as a TupleVariableMessage if possible, null otherwise.</returns>
+    public static TupleVariableMessage? TryEnsure(TupleMessage tMsg)
+    {
+        if (tMsg is TupleVariableMessage tvMsg)
+        {
+            return tvMsg;
+        }
+        foreach (IMessage memberMsg in tMsg.Members)
+        {
+            if (memberMsg is not IAssignableMessage)
+            {
+                return null;
             }
         }
         return new(tMsg.Members);

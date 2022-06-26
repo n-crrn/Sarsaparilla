@@ -28,9 +28,6 @@ public class RuleParser
     /// </summary>
     private readonly RuleFactory Factory;
 
-    // FIXME: Include bulk rule parse methods, providing the result as a List or as a
-    // Dictionary<Label, Rule>.
-
     #region Convenience methods for single rule parsing.
 
     public StateConsistentRule ParseStateConsistentRule(string ruleSrc)
@@ -177,16 +174,11 @@ public class RuleParser
 
         // --- Extract the guard section if it is included. ---
         i = SkipWhiteSpace(ruleSrc, i);
-        (int, int)? guardPoses = GetGuardExtents(ruleSrc, i);
-        string guardDesc;
-        if (guardPoses != null)
+        (int, int) guardPoses = GetGuardExtents(ruleSrc, i);
+        string guardDesc = ruleSrc[guardPoses.Item1..guardPoses.Item2];
+        if (guardPoses.Item1 != guardPoses.Item2)
         {
-            guardDesc = ruleSrc[guardPoses.Value.Item1..guardPoses.Value.Item2];
-            i = guardPoses.Value.Item2 + 1; // Jumps the position past the ']' at the end of the guard.
-        }
-        else
-        {
-            guardDesc = "";
+            i = guardPoses.Item2 + 1; // Jumps the position past the ']' at the end of the guard.
         }
 
         // --- Extract the premises, state specifiers and results sections ---
@@ -268,11 +260,25 @@ public class RuleParser
         return (input[firstCharPos..equalsPos].Trim(), equalsPos + 1);
     }
 
-    private static (int, int)? GetGuardExtents(string input, int firstCharPos)
+    /// <summary>
+    /// Determines the start and end offsets of the rule's guard statement, reading from
+    /// firstCharPos.
+    /// </summary>
+    /// <param name="input">Input string with textual description of rule.</param>
+    /// <param name="firstCharPos">
+    /// Offset of the start of the guard. The character being pointed to should be '['.
+    /// </param>
+    /// <returns>
+    /// If firstCharPos does not point to '[', a tuple of (firstCharPos, firstCharPos) is returned.
+    /// Otherwise, a tuple of (firstCharPos, endPos) is returned where endPos is the offset of the
+    /// guard's closing ']'.
+    /// </returns>
+    /// <exception cref="RuleParseException"></exception>
+    private static (int, int) GetGuardExtents(string input, int firstCharPos)
     {
         if (input[firstCharPos] != '[')
         {
-            return null;
+            return (firstCharPos, firstCharPos);
         }
         int i;
         int indent = 1;
@@ -295,6 +301,14 @@ public class RuleParser
         return (firstCharPos + 1, i - 1);
     }
 
+    /// <summary>
+    /// When given a string representing a collection of guard statements, translate the
+    /// statements into a sequence of GuardPieces for further processing.
+    /// </summary>
+    /// <param name="whole">Whole rule string, used for error reporting.</param>
+    /// <param name="guardDesc">The guard portion of the rule.</param>
+    /// <returns></returns>
+    /// <exception cref="RuleParseException"></exception>
     private static List<GuardPiece> ReadGuard(string whole, string guardDesc)
     {
         if (guardDesc == string.Empty)
@@ -303,17 +317,31 @@ public class RuleParser
         }
 
         List<GuardPiece> pieces = new();
-        string[] eqns = guardDesc.Split(',');
-        foreach (string eqn in eqns)
+        for (int i = 0; i < guardDesc.Length; i++)
         {
-            string[] eqnParts = eqn.Split(GuardUnunifiedOp);
-            if (eqnParts.Length != 2)
+            (string piece1, i) = ReadTerm(whole, guardDesc, i);
+            i = SkipWhiteSpace(guardDesc, i);
+            if (i < guardDesc.Length - 3)
             {
-                throw new RuleParseException(whole, "Malformed guard statement.");
+                if (guardDesc[i] != '~' || guardDesc[i + 1] != '/' || guardDesc[i + 2] != '>')
+                {
+                    throw new RuleParseException(whole, "Expected operator ~/> in guard statement.");
+                }
             }
-            else if (eqnParts.Length == 2)
+            else
             {
-                pieces.Add(new GuardPiece(eqnParts[0].Trim(), eqnParts[1].Trim()));
+                throw new RuleParseException(whole, "Malformed guard statement");
+            }
+            i = SkipWhiteSpace(guardDesc, i + 3);
+            if (i >= guardDesc.Length)
+            {
+                throw new RuleParseException(whole, "Guard statement not complete.");
+            }
+            (string piece2, i) = ReadTerm(whole, guardDesc, i);
+            pieces.Add(new GuardPiece(piece1.Trim(), piece2.Trim()));
+            if (i < guardDesc.Length && guardDesc[i] == ',')
+            {
+                i++;
             }
         }
         return pieces;
@@ -416,22 +444,24 @@ public class RuleParser
         int i = start;
         for (; i < input.Length; i++)
         {
-            if (input[i] == ',' && indentChars.Count == 0)
+            if ((input[i] == ',' || input[i] == '~') && indentChars.Count == 0)
             {
                 return (input[start..i], i);
             }
-            if (input[i] == '[' || input[i] == '(')
+            if (input[i] == '[' || input[i] == '(' || input[i] == '<')
             {
                 indentChars.Push(input[i]);
             }
-            else if (input[i] == ']' || input[i] == ')')
+            else if (input[i] == ']' || input[i] == ')' || input[i] == '>')
             {
                 if (indentChars.Count == 0)
                 {
                     throw new RuleParseException(whole, $"'{input[i]}' never opened.");
                 }
                 char opening = indentChars.Pop();
-                if (!(opening == '[' && input[i] == ']' || opening == '(' && input[i] == ')'))
+                if (!(opening == '[' && input[i] == ']' 
+                      || opening == '(' && input[i] == ')'
+                      || opening == '<' && input[i] == '>'))
                 {
                     throw new RuleParseException(whole, $"'{input[i]}' mismatch when reading term.");
                 }
@@ -677,11 +707,23 @@ public class RuleParser
             {
                 throw new RuleParseException(whole, $"Cannot parse message '{p.Rhs}': {errMsg2}");
             }
-            if (msg1 is not VariableMessage vMsg)
+            if (msg1 is VariableMessage vMsg)
+            {
+                ununified.Add((vMsg, msg2!));
+            }
+            else if (msg1 is TupleMessage tMsg)
+            {
+                TupleVariableMessage? tvMsg = TupleVariableMessage.TryEnsure(tMsg);
+                if (tvMsg == null)
+                {
+                    throw new RuleParseException(whole, $"Left-hand-side guard message '{msg1}' is not a variable.");
+                }
+                ununified.Add((tvMsg, msg2!));
+            }
+            else
             {
                 throw new RuleParseException(whole, $"Left-hand-side guard message '{msg1}' is not a variable.");
             }
-            ununified.Add((vMsg!, msg2!));
         }
 
         return Guard.CreateFromSets(ununified);
