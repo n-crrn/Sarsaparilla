@@ -142,25 +142,7 @@ public class RuleFilter
         {
             return r1.Result.ToString().CompareTo(r2.Result.ToString());
         }
-        else if (r1.Result.EventType == Event.Type.Leak)
-        {
-            return -1;
-        }
-        else if (r1.Result.EventType == Event.Type.Accept)
-        {
-            if (r2.Result.EventType == Event.Type.Leak)
-            {
-                return 1;
-            }
-            else
-            {
-                return -1;
-            }
-        }
-        else
-        {
-            return 1;
-        }
+        return 1;
     }
 
 }

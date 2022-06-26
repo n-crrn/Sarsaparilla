@@ -103,12 +103,14 @@ public static class Example1
         BasisRules.Add(factory.CreateStateConsistentRule(Event.Know(srMsg)));
 
         // --- Rule 9 - Property of Interest ---
-        factory.SetNextLabel("interest");
+        // This rule is disabled as Leak is no longer a valid event type.
+        /*factory.SetNextLabel("interest");
         factory.RegisterPremise(Event.New(bobLMsg));
         factory.RegisterPremise(Event.New(bobRMsg));
         factory.RegisterPremise(Event.Know(bobLMsg));
         factory.RegisterPremise(Event.Know(bobRMsg));
         BasisRules.Add(factory.CreateStateConsistentRule(Event.Leak(new TupleMessage(new() { bobLMsg, bobRMsg }))));
+        */
     }
 
     /// <summary>

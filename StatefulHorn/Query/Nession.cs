@@ -415,7 +415,7 @@ public partial class Nession
         HashSet<IMessage> filtered = new();
         foreach (Event ev in PremisesForState(cellName))
         {
-            IMessage msg = ev.Messages[0];
+            IMessage msg = ev.Message;
             if (msg is not VariableMessage)
             {
                 filtered.Add(msg);
@@ -497,7 +497,7 @@ public partial class Nession
     /// <returns></returns>
     private IEnumerable<IMessage> InnerKnowsForState(int historyIndex, int cellOffset)
     {
-        return from ev in InnerPremisesForState(historyIndex, cellOffset) where ev.IsKnow select ev.Messages[0];
+        return from ev in InnerPremisesForState(historyIndex, cellOffset) where ev.IsKnow select ev.Message;
     }
 
     /// <summary>
@@ -570,9 +570,9 @@ public partial class Nession
                     {
                         kPremises = from p in InnerPremisesForState(rank, stateI)
                                     where p.IsKnow
-                                    select p.Messages.Single();
+                                    select p.Message;
                     }
-                    HornClause mkClause = new(mkPremise.Messages.Single(), kPremises, f.GuardStatements)
+                    HornClause mkClause = new(mkPremise.Message, kPremises, f.GuardStatements)
                     {
                         Rank = rank,
                         Source = new NessionRuleSource(this, rank, TransferringRulesForState(rank, stateI, true).ToList(), sc.TransferRule!)
@@ -586,7 +586,7 @@ public partial class Nession
             foreach (StateConsistentRule r in f.Rules)
             {
                 // Add know events.
-                HashSet<IMessage> premises = new(from p in r.Premises where p.IsKnow select p.Messages.Single());
+                HashSet<IMessage> premises = new(from p in r.Premises where p.IsKnow select p.Message);
                 Guard g = f.GuardStatements.Union(r.Guard);
                 List<StateTransferringRule> transferRules = new();
                 foreach (Snapshot rSS in r.Snapshots.Traces)
@@ -595,7 +595,7 @@ public partial class Nession
                     premises.UnionWith(InnerKnowsForState(rank, cellOffset));
                     transferRules.AddRange(TransferringRulesForState(rank, cellOffset));
                 }
-                HornClause rClause = new(r.Result.Messages.Single(), premises, g)
+                HornClause rClause = new(r.Result.Message, premises, g)
                 {
                     Rank = rank,
                     Source = new NessionRuleSource(this, rank, transferRules, r)
@@ -607,7 +607,7 @@ public partial class Nession
                 {
                     if (ep.EventType == Event.Type.Make)
                     {
-                        HornClause mkClause = new(ep.Messages.Single(), premises, g)
+                        HornClause mkClause = new(ep.Message, premises, g)
                         {
                             Rank = rank,
                             Source = new NessionRuleSource(this, rank, transferRules, r)
@@ -659,7 +659,7 @@ public partial class Nession
         return false;
     }
 
-    public override int GetHashCode() => _History[^1].Cells.First().GetHashCode();
+    public override int GetHashCode() => _History[^1].Cells[0].GetHashCode();
 
     #endregion
 

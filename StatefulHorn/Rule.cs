@@ -79,7 +79,7 @@ public abstract class Rule
             {
                 if (prem.EventType == Event.Type.Know)
                 {
-                    prem.Messages[0].CollectVariables(variables);
+                    prem.Message.CollectVariables(variables);
                 }
             }
             return variables;
@@ -100,11 +100,14 @@ public abstract class Rule
         get
         {
             HashSet<IMessage> foundNonces = new();
-            foreach (Event ev in (from p in Premises where p.IsKnow select p))
+            foreach (Event ev in Premises)
             {
-                ev.Messages.Single().CollectMessages(foundNonces, (IMessage msg) => msg is NonceMessage);
+                if (ev.IsKnow)
+                {
+                    ev.Message.CollectMessages(foundNonces, (IMessage msg) => msg is NonceMessage);
+                }
             }
-            HashSet<IMessage> declaredNonces = new(from nd in NonceDeclarations select nd.Messages.Single());
+            HashSet<IMessage> declaredNonces = new(from nd in NonceDeclarations select nd.Message);
             foundNonces.ExceptWith(declaredNonces);
             foreach (IMessage msg in foundNonces)
             {

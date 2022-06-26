@@ -138,7 +138,6 @@ public class RuleFactory
     /// <param name="prem">Premise to register.</param>
     public void RegisterPremise(Event prem)
     {
-        CheckPremisesAreValid(prem);
         if (!Premises.Contains(prem))
         {
             Premises.Add(prem);
@@ -243,27 +242,6 @@ public class RuleFactory
     #region Rule validation.
 
     /// <summary>
-    /// Ensure that the premise events are of the valid types: Know, New or Init. An exception
-    /// is thrown if at least one of the premise events is not valid.
-    /// </summary>
-    /// <param name="events">Events to check.</param>
-    /// <exception cref="RuleConstructionException">
-    /// Thrown if an invalid event is found.
-    /// </exception>
-    private static void CheckPremisesAreValid(params Event[] events)
-    {
-        foreach (Event ev in events)
-        {
-            if (ev.EventType == Event.Type.Accept || ev.EventType == Event.Type.Leak)
-            {
-                string msg = $"Attmpted to set '{ev}' as premise event: only know, init and new " +
-                    "events can be set as premises.";
-                throw new RuleConstructionException(msg);
-            }
-        }
-    }
-
-    /// <summary>
     /// Ensure that the given result event is of the correct type (Know, Accept or Leak) and is
     /// not included in the premise list. If an issue is found, an exception is thrown.
     /// </summary>
@@ -274,7 +252,7 @@ public class RuleFactory
     private void CheckResultEventIsValid(Event ev)
     {
         // Ensure it is the correct type.
-        if (ev.EventType == Event.Type.Init || ev.EventType == Event.Type.New)
+        if (ev.IsNew)
         {
             string msg = $"Cannot set '{ev}' as result event: only know, accept and leak events can be valid results.";
             throw new RuleConstructionException(msg);

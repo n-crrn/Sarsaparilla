@@ -5,78 +5,50 @@ using System.Linq;
 
 namespace StatefulHorn;
 
+/// <summary>
+/// An element that is either a premise of a rule or a result of a rule.
+/// </summary>
 public class Event : ISigmaUnifiable
 {
     public enum Type
     {
         Know,   // Value is known.
         New,    // Nonce is generated at a given location.
-        Init,   // Protocol start.
-        Accept, // Protocol successful authentication end
-        Leak,   // Protocol secrecy failure with leaked message.
         Make    // Create a new known token (should include nonces within sub-messages).
     }
 
     #region Constructors
 
-    private Event(Type t, IEnumerable<IMessage> messages)
+    private Event(Type t, IMessage msg)
     {
         EventType = t;
-        _Messages = new(messages);
-        // There must be at least one message.
-        Debug.Assert(_Messages.Count > 0);
-
-        foreach (IMessage msg in Messages)
-        {
-            if (msg.ContainsVariables)
-            {
-                ContainsVariables = true;
-                break;
-            }
-        }
+        Message = msg;
+        ContainsVariables = msg.ContainsVariables;
     }
 
-    public static Event Know(IMessage msg) => new(Type.Know, new IMessage[] { msg });
+    public static Event Know(IMessage msg) => new(Type.Know, msg);
 
-    public static Event New(NonceMessage nonce) => new(Type.New, new IMessage[] { nonce });
+    public static Event New(NonceMessage nonce) => new(Type.New, nonce);
 
-    public static Event Init(IEnumerable<IMessage> knownMessages) => new(Type.Init, knownMessages);
+    public static Event Make(IMessage msg) => new(Type.Make, msg);
 
-    public static Event Init(IMessage knownMsg) => new(Type.Init, new List<IMessage>() { knownMsg });
-
-    public static Event Accept(IEnumerable<IMessage> acceptMessages) => new(Type.Accept, acceptMessages);
-
-    public static Event Accept(IMessage accMsg) => new(Type.Accept, new List<IMessage>() { accMsg });
-
-    public static Event Leak(IMessage msg) => new(Type.Leak, new IMessage[] { msg });
-
-    public static Event Make(IMessage msg) => new(Type.Make, new IMessage[] { msg });
-
-    public Event PerformSubstitution(SigmaMap sigma) => new(EventType, from m in _Messages select m.Substitute(sigma));
+    public Event PerformSubstitution(SigmaMap sigma) => new(EventType, Message.Substitute(sigma));
 
     #endregion
 
-    public Type EventType { get; init; }
+    public Type EventType { get; private init; }
 
-    private readonly List<IMessage> _Messages;
+    public readonly IMessage Message;
 
-    public IReadOnlyList<IMessage> Messages => _Messages;
+    public bool IsKnow => EventType == Type.Know;
 
-    public bool IsAcceptOrLeak => EventType == Type.Leak || EventType == Type.Accept;
+    public bool IsNew => EventType == Type.New;
+
+    public bool IsMake => EventType == Type.Make;
 
     #region Filtering
 
-    public bool ContainsMessage(IMessage msg)
-    {
-        foreach (IMessage m in _Messages)
-        {
-            if (m.ContainsMessage(msg))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
+    public bool ContainsMessage(IMessage msg) => Message.ContainsMessage(msg);
 
     #endregion
     #region Unification determination
@@ -92,27 +64,26 @@ public class Event : ISigmaUnifiable
             if (_Variables == null)
             {
                 _Variables = new();
-                foreach(IMessage msg in Messages)
-                {
-                    msg.CollectVariables(_Variables);
-                }
+                Message.CollectVariables(_Variables);
             }
             return _Variables;
         }
     }
 
-    public bool IsKnow => EventType == Type.Know;
-
-    public bool IsNew => EventType == Type.New;
-
     public bool CanBeUnifiedTo(ISigmaUnifiable other, Guard g, SigmaFactory subs)
     {
-        return other is Event ev && IsKnow && ev.IsKnow && subs.CanUnifyMessagesOneWay(_Messages, ev._Messages, g);
+        return other is Event ev 
+            && IsKnow 
+            && ev.IsKnow 
+            && Message.DetermineUnifiedToSubstitution(ev.Message, g, subs);
     }
 
     public bool CanBeUnifiableWith(ISigmaUnifiable other, Guard fwdG, Guard bwdG, SigmaFactory subs)
     {
-        return other is Event ev && IsKnow && ev.IsKnow && subs.CanUnifyMessagesBothWays(_Messages, ev._Messages, fwdG, bwdG);
+        return other is Event ev
+            && IsKnow
+            && ev.IsKnow
+            && Message.DetermineUnifiableSubstitution(ev.Message, fwdG, bwdG, subs);
     }
 
     #endregion
@@ -120,18 +91,10 @@ public class Event : ISigmaUnifiable
 
     public override bool Equals(object? obj)
     {
-        if (obj is Event ev && EventType == ev.EventType)
-        {
-            if (EventType == Event.Type.Init || EventType == Event.Type.Accept)
-            {
-                return _Messages.Count == ev._Messages.Count && _Messages.SequenceEqual(ev._Messages);
-            }
-            return _Messages[0].Equals(ev._Messages[0]); //&& NameMessage.Equals(LocationId, ev.LocationId);
-        }
-        return false;
+        return obj is Event ev && EventType == ev.EventType && Message.Equals(ev.Message);
     }
 
-    public override int GetHashCode() => _Messages[0].GetHashCode();
+    public override int GetHashCode() => Message.GetHashCode();
 
     public static bool operator ==(Event? ev1, Event? ev2) => Equals(ev1, ev2);
 
@@ -145,10 +108,7 @@ public class Event : ISigmaUnifiable
         {
             Description = EventType switch
             {
-                Type.Accept => $"accept({MessagesAsString})",
-                Type.Init => $"init({MessagesAsString})",
                 Type.Know => $"know({FirstMessageAsString})",
-                Type.Leak => $"leak({FirstMessageAsString})",
                 Type.New => $"new({FirstMessageAsString})",
                 Type.Make => $"make({FirstMessageAsString})",
                 _ => throw new System.NotImplementedException()
@@ -157,9 +117,7 @@ public class Event : ISigmaUnifiable
         return Description;
     }
 
-    private string FirstMessageAsString => _Messages[0].ToString();
-
-    private string MessagesAsString => string.Join(", ", _Messages);
+    private string FirstMessageAsString => Message.ToString();
 
     #endregion
 }

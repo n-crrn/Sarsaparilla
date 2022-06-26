@@ -26,11 +26,7 @@
 }
 
 .know {
-    color: var(--know-event-color, green);
-}
-
-.init {
-    color: var(--init-event-color, aqua);
+    color: var(--know-event-color, lightgreen);
 }
 
 .new {
@@ -39,12 +35,4 @@
 
 .make {
     color: var(--accept-event-color, orange);
-}
-
-.accept {
-    color: var(--leak-event-color, orangered);
-}
-
-.leak {
-    color: var(--leak-event-color, red);
 }

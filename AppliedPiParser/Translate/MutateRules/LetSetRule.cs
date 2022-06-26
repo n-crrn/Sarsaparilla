@@ -40,7 +40,7 @@ public class LetSetRule : IMutateRule
 
     #region IMutableRule implementation.
 
-    public string Label => $"LetSet-{Designation}-{SetKnow.Messages[0]}";
+    public string Label => $"LetSet-{Designation}-{SetKnow.Message}";
 
     public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 

@@ -610,8 +610,8 @@ public class HornClause
         if (scr.Snapshots.IsEmpty)
         {
             return new(
-                scr.Result.Messages.Single(),
-                from p in scr.Premises where p.IsKnow select p.Messages.Single(),
+                scr.Result.Message,
+                from p in scr.Premises where p.IsKnow select p.Message,
                 scr.Guard);
         }
         return null;

@@ -8,12 +8,7 @@
     <span class='@Event.EventType.ToString().ToLower()'>
         <span class='event-name'>@Event.EventType.ToString().ToLower()</span>
         (
-            <span>
-                @foreach(IMessage msg in Event.Messages)
-                {
-                    <span class='linear-element'>@FormatUtils.FormatLabel(msg.ToString())</span>
-                }
-            </span>
+            <span class='linear-element'>@FormatUtils.FormatLabel(Event.Message.ToString())</span>
         )
     </span>
 }
@@ -24,6 +19,10 @@ else
 
 @code {
 
+    /// <summary>
+    /// Event to display in the control. If null, then an "Event not set" message will be
+    /// displayed.
+    /// </summary>
     [Parameter]
     public Event? Event { get; set; }
 

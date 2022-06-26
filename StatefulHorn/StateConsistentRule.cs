@@ -16,8 +16,6 @@ public class StateConsistentRule : Rule
 
     public override Event Result { get; }
 
-    public bool ResultIsTerminating => Result.EventType == Event.Type.Accept || Result.EventType == Event.Type.Leak;
-
     protected override string DescribeResult() => Result.ToString();
 
     /// <summary>
@@ -61,7 +59,7 @@ public class StateConsistentRule : Rule
     {
         foreach (Event ev in Premises)
         {
-            if (ev.IsKnow && !IsPremiseKnown(ruleSet1, ruleSet2, ev.Messages[0]))
+            if (ev.IsKnow && !IsPremiseKnown(ruleSet1, ruleSet2, ev.Message))
             {
                 return false;
             }
@@ -87,7 +85,7 @@ public class StateConsistentRule : Rule
         {
             if (ev.IsKnow)
             {
-                IMessage msg = ev.Messages[0];
+                IMessage msg = ev.Message;
                 if (msg is BasicMessage)
                 {
                     yield return msg;
@@ -253,7 +251,7 @@ public class StateConsistentRule : Rule
 
     // === Updated Transform Code ===
 
-    public List<NonceMessage> NewNonces => (from p in Premises where p.IsNew select (NonceMessage)p.Messages.Single()).ToList();
+    public List<NonceMessage> NewNonces => (from p in Premises where p.IsNew select (NonceMessage)p.Message).ToList();
 
     public IEnumerable<Event> NewEvents => from p in Premises where p.IsNew select p;
 
