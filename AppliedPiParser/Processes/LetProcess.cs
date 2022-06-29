@@ -12,12 +12,18 @@ namespace AppliedPi.Processes;
 /// </summary>
 public class LetProcess : IProcess
 {
-    public LetProcess(TuplePattern lhs, ITermGenerator rhs, IProcess guardedProcess, IProcess? elseProcess = null)
+    public LetProcess(
+        TuplePattern lhs, 
+        ITermGenerator rhs, 
+        IProcess guardedProcess, 
+        IProcess? elseProcess,
+        RowColumnPosition? definedAt)
     {
         LeftHandSide = lhs;
         RightHandSide = rhs;
         GuardedProcess = guardedProcess;
         ElseProcess = elseProcess;
+        DefinedAt = definedAt;
     }
 
     public TuplePattern LeftHandSide { get; init; }
@@ -30,13 +36,14 @@ public class LetProcess : IProcess
 
     #region IProcess implementation.
 
-    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    public IProcess SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
         return new LetProcess(
             LeftHandSide.ResolveTerms(subs),
             RightHandSide.ResolveTerm(subs),
-            GuardedProcess.ResolveTerms(subs),
-            ElseProcess?.ResolveTerms(subs));
+            GuardedProcess.SubstituteTerms(subs),
+            ElseProcess?.SubstituteTerms(subs),
+            DefinedAt);
     }
 
     public IEnumerable<string> VariablesDefined()
@@ -103,8 +110,15 @@ public class LetProcess : IProcess
                 resolver.Register(e.Term, new(TermSource.Let, new(e.Type)));
             }
         }
-        return new LetProcess(LeftHandSide, RightHandSide, GuardedProcess.Resolve(nw, resolver), ElseProcess?.Resolve(nw, resolver));
+        return new LetProcess(
+            LeftHandSide, 
+            RightHandSide,
+            GuardedProcess.Resolve(nw, resolver),
+            ElseProcess?.Resolve(nw, resolver),
+            DefinedAt);
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides.

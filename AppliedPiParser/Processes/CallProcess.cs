@@ -7,9 +7,10 @@ namespace AppliedPi.Processes;
 
 public class CallProcess : IProcess
 {
-    public CallProcess(Term cs)
+    public CallProcess(Term cs, RowColumnPosition? definedAt)
     {
         CallSpecification = cs;
+        DefinedAt = definedAt;
     }
 
     public Term CallSpecification { get; init; }
@@ -18,7 +19,10 @@ public class CallProcess : IProcess
 
     #region IProcess implementation.
 
-    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs) => new CallProcess(CallSpecification.ResolveTerm(subs));
+    public IProcess SubstituteTerms(IReadOnlyDictionary<string, string> subs)
+    {
+        return new CallProcess(CallSpecification.ResolveTerm(subs), DefinedAt);
+    }
 
     public IEnumerable<string> VariablesDefined() => Enumerable.Empty<string>();
 
@@ -65,6 +69,8 @@ public class CallProcess : IProcess
     {
         return resolver.ResolveMacroCall(Name, new(from p in CallSpecification.Parameters select p.ToString()));
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides.

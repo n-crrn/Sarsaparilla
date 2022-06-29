@@ -8,7 +8,10 @@ namespace AppliedPi.Processes;
 
 public class InChannelProcess : IProcess
 {
-    public InChannelProcess(string channelName, List<(string, string)> pattern)
+    public InChannelProcess(
+        string channelName, 
+        List<(string, string)> pattern, 
+        RowColumnPosition? definedAt)
     {
         Channel = channelName;
         ReceivePattern = pattern;
@@ -20,12 +23,13 @@ public class InChannelProcess : IProcess
 
     #region IProcess implementation.
 
-    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    public IProcess SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
         Term cTerm = new(Channel);
-        List<(string, string)> newPat = new(from rp in ReceivePattern
-                                            select (subs.GetValueOrDefault(rp.Item1, rp.Item1), rp.Item2));
-        return new InChannelProcess(cTerm.ResolveTerm(subs).Name, newPat);
+        List<(string, string)> newPat = 
+            new(from rp in ReceivePattern
+                select (subs.GetValueOrDefault(rp.Item1, rp.Item1), rp.Item2));
+        return new InChannelProcess(cTerm.ResolveTerm(subs).Name, newPat, DefinedAt);
     }
 
     public IEnumerable<string> VariablesDefined()
@@ -36,7 +40,10 @@ public class InChannelProcess : IProcess
         }
     }
 
-    public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher) => Enumerable.Empty<IProcess>();
+    public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher)
+    {
+        return Enumerable.Empty<IProcess>();
+    }
 
     public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
     {
@@ -68,6 +75,8 @@ public class InChannelProcess : IProcess
         }
         return this;
     }
+
+    public RowColumnPosition? DefinedAt { get; }
 
     #endregion
     #region Basic object overrides.

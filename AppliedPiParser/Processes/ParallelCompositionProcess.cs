@@ -4,20 +4,25 @@ using System.Linq;
 
 namespace AppliedPi.Processes;
 
+/// <summary>
+/// Represents a process where the sub-processes are operating concurrently.
+/// </summary>
 public class ParallelCompositionProcess : IProcess
 {
-    public ParallelCompositionProcess(IProcess proc)
+    public ParallelCompositionProcess(IProcess proc, RowColumnPosition? definedAt)
     {
         Processes = new() { proc };
+        DefinedAt = definedAt;
     }
 
-    public ParallelCompositionProcess(IEnumerable<IProcess> newProcesses)
+    public ParallelCompositionProcess(IEnumerable<IProcess> newProcesses, RowColumnPosition? definedAt)
     {
         Processes = new(newProcesses);
         if (Processes.Count == 0)
         {
             throw new ArgumentException("Parallel composition process must have at least once process.");
         }
+        DefinedAt = definedAt;
     }
 
     public List<IProcess> Processes { get; init; }
@@ -29,9 +34,9 @@ public class ParallelCompositionProcess : IProcess
 
     #region IProcess implementation.
 
-    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    public IProcess SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
-        return new ParallelCompositionProcess(from p in Processes select p.ResolveTerms(subs));
+        return new ParallelCompositionProcess(from p in Processes select p.SubstituteTerms(subs), DefinedAt);
     }
 
     public IEnumerable<string> VariablesDefined()
@@ -76,8 +81,10 @@ public class ParallelCompositionProcess : IProcess
 
     public IProcess Resolve(Network nw, TermResolver resolver)
     {
-        return new ParallelCompositionProcess(from p in Processes select p.Resolve(nw, resolver));
+        return new ParallelCompositionProcess(from p in Processes select p.Resolve(nw, resolver), DefinedAt);
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides.

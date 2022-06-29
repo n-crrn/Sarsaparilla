@@ -7,11 +7,16 @@ namespace AppliedPi.Processes;
 
 public class IfProcess : IProcess
 {
-    public IfProcess(IComparison comp, IProcess guardedProc, IProcess? elseProc)
+    public IfProcess(
+        IComparison comp, 
+        IProcess guardedProc, 
+        IProcess? elseProc, 
+        RowColumnPosition? definedAt)
     {
         Comparison = comp;
         GuardedProcess = guardedProc;
         ElseProcess = elseProc;
+        DefinedAt = definedAt;
     }
 
     public IComparison Comparison { get; init; }
@@ -22,12 +27,12 @@ public class IfProcess : IProcess
 
     #region IProcess Implementation.
 
-    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    public IProcess SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
         IComparison newComparison = Comparison.SubstituteTerms(subs);
-        IProcess newGProc = GuardedProcess.ResolveTerms(subs);
-        IProcess? newEProc = ElseProcess?.ResolveTerms(subs);
-        return new IfProcess(newComparison, newGProc, newEProc);
+        IProcess newGProc = GuardedProcess.SubstituteTerms(subs);
+        IProcess? newEProc = ElseProcess?.SubstituteTerms(subs);
+        return new IfProcess(newComparison, newGProc, newEProc, DefinedAt);
     }
 
     public IEnumerable<string> VariablesDefined()
@@ -90,8 +95,14 @@ public class IfProcess : IProcess
         {
             throw new ResolverException(Comparison, cmpType);
         }
-        return new IfProcess(Comparison, GuardedProcess.Resolve(nw, resolver), ElseProcess?.Resolve(nw, resolver));
+        return new IfProcess(
+            Comparison, 
+            GuardedProcess.Resolve(nw, resolver), 
+            ElseProcess?.Resolve(nw, resolver), 
+            DefinedAt);
     }
+
+    public RowColumnPosition? DefinedAt { get; init; }
 
     #endregion
     #region Basic object overrides.

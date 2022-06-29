@@ -126,21 +126,27 @@ public class ModelTests
         };
         List<IProcess> let1Processes = new()
         {
-            new OutChannelProcess("c", new Term("bv", new())),
+            new OutChannelProcess("c", new Term("bv", new()), null),
             new LetProcess(new(let2Elements),
                            new Term("checksign", new() { new Term("cert2"), new Term("pk2") }),
                            new LetProcess(new(let3Elements),
                                           new Term("check", new() { new Term("x")}),
-                                          new InChannelProcess("c", new() { ("other", "bitstring") })))
+                                          new InChannelProcess("c", new() { ("other", "bitstring") }, null), 
+                                          null,
+                                          null),
+                           null,
+                           null)
         };
         List<IProcess> processes = new()
         {
-            new NewProcess("A", "key"),
+            new NewProcess("A", "key", null),
             new LetProcess(TuplePattern.CreateSingle("bv", "bitstring"),
                            new Term("pk", new() { new Term("A") }),
-                           new ProcessGroup(let1Processes))
+                           new ProcessGroup(let1Processes, null),
+                           null,
+                           null)
         };
-        ProcessGroup expectedMain = new(processes);
+        ProcessGroup expectedMain = new(processes, null);
 
         try
         {
@@ -167,17 +173,21 @@ public class ModelTests
         Assert.IsNotNull(nw.MainProcess);
 
         // Build the expected model of processes.
-        ParallelCompositionProcess line1 = new(new OutChannelProcess("c", new("bv")));
-        line1.Add(new OutChannelProcess("d", new("bx")));
-        line1.Add(new OutChannelProcess("e", new("bw")));
+        ParallelCompositionProcess line1 = new(new OutChannelProcess("c", new("bv"), null), null);
+        line1.Add(new OutChannelProcess("d", new("bx"), null));
+        line1.Add(new OutChannelProcess("e", new("bw"), null));
         ParallelCompositionProcess line2 = new(
-            new ReplicateProcess(new InChannelProcess("c", new() { ("x", "bitstring") })));
-        line2.Add(new InChannelProcess("d", new() { ("y", "bitstring") }));
+            new ReplicateProcess(new InChannelProcess("c", new() { ("x", "bitstring") }, null), 
+                                 null), 
+            null);
+        line2.Add(new InChannelProcess("d", new() { ("y", "bitstring") }, null));
         ParallelCompositionProcess line3 = new(
-            new ReplicateProcess(new OutChannelProcess("c", new("x"))));
-        line3.Add(new ReplicateProcess(new InChannelProcess("c", new() { ("x", "bitstring") })));
+            new ReplicateProcess(new OutChannelProcess("c", new("x"), null), 
+                                 null),
+            null);
+        line3.Add(new ReplicateProcess(new InChannelProcess("c", new() { ("x", "bitstring") }, null), null));
         List<IProcess> expectedProcesses = new() { line1, line2, line3 };
-        ProcessGroup expectedMain = new(expectedProcesses);
+        ProcessGroup expectedMain = new(expectedProcesses, null);
 
         try
         {
@@ -210,16 +220,18 @@ public class ModelTests
             BooleanComparison.Type.And,
             new EqualityComparison(false, "h", "A(D)"), 
             new EqualityComparison(true, "f", "(B,E)"));
-        IProcess line3 = new OutChannelProcess("c", new("key"));
-        IProcess line4 = new OutChannelProcess("c", new("other_key"));
-        IfProcess lines2to4 = new(line2Cmp, line3, line4);
+        IProcess line3 = new OutChannelProcess("c", new("key"), null);
+        IProcess line4 = new OutChannelProcess("c", new("other_key"), null);
+        IfProcess lines2to4 = new(line2Cmp, line3, line4, null);
 
         LetProcess line1 = new(
             TuplePattern.CreateSingle("h", "bitstring"),
             new IfTerm(new EqualityComparison(true, "X", "A"), new Term("A"), new Term("C")),
-            lines2to4);
+            lines2to4,
+            null,
+            null);
 
-        ProcessGroup expectedMain = new(new List<IProcess>() { line1 } );
+        ProcessGroup expectedMain = new(new List<IProcess>() { line1 }, null);
 
         try
         {
@@ -250,26 +262,32 @@ public class ModelTests
         // Build the expected model of each user defined process.
 
         // User defined process testProcA.
-        ProcessGroup testProcAProcesses = new(new List<IProcess>()
+        ProcessGroup testProcAProcesses = new(
+            new List<IProcess>()
             {
-                new InChannelProcess("c", new List<(string, string)>() { ("A", "bitstring") })
-            });
+                new InChannelProcess("c", new List<(string, string)>() { ("A", "bitstring") }, null)
+            },
+            null);
         UserDefinedProcess expectedTestProcA = new("testProcA", new(), testProcAProcesses);
 
         // User defined process testProcB.
-        ProcessGroup testProcBProcesses = new(new List<IProcess>()
+        ProcessGroup testProcBProcesses = new(
+            new List<IProcess>()
             {
-                new EventProcess(new("beginTest", new() { new("pkA") })),
-                new OutChannelProcess("c", new("pkB"))
-            });
+                new PiEventProcess(new("beginTest", new() { new("pkA") }), null),
+                new OutChannelProcess("c", new("pkB"), null)
+            },
+            null);
         UserDefinedProcess expectedTestProcB = new("testProcB", new() { ("pkA", "key"), ("pkB", "key") }, testProcBProcesses);
 
         // The main process.
-        ProcessGroup expectedMain = new(new List<IProcess>()
-        {
-            new CallProcess(new("testProcA")),
-            new CallProcess(new("testProcB", new() { new("c"), new("d") }))
-        });
+        ProcessGroup expectedMain = new(
+            new List<IProcess>()
+            {
+                new CallProcess(new("testProcA"), null),
+                new CallProcess(new("testProcB", new() { new("c"), new("d") }), null)
+            },
+            null);
 
         IReadOnlyDictionary<string, UserDefinedProcess> letDefs = nw.LetDefinitions;
         Assert.IsTrue(letDefs.ContainsKey("testProcA"), "User defined process 'testProcA' not defined.");

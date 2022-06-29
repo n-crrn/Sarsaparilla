@@ -8,18 +8,23 @@ namespace AppliedPi.Processes;
 /// <summary>
 /// Indicates that an event has been achieved in a process.
 /// </summary>
-public class EventProcess : IProcess
+public class PiEventProcess : IProcess
 {
-    public EventProcess(Term ev)
+
+    public PiEventProcess(Term ev, RowColumnPosition? definedAt)
     {
         Event = ev;
+        DefinedAt = definedAt;
     }
 
     public Term Event { get; init; }
 
     #region IProcess implementation.
 
-    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs) => new EventProcess(Event.ResolveTerm(subs));
+    public IProcess SubstituteTerms(IReadOnlyDictionary<string, string> subs)
+    {
+        return new PiEventProcess(Event.ResolveTerm(subs), DefinedAt);
+    }
 
     public IEnumerable<string> VariablesDefined() => Enumerable.Empty<string>();
 
@@ -70,19 +75,21 @@ public class EventProcess : IProcess
         return this;
     }
 
+    public RowColumnPosition? DefinedAt { get; private init; }
+
     #endregion
     #region Basic object overrides.
 
     public override bool Equals(object? obj)
     {
-        return obj is EventProcess ep && Event == ep.Event;
+        return obj is PiEventProcess ep && Event == ep.Event;
     }
 
     public override int GetHashCode() => Event.GetHashCode();
 
-    public static bool operator ==(EventProcess ep1, EventProcess ep2) => Equals(ep1, ep2);
+    public static bool operator ==(PiEventProcess ep1, PiEventProcess ep2) => Equals(ep1, ep2);
 
-    public static bool operator !=(EventProcess ep1, EventProcess ep2) => !Equals(ep1, ep2);
+    public static bool operator !=(PiEventProcess ep1, PiEventProcess ep2) => !Equals(ep1, ep2);
 
     public override string ToString() => $"event {Event}";
 

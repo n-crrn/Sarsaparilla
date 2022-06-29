@@ -54,7 +54,7 @@ public class ResolvedNetwork
         {
             throw new MemberAccessException("Cannot retrieve process sequence as group if there are no processes");
         }
-        return new(_ProcessSequence);
+        return new(_ProcessSequence, _ProcessSequence[0].DefinedAt);
     }
 
     public IMessage TermToMessage(Term t)

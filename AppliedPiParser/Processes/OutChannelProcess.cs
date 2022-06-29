@@ -7,10 +7,11 @@ namespace AppliedPi.Processes;
 
 public class OutChannelProcess : IProcess
 {
-    public OutChannelProcess(string channelName, Term sent)
+    public OutChannelProcess(string channelName, Term sent, RowColumnPosition? definedAt)
     {
         Channel = channelName;
         SentTerm = sent;
+        DefinedAt = definedAt;
     }
 
     public string Channel { get; init; }
@@ -19,15 +20,20 @@ public class OutChannelProcess : IProcess
 
     #region IProcess implementation.
 
-    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    public IProcess SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
         Term cTerm = new(Channel);        
-        return new OutChannelProcess(cTerm.ResolveTerm(subs).Name, SentTerm.ResolveTerm(subs));
+        return new OutChannelProcess(
+            cTerm.ResolveTerm(subs).Name,
+            SentTerm.ResolveTerm(subs), DefinedAt);
     }
 
     public IEnumerable<string> VariablesDefined() => Enumerable.Empty<string>();
 
-    public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher) => Enumerable.Empty<IProcess>();
+    public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher)
+    {
+        return Enumerable.Empty<IProcess>();
+    }
 
     public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
     {
@@ -56,6 +62,8 @@ public class OutChannelProcess : IProcess
         resolver.ResolveOrThrow(SentTerm);
         return this;
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides.

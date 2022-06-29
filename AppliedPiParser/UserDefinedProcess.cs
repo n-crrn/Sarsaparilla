@@ -55,7 +55,7 @@ public class UserDefinedProcess
             subs[varName] = prefix + varName;
         }
 
-        return (ProcessGroup)Processes.ResolveTerms(subs);
+        return (ProcessGroup)Processes.SubstituteTerms(subs);
     }
 
     #region Basic object overrides.

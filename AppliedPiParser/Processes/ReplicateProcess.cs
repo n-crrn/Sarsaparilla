@@ -4,25 +4,33 @@ using System.Linq;
 
 namespace AppliedPi.Processes;
 
+/// <summary>
+/// Represents a process where its singular sub-process is run concurrently infinite times.
+/// </summary>
 public class ReplicateProcess : IProcess
 {
-    public ReplicateProcess(IProcess p)
+
+    public ReplicateProcess(IProcess p, RowColumnPosition? definedAt)
     {
         Process = p;
+        DefinedAt = definedAt;
     }
 
     public IProcess Process { get; init; }
 
     #region IProcess implementation.
 
-    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    public IProcess SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
-        return new ReplicateProcess(Process.ResolveTerms(subs));
+        return new ReplicateProcess(Process.SubstituteTerms(subs), DefinedAt);
     }
 
     public IEnumerable<string> VariablesDefined() => Process.VariablesDefined();
 
-    public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher) => Enumerable.Empty<IProcess>();
+    public IEnumerable<IProcess> MatchingSubProcesses(Predicate<IProcess> matcher)
+    {
+        return Enumerable.Empty<IProcess>();
+    }
 
     public bool Check(Network nw, TermResolver termResolver, out string? errorMessage)
     {
@@ -31,8 +39,10 @@ public class ReplicateProcess : IProcess
 
     public IProcess Resolve(Network nw, TermResolver resolver)
     {
-        return new ReplicateProcess(Process.Resolve(nw, resolver));
+        return new ReplicateProcess(Process.Resolve(nw, resolver), DefinedAt);
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides.
@@ -48,4 +58,5 @@ public class ReplicateProcess : IProcess
     public override string ToString() => $"! {Process}";
 
     #endregion
+
 }

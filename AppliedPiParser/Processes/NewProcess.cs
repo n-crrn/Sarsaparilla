@@ -9,10 +9,11 @@ namespace AppliedPi.Processes;
 /// </summary>
 public class NewProcess : IProcess
 {
-    public NewProcess(string varName, string type)
+    public NewProcess(string varName, string type, RowColumnPosition? definedAt)
     {
         Variable = varName;
         PiType = type;
+        DefinedAt = definedAt;
     }
 
     public string Variable { get; init; }
@@ -21,9 +22,9 @@ public class NewProcess : IProcess
 
     #region IProcess implementation.
 
-    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    public IProcess SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
-        return new NewProcess(subs.GetValueOrDefault(Variable, Variable), PiType);
+        return new NewProcess(subs.GetValueOrDefault(Variable, Variable), PiType, DefinedAt);
     }
 
     public IEnumerable<string> VariablesDefined()
@@ -45,6 +46,8 @@ public class NewProcess : IProcess
         resolver.Register(new(Variable), new(TermSource.Nonce, new(PiType)));
         return this;
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides.

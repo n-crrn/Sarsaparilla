@@ -10,9 +10,10 @@ namespace AppliedPi;
 
 public class ProcessGroup : IProcess
 {
-    public ProcessGroup(IEnumerable<IProcess> toBeLinked)
+    public ProcessGroup(IEnumerable<IProcess> toBeLinked, RowColumnPosition? definedAt)
     {
         Processes = new(toBeLinked);
+        DefinedAt = definedAt;
         Debug.Assert(Processes.Count > 0);
     }
 
@@ -34,9 +35,9 @@ public class ProcessGroup : IProcess
 
     #region IProcess implementation.
 
-    public IProcess ResolveTerms(IReadOnlyDictionary<string, string> subs)
+    public IProcess SubstituteTerms(IReadOnlyDictionary<string, string> subs)
     {
-        return new ProcessGroup(from p in Processes select p.ResolveTerms(subs));
+        return new ProcessGroup(from p in Processes select p.SubstituteTerms(subs), DefinedAt);
     }
 
     public IEnumerable<string> VariablesDefined()
@@ -92,8 +93,10 @@ public class ProcessGroup : IProcess
         {
             return Processes[0].Resolve(nw, resolver);
         }
-        return new ProcessGroup(from p in Processes select p.Resolve(nw, resolver));
+        return new ProcessGroup(from p in Processes select p.Resolve(nw, resolver), DefinedAt);
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides.
@@ -132,6 +135,7 @@ public class ProcessGroup : IProcess
 
     private static IProcess InnerReadFromParser(Parser p)
     {
+        RowColumnPosition startPos = p.GetRowColumn();
         List<IProcess> processes = new();
         ParallelCompositionProcess? parallelRegister = null;
         string token;
@@ -151,7 +155,7 @@ public class ProcessGroup : IProcess
                     // Swap out the last process on the list with a new parallel composition.
                     IProcess lastProcess = processes[^1];
                     processes.RemoveAt(processes.Count - 1);
-                    parallelRegister = new(lastProcess);
+                    parallelRegister = new(lastProcess, lastProcess.DefinedAt);
                     processes.Add(parallelRegister!);
                 }
                 // Start on the next process.
@@ -193,7 +197,7 @@ public class ProcessGroup : IProcess
             }
                 
         } while (token == ";" || token == "|");
-        return processes.Count == 1 ? processes[0] : new ProcessGroup(processes);
+        return processes.Count == 1 ? processes[0] : new ProcessGroup(processes, startPos);
     }
 
     private static IProcess? ReadNextProcess(Parser p, string token)
@@ -219,12 +223,13 @@ public class ProcessGroup : IProcess
         {
             throw new ProcessGroupParseException("The replicate operation has to apply to a process.");
         }
-        return new ReplicateProcess(innerProcess);
+        return new ReplicateProcess(innerProcess, innerProcess.DefinedAt);
     }
 
     private static IProcess ReadInChannelProcess(Parser p)
     {
         string stmtType = "In";
+        RowColumnPosition pos = p.GetRowColumn();
 
         p.ReadExpectedToken("(", stmtType);
         string channelName = p.ReadNameToken(stmtType);
@@ -268,39 +273,42 @@ public class ProcessGroup : IProcess
             p.ReadExpectedToken(")", stmtType);
         }
 
-        return new InChannelProcess(channelName, paramList);
+        return new InChannelProcess(channelName, paramList, pos);
     }
 
     private static IProcess ReadOutChannelProcess(Parser p)
     {
         string stmtType = "Out";
-
+        RowColumnPosition pos = p.GetRowColumn();
         p.ReadExpectedToken("(", stmtType);
         string channelName = p.ReadNameToken(stmtType);
         p.ReadExpectedToken(",", stmtType);
         Term sentTerm = Term.ReadTerm(p, stmtType);
         p.ReadExpectedToken(")", stmtType);
-        return new OutChannelProcess(channelName, sentTerm);
+        return new OutChannelProcess(channelName, sentTerm, pos);
     }
 
     private static IProcess ReadEventProcess(Parser p)
     {
         string stmtType = "Event (process)";
+        RowColumnPosition pos = p.GetRowColumn();
         Term t = Term.ReadTerm(p, stmtType);
-        return new EventProcess(t);
+        return new PiEventProcess(t, pos);
     }
 
     private static IProcess ReadNewProcess(Parser p)
     {
         string stmtType = "New";
+        RowColumnPosition pos = p.GetRowColumn();
         string varName = p.ReadNameToken(stmtType);
         p.ReadExpectedToken(":", stmtType);
         string piType = p.ReadNameToken(stmtType);
-        return new NewProcess(varName, piType);
+        return new NewProcess(varName, piType, pos);
     }
 
     private static LetProcess ReadLetProcess(Parser p)
     {
+        RowColumnPosition pos = p.GetRowColumn();
         string stmtType = "Let";
         TuplePattern tp = TuplePattern.ReadPattern(p, stmtType);
         string token = p.ReadNextToken();
@@ -333,7 +341,7 @@ public class ProcessGroup : IProcess
         }
         catch (EndOfCodeException) { } // EOC does not matter in this case.
 
-        return new(tp, ifTerm, guardedProcess, elseProcess);
+        return new(tp, ifTerm, guardedProcess, elseProcess, pos);
     }
 
     private static IfTerm ReadIfTerm(Parser p, string stmtType)
@@ -363,6 +371,7 @@ public class ProcessGroup : IProcess
     private static IProcess ReadIfProcess(Parser p)
     {
         IComparison cmp = ReadComparisonAndThen(p);
+        RowColumnPosition pos = p.GetRowColumn();
 
         // Read through the guarded process.
         IProcess guardedProcesses = InnerReadFromParser(p);
@@ -380,7 +389,7 @@ public class ProcessGroup : IProcess
         }
         catch (EndOfCodeException) { } // EOC oes not matter in this case.
 
-        return new IfProcess(cmp, guardedProcesses, elseProcesses);
+        return new IfProcess(cmp, guardedProcesses, elseProcesses, pos);
     }
 
     private static IComparison ReadComparisonAndThen(Parser p)
@@ -451,9 +460,10 @@ public class ProcessGroup : IProcess
         {
             return null;
         }
+        RowColumnPosition? definedAt = p.GetRowColumn();
         string stmtType = "Call";
         Term t = Term.ReadTermParameters(p, currentToken, stmtType);
-        return new CallProcess(t);
+        return new CallProcess(t, definedAt);
     }
 
     #endregion
