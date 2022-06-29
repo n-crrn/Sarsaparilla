@@ -11,23 +11,23 @@ public class InfiniteWriteRule : IMutateRule
 
     public InfiniteWriteRule(
         WriteSocket s,
-        IDictionary<Socket, int> finActionCounts,
+        PathSurveyor.Marker marker,
         HashSet<Event> premises,
         IMessage value)
     {
         Socket = s;
-        FiniteActionCounts = new Dictionary<Socket, int>(finActionCounts);
+        Marker = marker;
         ValueToWrite = value;
         Premises = new(premises); // Copy, so that premises are not added afterwards.
     }
 
-    public WriteSocket Socket { get; init; }
+    public WriteSocket Socket { get; private init; }
 
-    public IDictionary<Socket, int> FiniteActionCounts { get; init; }
+    public PathSurveyor.Marker Marker { get; private init; }
 
-    public HashSet<Event> Premises { get; init; }
+    public HashSet<Event> Premises { get; private init; }
 
-    public IMessage ValueToWrite { get; init; }
+    public IMessage ValueToWrite { get; private init; }
 
     #region IMutableRule implementation.
 
@@ -37,18 +37,15 @@ public class InfiniteWriteRule : IMutateRule
 
     public Rule GenerateRule(RuleFactory factory)
     {
-        Snapshot? latest = null;
-        foreach ((Socket s, int ic) in FiniteActionCounts)
-        {
-            Snapshot ss = s.RegisterHistory(factory, ic);
-            if (s.Equals(Socket))
-            {
-                latest = ss;
-            }
-        }
-        if (latest == null)
+        IDictionary<Socket, Snapshot> sockSS = Marker.Register(factory);
+        Snapshot latest;
+        if (Socket.IsInfinite)
         {
             latest = factory.RegisterState(Socket.WaitingState());
+        }
+        else
+        {
+            latest = sockSS[Socket];
         }
         factory.RegisterPremises(latest, Premises);
         factory.RegisterPremises(latest, Event.Know(new NameMessage(Socket.ChannelName)));
@@ -66,12 +63,12 @@ public class InfiniteWriteRule : IMutateRule
 
     public override bool Equals(object? obj)
     {
-        return obj is InfiniteWriteRule r &&
-            Socket.Equals(r.Socket) &&
-            FiniteActionCounts.ToHashSet().SetEquals(r.FiniteActionCounts) &&
-            Premises.SetEquals(r.Premises) &&
-            ValueToWrite.Equals(r.ValueToWrite) &&
-            Equals(Conditions, r.Conditions);
+        return obj is InfiniteWriteRule r 
+            && Socket.Equals(r.Socket) 
+            && Marker.Equals(r.Marker) 
+            && Premises.SetEquals(r.Premises) 
+            && ValueToWrite.Equals(r.ValueToWrite) 
+            && Equals(Conditions, r.Conditions);
     }
 
     public override int GetHashCode() => Socket.GetHashCode();

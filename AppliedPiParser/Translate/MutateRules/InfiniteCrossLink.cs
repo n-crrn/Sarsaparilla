@@ -13,34 +13,34 @@ public class InfiniteCrossLink : IMutateRule
     public InfiniteCrossLink(
         WriteSocket fromSocket, 
         ReadSocket toSocket, 
-        IDictionary<Socket, int> finActionCounts,
+        PathSurveyor.Marker marker,
         HashSet<Event> premises, 
         IMessage result)
     {
         From = fromSocket;
         To = toSocket;
-        FiniteActionCounts = finActionCounts;
+        Marker = marker;
         Premises = premises;
         Result = Event.Know(result);
         Debug.Assert(From.IsInfinite && To.IsInfinite);
     }
 
-    public WriteSocket From { get; init; }
+    public WriteSocket From { get; private init; }
 
-    public ReadSocket To { get; init; }
+    public ReadSocket To { get; private init; }
 
-    public IDictionary<Socket, int> FiniteActionCounts { get; init; }
+    public PathSurveyor.Marker Marker { get; private init; }
 
-    public HashSet<Event> Premises { get; init; }
+    public HashSet<Event> Premises { get; private init; }
 
-    public Event Result { get; init; }
+    public Event Result { get; private init; }
 
     private static int dId = 0;
 
     public static IEnumerable<IMutateRule> GenerateRulesForReceivePatterns(
         WriteSocket from,
         ReadSocket to,
-        IDictionary<Socket, int> finActionCounts,
+        PathSurveyor.Marker marker,
         HashSet<Event> premises,
         IMessage sent)
     {
@@ -75,7 +75,7 @@ public class InfiniteCrossLink : IMutateRule
             yield return new InfiniteCrossLink(
                 from,
                 to,
-                finActionCounts,
+                marker,
                 premises,
                 dRule.SourceCellContaining(sent));
         }
@@ -89,11 +89,8 @@ public class InfiniteCrossLink : IMutateRule
 
     public Rule GenerateRule(RuleFactory factory)
     {
-        foreach ((Socket s, int ic) in FiniteActionCounts)
-        {
-            s.RegisterHistory(factory, ic);
-        }
         Snapshot fromWait = factory.RegisterState(From.WaitingState());
+        Marker.Register(factory);
         factory.RegisterPremises(fromWait, Premises);
         factory.RegisterState(From.WaitingState());
         factory.RegisterState(To.WaitingState());
@@ -113,7 +110,7 @@ public class InfiniteCrossLink : IMutateRule
         return obj is InfiniteCrossLink icl &&
             From.Equals(icl.From) &&
             To.Equals(icl.To) &&
-            FiniteActionCounts.ToHashSet().SetEquals(icl.FiniteActionCounts) &&
+            Marker.Equals(icl.Marker) &&
             Premises.SetEquals(icl.Premises) &&
             Result.Equals(icl.Result) &&
             Equals(Conditions, icl.Conditions);

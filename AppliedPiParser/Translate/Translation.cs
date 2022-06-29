@@ -146,7 +146,19 @@ public class Translation
         int branchCounter = 0;
         BranchSummary rootSummary = PreProcessBranch(procTree.StartNode, new(), cellsInUse, ref branchCounter);
         List<IMutateRule> allMutateRules = new(ProcessBranch(
-            new TranslateFrame(procTree.StartNode, rootSummary, new(), new(), new(), new(), new(), false, new(), null, 0, rn, nw))
+            new TranslateFrame(
+                procTree.StartNode, 
+                rootSummary, 
+                new(), 
+                rootSummary.CreateStartSurveyor(), 
+                new(), 
+                new(), 
+                false, 
+                new(), 
+                null, 
+                0, 
+                rn, 
+                nw))
         );
         return (rootSummary.AllSockets(), allMutateRules);
     }
@@ -185,6 +197,23 @@ public class Translation
             {
                 bs.CollectWriters(sockets);
             }
+        }
+
+        private IEnumerable<Socket> FiniteSockets()
+        {
+            IEnumerable<Socket> finiteSockets = from rv in Readers.Values where !rv.IsInfinite select rv;
+            finiteSockets = finiteSockets.Concat(from wv in Writers.Values where !wv.IsInfinite select wv);
+            return finiteSockets;
+        }
+
+        public PathSurveyor CreateStartSurveyor()
+        {
+            return new(Enumerable.Empty<Socket>(), FiniteSockets());
+        }
+
+        public PathSurveyor NextSurveyor(PathSurveyor prev)
+        {
+            return new(prev.AllSockets(), FiniteSockets());
         }
     }
 
@@ -296,14 +325,9 @@ public class Translation
     /// <param name="ParallelBranches">
     ///   A list of the pre-processed summaries of sockets used in branches that may be run
     ///   concurrently to this process.</param>
-    /// <param name="PreviousSockets">
-    ///   Sockets from the previous branch that need to be shut before the sockets in this
-    ///   branch can be opened.
-    /// </param>
-    /// <param name="InteractionCount">
-    ///   A dictionary noting the number of times reading or writing has occurred on the
-    ///   currently open sockets. This is important for ensuring the correct sequencing of
-    ///   rule applications.
+    /// <param name="Surveyor">
+    ///   Construct that tracks sockets that have been shut, and how many interactions have
+    ///   occurred on finite sockets.
     /// </param>
     /// <param name="Conditions">
     ///   The conditions imposed upon all translations of a branch by virtue of previous if
@@ -341,8 +365,7 @@ public class Translation
         ProcessTree.Node Node,
         BranchSummary Summary,
         List<BranchSummary> ParallelBranches,
-        List<Socket> PreviousSockets,
-        Dictionary<Socket, int> InteractionCount,
+        PathSurveyor Surveyor,
         IfBranchConditions Conditions,
         HashSet<StatefulHorn.Event> Premises,
         bool Replicated,
@@ -357,13 +380,12 @@ public class Translation
     {
         HashSet<IMutateRule> rules = new();
 
-        // Open required reader and infinite write sockets.
+        // Open required reader and write sockets.
         List<Socket> toOpen = new(tf.Summary.Readers.Values);
-        //toOpen.AddRange(from s in tf.Summary.Writers.Values where s.IsInfinite select s);
         toOpen.AddRange(tf.Summary.Writers.Values);
         if (toOpen.Count > 0)
         {
-            rules.Add(new OpenSocketsRule(toOpen, tf.PreviousSockets)
+            rules.Add(new OpenSocketsRule(toOpen, tf.Surveyor.PreviousSockets)
             {
                 Conditions = tf.Conditions
             });
@@ -381,26 +403,6 @@ public class Translation
         Dictionary<Term, ReadSocket> infReaders;
         Dictionary<Term, List<ReadSocket>> finReaders;
         (infReaders, finReaders) = SplitInfiniteReaders(tf.ParallelBranches);
-
-        // Set up the socket read/write counts. Necessary for proper sequence of rule generation.
-        // Dictionary<Socket, int> interactionCount = new();
-        if (tf.InteractionCount.Count == 0 && (tf.Summary.Readers.Count > 0 || tf.Summary.Writers.Count > 0))
-        {
-            foreach (ReadSocket rsS in tf.Summary.Readers.Values)
-            {
-                if (!rsS.IsInfinite)
-                {
-                    tf.InteractionCount[rsS] = 0;
-                }
-            }
-            foreach (WriteSocket wrS in tf.Summary.Writers.Values)
-            {
-                if (!wrS.IsInfinite)
-                {
-                    tf.InteractionCount[wrS] = 0;
-                }
-            }
-        }
 
         // Go through processes one at a time.
         int branchId = tf.Node.BranchId;
@@ -425,20 +427,13 @@ public class Translation
                 }
                 else
                 {
-                    int rc = tf.InteractionCount[reader];
-                    if (rc > 0)
-                    {
-                        rules.Add(new ReadResetRule(reader, rc)
-                        {
-                            Conditions = tf.Conditions
-                        });
-                    }
+                    rules.Add(new ReadResetRule(reader, tf.Surveyor.MarkPath()));
+                    tf.Surveyor.AddInteractionFor(reader);
                     foreach (IMutateRule mr in ReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
                     {
                         mr.Conditions = tf.Conditions;
                         rules.Add(mr);
                     }
-                    tf.InteractionCount[reader] = rc + 1;
                 }
                 rules.UnionWith(AttackChannelRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern, tf.Conditions));
 
@@ -470,6 +465,7 @@ public class Translation
 
                 // Infinite cross-links have to be done here as this is where the premises and
                 // result are.
+                PathSurveyor.Marker writeMarker = tf.Surveyor.MarkPath();
                 if (writer.IsInfinite)
                 {
                     bool foundDestination = false;
@@ -479,7 +475,7 @@ public class Translation
                         List<IMutateRule> icls = new(InfiniteCrossLink.GenerateRulesForReceivePatterns(
                             writer,
                             rxSocket,
-                            tf.InteractionCount,
+                            writeMarker,
                             tf.Premises,
                             resultMessage));
                         foreach (IMutateRule iclR in icls)
@@ -487,7 +483,7 @@ public class Translation
                             iclR.Conditions = tf.Conditions;
                             rules.Add(iclR);
                         }
-                        rules.Add(new InfiniteWriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
+                        rules.Add(new InfiniteWriteRule(writer, writeMarker, tf.Premises, resultMessage)
                         {
                             Conditions = tf.Conditions
                         });
@@ -496,7 +492,7 @@ public class Translation
                     }
                     if (finReaders.TryGetValue(outChannelTerm, out List<ReadSocket>? rxSocketList) && rxSocketList!.Count > 0)
                     {
-                        rules.Add(new FiniteWriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
+                        rules.Add(new FiniteWriteRule(writer, writeMarker, tf.Premises, resultMessage)
                         {
                             Conditions = tf.Conditions
                         });
@@ -509,12 +505,11 @@ public class Translation
                 }
                 else
                 {
-                    int wc = tf.InteractionCount[writer];
-                    rules.Add(new FiniteWriteRule(writer, tf.InteractionCount, tf.Premises, resultMessage)
+                    rules.Add(new FiniteWriteRule(writer, writeMarker, tf.Premises, resultMessage)
                     {
                         Conditions = tf.Conditions
                     });
-                    tf.InteractionCount[writer] = wc + 1;
+                    tf.Surveyor.AddInteractionFor(writer);
                 }
             }
 
@@ -575,20 +570,10 @@ public class Translation
         }
 
         // Collect and shut down the finite sockets if shutdown is required.
-        if (!oneBranchOnly || n.Process is ReplicateProcess || n.Process is LetProcess)
+        if ((!oneBranchOnly || n.Process is ReplicateProcess || n.Process is LetProcess) 
+            && tf.Surveyor.HasInteractions)
         {
-            thisBranchSockets.AddRange(from rs in tf.Summary.Readers.Values where !rs.IsInfinite select rs);
-            thisBranchSockets.AddRange(from ws in tf.Summary.Writers.Values where !ws.IsInfinite select ws);
-            if (tf.InteractionCount.Count > 0)
-            {
-                rules.Add(new ShutSocketsRule(tf.InteractionCount) { Conditions = tf.Conditions });
-            }
-        }
-        // Sometimes, control passes through a branch that does not do anything. The ordering of
-        // sockets still needs to be maintained.
-        if (thisBranchSockets.Count == 0)
-        {
-            thisBranchSockets.AddRange(tf.PreviousSockets);
+            rules.Add(new ShutSocketsRule(tf.Surveyor.MarkPath(), tf.Surveyor.InteractionSockets()));
         }
 
         // The following constants are used for both IfProcesses and LetProcesses.
@@ -604,13 +589,13 @@ public class Translation
             // of the branch.
             foreach (IfBranchConditions ifCond in brs.IfConditions)
             {
+                //BranchSummary summaryToUse = oneBranchOnly ? tf.Summary : tf.Summary.Children[GuardedBranchOffset];
                 TranslateFrame ifFrame = tf with
                 {
                     Node = n.Branches[GuardedBranchOffset],
                     Summary = oneBranchOnly ? tf.Summary : tf.Summary.Children[GuardedBranchOffset],
                     ParallelBranches = childParallelLists[GuardedBranchOffset],
-                    PreviousSockets = thisBranchSockets,
-                    InteractionCount = oneBranchOnly ? tf.InteractionCount : new(),
+                    Surveyor = oneBranchOnly ? tf.Surveyor : tf.Summary.Children[GuardedBranchOffset].NextSurveyor(tf.Surveyor),
                     Conditions = tf.Conditions.And(ifCond),
                     Premises = new(tf.Premises),
                     PreviousControlSplit = tf,
@@ -630,8 +615,7 @@ public class Translation
                         Node = n.Branches[ElseBranchOffset],
                         Summary = tf.Summary.Children[ElseBranchOffset],
                         ParallelBranches = childParallelLists[ElseBranchOffset],
-                        InteractionCount = new(),
-                        PreviousSockets = thisBranchSockets,
+                        Surveyor = tf.Summary.Children[ElseBranchOffset].NextSurveyor(tf.Surveyor),
                         Conditions = tf.Conditions.And(elseCond),
                         Premises = new(tf.Premises),
                         PreviousControlSplit = tf,
@@ -660,8 +644,7 @@ public class Translation
                 Node = n.Branches[GuardedBranchOffset],
                 Summary = tf.Summary.Children[GuardedBranchOffset],
                 ParallelBranches = childParallelLists[GuardedBranchOffset],
-                PreviousSockets = thisBranchSockets,
-                InteractionCount = new(),
+                Surveyor = tf.Summary.Children[GuardedBranchOffset].NextSurveyor(tf.Surveyor),
                 Conditions = tf.Conditions,
                 Premises = new(tf.Premises) { StatefulHorn.Event.Know(lvsFactory.StoragePremiseMessage) },
                 PreviousControlSplit = tf,
@@ -677,8 +660,7 @@ public class Translation
                     Node = n.Branches[ElseBranchOffset],
                     Summary = tf.Summary.Children[ElseBranchOffset],
                     ParallelBranches = childParallelLists[ElseBranchOffset],
-                    PreviousSockets = thisBranchSockets,
-                    InteractionCount = new(),
+                    Surveyor = tf.Summary.Children[ElseBranchOffset].NextSurveyor(tf.Surveyor),
                     Conditions = tf.Conditions.Not(lvsFactory.Variable, lvsFactory.StoragePremiseMessage),
                     Premises = new(tf.Premises) { StatefulHorn.Event.Know(lvsFactory.EmptyStoragePremiseMessage) },
                     PreviousControlSplit = tf,
@@ -698,8 +680,7 @@ public class Translation
                     Node = n.Branches[i],
                     Summary = tf.Summary.Children[i],
                     ParallelBranches = childParallelLists[i],
-                    PreviousSockets = thisBranchSockets,
-                    InteractionCount = new(),
+                    Surveyor = tf.Summary.Children[i].NextSurveyor(tf.Surveyor),
                     Premises = new(tf.Premises),
                     Replicated = tf.Replicated || nextRepl,
                     PreviousControlSplit = tf,
@@ -805,7 +786,6 @@ public class Translation
                 BranchRestrictionSet brs = BranchRestrictionSet.From(ifp.Comparison, rn, nw);
                 foreach (IfBranchConditions ic in brs.IfConditions)
                 {
-                    // FIXME: This is inefficient, cloning the rules would be quicker.
                     HashSet<IMutateRule> ifBranchRules = new();
                     ProVerifTranslate(sentChannel, n.Branches[0], premises, ifBranchRules, rn, nw);
                     AddConditions(allRules, ic, ifBranchRules);
@@ -814,7 +794,6 @@ public class Translation
                 {
                     foreach (IfBranchConditions elseCond in brs.ElseConditions)
                     {
-                        // FIXME: This is inefficient, cloning the rules would be quicker.
                         HashSet<IMutateRule> elseRules = new();
                         ProVerifTranslate(sentChannel, n.Branches[1], premises, elseRules, rn, nw);
                         AddConditions(allRules, elseCond, elseRules);

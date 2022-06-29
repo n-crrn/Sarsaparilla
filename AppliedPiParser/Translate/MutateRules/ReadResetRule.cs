@@ -8,21 +8,15 @@ namespace AppliedPi.Translate.MutateRules;
 public class ReadResetRule : IMutateRule
 {
 
-    public ReadResetRule(ReadSocket readSocket)
+    public ReadResetRule(ReadSocket readSocket, PathSurveyor.Marker? marker = null)
     {
         Socket = readSocket;
-        Debug.Assert(Socket.IsInfinite);
+        Marker = marker;
     }
 
-    public ReadResetRule(ReadSocket readSocket, int readCount)
-    {
-        Socket = readSocket;
-        ReadCount = readCount;
-    }
+    public ReadSocket Socket { get; private init; }
 
-    public ReadSocket Socket { get; init; }
-
-    public int ReadCount { get; init; } = -1;
+    public PathSurveyor.Marker? Marker { get; private init; }
 
     #region IMutate implementation.
 
@@ -33,9 +27,9 @@ public class ReadResetRule : IMutateRule
     public Rule GenerateRule(RuleFactory factory)
     {
         Snapshot priorReads;
-        if (ReadCount >= 0)
+        if (Marker != null)
         {
-            priorReads = Socket.RegisterReadSequence(factory, ReadCount);
+            priorReads = Marker.RegisterAndRetrieve(factory, Socket);
         }
         else
         {
@@ -56,11 +50,11 @@ public class ReadResetRule : IMutateRule
     {
         return obj is ReadResetRule r &&
             Socket.Equals(r.Socket) &&
-            ReadCount == r.ReadCount &&
+            Equals(Marker, r.Marker) &&
             Equals(Conditions, r.Conditions);
     }
 
-    public override int GetHashCode() => Socket.GetHashCode() + ReadCount;
+    public override int GetHashCode() => Socket.GetHashCode();
 
     #endregion
 

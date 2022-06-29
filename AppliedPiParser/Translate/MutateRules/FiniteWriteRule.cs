@@ -1,6 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 
 using StatefulHorn;
 
@@ -11,23 +9,23 @@ public class FiniteWriteRule : IMutateRule
 
     public FiniteWriteRule(
         WriteSocket s, 
-        IDictionary<Socket, int> finActionCounts, 
+        PathSurveyor.Marker marker,
         HashSet<Event> premises, 
         IMessage value)
     {
         Socket = s;
-        FiniteActionCounts = new Dictionary<Socket, int>(finActionCounts);
+        Marker = marker;
         ValueToWrite = value;
         Premises = new(premises); // Copy, so that premises are not added afterwards.
     }
 
-    public WriteSocket Socket { get; init; }
+    public WriteSocket Socket { get; private init; }
 
-    public IDictionary<Socket, int> FiniteActionCounts { get; init; }
+    public PathSurveyor.Marker Marker { get; private init; }
 
-    public HashSet<Event> Premises { get; init; }
+    public HashSet<Event> Premises { get; private init; }
 
-    public IMessage ValueToWrite { get; init; }
+    public IMessage ValueToWrite { get; private init; }
 
     #region IMutableRule implementation.
 
@@ -39,8 +37,7 @@ public class FiniteWriteRule : IMutateRule
             {
                 return $"FinWrite-{ValueToWrite}-{Socket}";
             }
-            int priorWriteCount = FiniteActionCounts[Socket]; // Error if not included.
-            return $"FinWrite-{ValueToWrite}-{Socket}({priorWriteCount})";
+            return $"FinWrite-{ValueToWrite}-{Socket}";
         }
     } 
 
@@ -48,19 +45,16 @@ public class FiniteWriteRule : IMutateRule
 
     public Rule GenerateRule(RuleFactory factory)
     {
-        Snapshot? latest = null;
-        foreach ((Socket s, int ic) in FiniteActionCounts)
-        {
-            Snapshot ss = s.RegisterHistory(factory, ic);
-            if (s.Equals(Socket))
-            {
-                latest = ss;
-            }
-        }
-        if (latest == null)
+        IDictionary<Socket, Snapshot> sockSS = Marker.Register(factory);
+        Snapshot latest;
+        if (Socket.IsInfinite)
         {
             latest = factory.RegisterState(Socket.WaitingState());
         }
+        else
+        {
+            latest = sockSS[Socket];
+        }       
         factory.RegisterPremises(latest, Premises);
         latest.TransfersTo = Socket.WriteState(ValueToWrite);
         factory.GuardStatements = Conditions?.CreateGuard();
@@ -78,7 +72,7 @@ public class FiniteWriteRule : IMutateRule
     {
         return obj is FiniteWriteRule r &&
             Socket.Equals(r.Socket) &&
-            FiniteActionCounts.ToHashSet().SetEquals(r.FiniteActionCounts) &&
+            Marker.Equals(r.Marker) &&
             Premises.SetEquals(r.Premises) &&
             ValueToWrite.Equals(r.ValueToWrite) &&
             Equals(Conditions, r.Conditions);

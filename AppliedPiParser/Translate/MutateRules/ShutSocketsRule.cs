@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using StatefulHorn;
 
@@ -11,33 +8,28 @@ namespace AppliedPi.Translate.MutateRules;
 public class ShutSocketsRule : IMutateRule
 {
 
-    public ShutSocketsRule(IReadOnlyDictionary<Socket, int> interactionCounts)
+    public ShutSocketsRule(PathSurveyor.Marker marker, IList<Socket> socketsToShut)
     {
-        PriorInteractions = interactionCounts;
+        Marker = marker;
+        Sockets = socketsToShut;
     }
 
-    public IReadOnlyDictionary<Socket, int> PriorInteractions;
+    public PathSurveyor.Marker Marker { get; private init; }
+
+    public IList<Socket> Sockets { get; private init; }
 
     #region IMutateRule implementation.
 
-    public string Label => $"ShutSockets:" + string.Join(":", PriorInteractions.Keys);
+    public string Label => $"ShutSockets:" + string.Join(":", Sockets);
 
     public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
 
     public Rule GenerateRule(RuleFactory factory)
     {
-        foreach ((Socket s, int intCount) in PriorInteractions)
+        IDictionary<Socket, Snapshot> allSS = Marker.Register(factory);
+        foreach (Socket sToShut in Sockets)
         {
-            Snapshot prior;
-            if (s.Direction == SocketDirection.In)
-            {
-                prior = ((ReadSocket)s).RegisterReadSequence(factory, intCount);
-            }
-            else
-            {
-                prior = ((WriteSocket)s).RegisterWriteSequence(factory, intCount, s.WaitingState());
-            }
-            prior.TransfersTo = s.ShutState();
+            allSS[sToShut].TransfersTo = sToShut.ShutState();
         }
         factory.GuardStatements = Conditions?.CreateGuard();
         return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateTransferringRule());
@@ -46,17 +38,18 @@ public class ShutSocketsRule : IMutateRule
     #endregion
     #region Basic object overrides.
 
-    public override string ToString() => $"Shut sockets rule for " + string.Join(", ", PriorInteractions.Keys) + ".";
+    public override string ToString() => $"Shut sockets rule for " + string.Join(", ", Sockets) + ".";
 
     public override bool Equals(object? obj)
     {
-        return obj is ShutSocketsRule ssr &&
-            PriorInteractions.ToHashSet().SetEquals(ssr.PriorInteractions.ToHashSet());
+        return obj is ShutSocketsRule ssr
+            && Marker.Equals(ssr.Marker)
+            && Sockets.ToHashSet().SetEquals(ssr.Sockets);
     }
 
     public int RecommendedDepth => 1;
 
-    public override int GetHashCode() => PriorInteractions.Count; // Only semi-efficient way to do it.
+    public override int GetHashCode() => Sockets.Count; // Only semi-efficient way to do it.
 
     #endregion
 

@@ -330,6 +330,28 @@ process
         await DoTest(piSource1, true);
     }
 
+    /// <summary>
+    /// Ensure that two consecutive writes to a socket (after a read) will trigger correctly.
+    /// </summary>
+    /// <returns>Task for asynchronous execution.</returns>
+    [TestMethod]
+    public async Task DoubleWriteTest()
+    {
+        string piSource =
+@"free c: channel.
+free d: channel [private].
+
+free p: bitstring.
+free s: bitstring [private].
+
+query attacker(s).
+
+process
+    (out(d, s); in(c, v: bitstring); in(c, w: bitstring)) 
+  | (in(d, x: bitstring); out(c, p); out(c, x)).
+";
+        await DoTest(piSource, true);
+    }
 
     /// <summary>
     /// Conducts a full integration test, where source code is used to construct a Network to
