@@ -4,9 +4,10 @@ namespace AppliedPi.Statements;
 
 public class ProcessStatement : IStatement
 {
-    public ProcessStatement(ProcessGroup pg)
+    public ProcessStatement(ProcessGroup pg, RowColumnPosition? definedAt)
     {
         SubProcesses = pg;
+        DefinedAt = definedAt;
     }
 
     public ProcessGroup SubProcesses { get; init; }
@@ -24,6 +25,8 @@ public class ProcessStatement : IStatement
         nw.MainProcess = SubProcesses;
     }
 
+    public RowColumnPosition? DefinedAt { get; private init; }
+
     #endregion
     #region Basic object overrides - important for unit testing.
 
@@ -40,17 +43,16 @@ public class ProcessStatement : IStatement
 
     public static bool operator !=(ProcessStatement? ps1, ProcessStatement? ps2) => !Equals(ps1, ps2);
 
-    // FIXME: Add the ToString() implementation.
-
     #endregion
 
     public static ParseResult CreateFromStatement(Parser p)
     {
+        RowColumnPosition? pos = p.GetRowColumn();
         (ProcessGroup? sub, string? subErrMsg) = ProcessGroup.ReadFromParser(p);
         if (subErrMsg != null)
         {
             return ParseResult.Failure(p, subErrMsg);
         }
-        return ParseResult.Success(new ProcessStatement(sub!));
+        return ParseResult.Success(new ProcessStatement(sub!, pos));
     }
 }

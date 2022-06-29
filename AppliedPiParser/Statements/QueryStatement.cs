@@ -8,12 +8,13 @@ namespace AppliedPi.Statements;
 public class QueryStatement : IStatement
 {
     
-    public QueryStatement(Term t) : this(new List<Term>() { t }) { }
+    public QueryStatement(Term t) : this(new List<Term>() { t }, null) { }
 
-    public QueryStatement(IEnumerable<Term> ts)
+    public QueryStatement(IEnumerable<Term> ts, RowColumnPosition? definedAt)
     {
         Terms = new(ts);
         Debug.Assert(0 != Terms.Count);
+        DefinedAt = definedAt;
     }
 
     public HashSet<Term> Terms;
@@ -29,6 +30,8 @@ public class QueryStatement : IStatement
             nw._Queries.Add(new AttackerQuery(t));
         }
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides - important for unit testing.
@@ -49,6 +52,7 @@ public class QueryStatement : IStatement
     {
         // At this point, "query" has been read and we need to read the rest of the clause.
         string stmtType = "query";
+        RowColumnPosition pos = p.GetRowColumn();
 
         string? nextToken = null;
         List<Term> terms = new();
@@ -72,6 +76,6 @@ public class QueryStatement : IStatement
             }
         }
 
-        return ParseResult.Success(new QueryStatement(terms));
+        return ParseResult.Success(new QueryStatement(terms, pos));
     }
 }

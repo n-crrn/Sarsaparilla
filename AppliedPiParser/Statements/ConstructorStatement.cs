@@ -11,6 +11,21 @@ namespace AppliedPi.Statements;
 /// </summary>
 public class ConstructorStatement : IStatement
 {
+
+    public ConstructorStatement(
+        string n, 
+        List<string> paramTypeList, 
+        string type, 
+        bool isPrivate,
+        RowColumnPosition? definedAt)
+    {
+        Name = n;
+        ParameterTypes = paramTypeList;
+        PiType = type;
+        DeclaredPrivate = isPrivate;
+        DefinedAt = definedAt;
+    }
+
     public string Name { get; init; }
 
     public List<string> ParameterTypes { get; init; }
@@ -18,14 +33,6 @@ public class ConstructorStatement : IStatement
     public string PiType { get; init; }
 
     public bool DeclaredPrivate { get; init; }
-
-    public ConstructorStatement(string n, List<string> paramTypeList, string type, bool isPrivate = false)
-    {
-        Name = n;
-        ParameterTypes = paramTypeList;
-        PiType = type;
-        DeclaredPrivate = isPrivate;
-    }
 
     #region IStatement implementation.
 
@@ -35,6 +42,8 @@ public class ConstructorStatement : IStatement
     {
         nw._Constructors[Name] = new Constructor(Name, ParameterTypes, PiType, DeclaredPrivate);
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides - important for unit testing.
@@ -71,12 +80,13 @@ public class ConstructorStatement : IStatement
         // At this point, "fun" has been read and now we need to read the rest of the clause.
         // Read the term part of the function first.
         string termType = "constructor (fun)";
+        RowColumnPosition? pos = p.GetRowColumn();
         (string name, List<string> paramTypeList) = p.ReadFlatTerm(termType);
         p.ReadExpectedToken(":", termType);
         string piType = p.ReadNameToken(termType);
         List<string> tags = p.TryReadTag(termType);
         bool isPrivate = tags.Contains("private");
         p.ReadExpectedToken(".", termType);
-        return ParseResult.Success(new ConstructorStatement(name, paramTypeList, piType, isPrivate));
+        return ParseResult.Success(new ConstructorStatement(name, paramTypeList, piType, isPrivate, pos));
     }
 }

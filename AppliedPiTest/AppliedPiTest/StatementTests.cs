@@ -36,28 +36,31 @@ public class StatementTests
             "const c1: tag [data].";
         List<IStatement> expectedStatements = new()
         {
-            new FreeStatement(new() { "c" }, "channel", false),
-            new FreeStatement(new() { "A", "B" }, "host", true),
-            new TypeStatement("host"),
-            new EventStatement("beginB", new() { "host", "host" }),
-            new ConstructorStatement("pk", new() { "skey" }, "pkey"),
+            new FreeStatement(new() { "c" }, "channel", false, null),
+            new FreeStatement(new() { "A", "B" }, "host", true, null),
+            new TypeStatement("host", null),
+            new PiEventStatement("beginB", new() { "host", "host" }, null),
+            new ConstructorStatement("pk", new() { "skey" }, "pkey", false, null),
             new DestructorStatement(
-                new("decrypt", new()
-                {
-                    new("encrypt", new()
+                new("decrypt",
+                    new()
                     {
-                        new("x"),
-                        new("pk",
-                            new() { new("y") }),
-                    }),
-                    new("y")
-                }), "x", new() { { "x", "bitstring" }, { "y", "skey" } }
+                        new("encrypt", new()
+                        {
+                            new("x"),
+                            new("pk",
+                                new() { new("y") }),
+                        }),
+                        new("y")
+                    }), 
+                "x", 
+                new() { { "x", "bitstring" }, { "y", "skey" } },
+                null
             ),
-            new TableStatement("keys", new() { "host", "pkey" }),
-            new QueryStatement(new List<Term>() { new("pkB") }),
-            new QueryStatement(new List<Term>() { new("pkC"), new("pk", new() { new("D") })}),
-            new ConstantStatement("c1", "tag", "data")
-
+            new TableStatement("keys", new() { "host", "pkey" }, null),
+            new QueryStatement(new List<Term>() { new("pkB") }, null),
+            new QueryStatement(new List<Term>() { new("pkC"), new("pk", new() { new("D") })}, null),
+            new ConstantStatement("c1", "tag", "data", null)
         };
         Parser p = new(testSource);
 

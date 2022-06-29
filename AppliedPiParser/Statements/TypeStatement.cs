@@ -4,9 +4,10 @@ public class TypeStatement : IStatement
 {
     public string Name { get; }
 
-    public TypeStatement(string name)
+    public TypeStatement(string name, RowColumnPosition? definedAt)
     {
         Name = name;
+        DefinedAt = definedAt;
     }
 
     #region IStatement implementation.
@@ -17,6 +18,8 @@ public class TypeStatement : IStatement
     {
         nw._PiTypes.Add(Name);
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides - important for unit testing.
@@ -42,8 +45,9 @@ public class TypeStatement : IStatement
     internal static ParseResult CreateFromStatement(Parser p)
     {
         // At this point, "type" has been read and now we need to parse the rest.
+        RowColumnPosition? pos = p.GetRowColumn();
         string typeName = p.ReadNameToken("type");
         p.ReadExpectedToken(".", "type");
-        return ParseResult.Success(new TypeStatement(typeName));
+        return ParseResult.Success(new TypeStatement(typeName, pos));
     }
 }

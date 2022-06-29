@@ -429,7 +429,7 @@ public class Parser
                 case "const":
                     return ConstantStatement.CreateFromStatement(this);
                 case "event":
-                    return EventStatement.CreateFromStatement(this);
+                    return PiEventStatement.CreateFromStatement(this);
                 case "table":
                     return TableStatement.CreateFromStatement(this);
                 case "type":

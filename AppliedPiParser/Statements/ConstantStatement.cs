@@ -6,11 +6,12 @@ namespace AppliedPi.Statements;
 public class ConstantStatement : IStatement
 {
 
-    public ConstantStatement(string n, string pt, string tg)
+    public ConstantStatement(string n, string pt, string tg, RowColumnPosition? definedAt)
     {
         Name = n;
         PiType = pt;
         Tag = tg;
+        DefinedAt = definedAt;
     }
 
     public string Name { get; init; }
@@ -27,6 +28,8 @@ public class ConstantStatement : IStatement
     {
         nw._Constants.Add(new Constant(Name, PiType, Tag));
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides - important for unit testing.
@@ -59,6 +62,7 @@ public class ConstantStatement : IStatement
     {
         // At this point, "const" has been read and now we need to read the rest of the clause.
         string termType = "constant";
+        RowColumnPosition pos = p.GetRowColumn();
         string name = p.ReadNameToken(termType);
         p.ReadExpectedToken(":", termType);
         string type = p.ReadNameToken(termType);
@@ -78,7 +82,7 @@ public class ConstantStatement : IStatement
                 ParseResult.Failure(p, $"Expected '.' or '[', instead found '{nextToken}'.");
             }
         }
-        return ParseResult.Success(new ConstantStatement(name, type, tag ?? ""));
+        return ParseResult.Success(new ConstantStatement(name, type, tag ?? "", pos));
     }
 
 }

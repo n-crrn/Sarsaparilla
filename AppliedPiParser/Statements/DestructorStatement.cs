@@ -9,18 +9,24 @@ namespace AppliedPi.Statements;
 
 public class DestructorStatement : IStatement
 {
+
+    public DestructorStatement(
+        Term lhs, 
+        string rhs, 
+        SortedList<string, string> paramTypes,
+        RowColumnPosition? definedAt)
+    {
+        LeftHandSide = lhs;
+        RightHandSide = rhs;
+        ParameterTypes = paramTypes;
+        DefinedAt = definedAt;
+    }
+
     public SortedList<string, string> ParameterTypes { get; init; }
 
     public Term LeftHandSide { get; init; }
 
     public string RightHandSide { get; init; }
-
-    public DestructorStatement(Term lhs, string rhs, SortedList<string, string> paramTypes)
-    {
-        LeftHandSide = lhs;
-        RightHandSide = rhs;
-        ParameterTypes = paramTypes;
-    }
 
     #region IStatement implementation
 
@@ -30,6 +36,8 @@ public class DestructorStatement : IStatement
     {
         nw._Destructors.Add(new Destructor(LeftHandSide, RightHandSide, ParameterTypes));
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides - important for unit testing.
@@ -64,6 +72,7 @@ public class DestructorStatement : IStatement
     {
         // At this point, "reduc" has been read and we need to read the rest of the clause.
         string stmtType = "destructor (reduc forall)";
+        RowColumnPosition? pos = p.GetRowColumn();
         p.ReadExpectedToken("forall", stmtType);
 
         // Read a series of comma separated "name : type" pairs.
@@ -90,7 +99,7 @@ public class DestructorStatement : IStatement
         // Read the right-hand-side and the final full-stop.
         string rhs = p.ReadNameToken(stmtType);
         p.ReadExpectedToken(".", stmtType);
-        return ParseResult.Success(new DestructorStatement(lhs, rhs, paramTypes));
+        return ParseResult.Success(new DestructorStatement(lhs, rhs, paramTypes, pos));
     }
 
 }

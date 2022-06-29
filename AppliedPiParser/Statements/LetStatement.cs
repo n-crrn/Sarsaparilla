@@ -14,11 +14,16 @@ namespace AppliedPi.Statements;
 /// </summary>
 public class LetStatement : IStatement
 {
-    public LetStatement(string n, List<(string, string)> paramList, ProcessGroup sub)
+    public LetStatement(
+        string n, 
+        List<(string, string)> paramList, 
+        ProcessGroup sub,
+        RowColumnPosition? definedAt)
     {
         Name = n;
         Parameters = paramList;
         SubProcesses = sub;
+        DefinedAt = definedAt;
     }
 
     /// <summary>
@@ -46,6 +51,8 @@ public class LetStatement : IStatement
         }
         nw.AddUserDefinedProcess(new(Name, Parameters, SubProcesses));
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides - important for unit testing.
@@ -77,6 +84,7 @@ public class LetStatement : IStatement
         // At this point, "let" has been read and now we need to read the rest of the clause.
         // Read the name and parameter list.
         string stmtType = "let";
+        RowColumnPosition? pos = p.GetRowColumn();
         string name = p.ReadNameToken(stmtType);
         List<(string, string)> paramList = new();
         string paramToken = p.ReadNextToken();
@@ -119,6 +127,6 @@ public class LetStatement : IStatement
         {
             return ParseResult.Failure(p, subErrMsg);
         }
-        return ParseResult.Success(new LetStatement(name, paramList, sub!));
+        return ParseResult.Success(new LetStatement(name, paramList, sub!, pos));
     }
 }

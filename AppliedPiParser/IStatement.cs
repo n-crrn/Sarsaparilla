@@ -5,6 +5,7 @@
 /// </summary>
 public interface IStatement
 {
+
     /// <summary>
     /// User representable explanation of the type.
     /// </summary>
@@ -19,4 +20,11 @@ public interface IStatement
     /// </summary>
     /// <param name="nw">Network to ammend.</param>
     public void ApplyTo(Network nw);
+
+    /// <summary>
+    /// The location within the source code where the statement is defined. This property
+    /// should not be part of the equality tests between statements.
+    /// </summary>
+    public RowColumnPosition? DefinedAt { get; }
+
 }

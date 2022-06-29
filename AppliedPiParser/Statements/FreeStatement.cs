@@ -8,18 +8,24 @@ namespace AppliedPi.Statements;
 
 public class FreeStatement : IStatement
 {
+
+    public FreeStatement(
+        List<string> n,
+        string t, 
+        bool priv, 
+        RowColumnPosition? definedAt)
+    {
+        Names = n;
+        Type = t;
+        DeclaredPrivate = priv;
+        DefinedAt = definedAt;
+    }
+
     public List<string> Names { get; init; }
 
     public string Type { get; init; }
 
     public bool DeclaredPrivate { get; init; }
-
-    public FreeStatement(List<string> n, string t, bool priv)
-    {
-        Names = n;
-        Type = t;
-        DeclaredPrivate = priv;
-    }
 
     #region IStatement implementation.
 
@@ -32,6 +38,8 @@ public class FreeStatement : IStatement
             nw._FreeDeclarations[n] = new FreeDeclaration(n, Type, DeclaredPrivate);
         }
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides - important for unit testing.
@@ -71,6 +79,7 @@ public class FreeStatement : IStatement
     internal static ParseResult CreateFromStatement(Parser p)
     {
         // At this point, "free" has been read and now we need to read the rest of the clause.
+        RowColumnPosition? pos = p.GetRowColumn();
 
         // Read the names.
         string stmtType = "free";
@@ -98,6 +107,6 @@ public class FreeStatement : IStatement
             return ParseResult.Failure(p, $"Expected '.' indicating end of statement, instead found '{token}'.");
         }
 
-        return ParseResult.Success(new FreeStatement(names, typeName, declPrivate));
+        return ParseResult.Success(new FreeStatement(names, typeName, declPrivate, pos));
     }
 }

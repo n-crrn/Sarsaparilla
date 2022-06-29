@@ -8,15 +8,17 @@ namespace AppliedPi.Statements;
 
 public class TableStatement : IStatement
 {
-    public string Name { get; init; }
 
-    public List<string> Columns { get; init; }
-
-    public TableStatement(string n, List<string> cols)
+    public TableStatement(string n, List<string> cols, RowColumnPosition? definedAt)
     {
         Name = n;
         Columns = cols;
+        DefinedAt = definedAt;
     }
+
+    public string Name { get; init; }
+
+    public List<string> Columns { get; init; }
 
     #region IStatement implementation.
 
@@ -26,6 +28,8 @@ public class TableStatement : IStatement
     {
         nw._Tables[Name] = new Table(Name, Columns);
     }
+
+    public RowColumnPosition? DefinedAt { get; private init; }
 
     #endregion
     #region Basic object overrides - important for unit testing.
@@ -56,8 +60,9 @@ public class TableStatement : IStatement
     internal static ParseResult CreateFromStatement(Parser p)
     {
         // At this point, "table" has been read and we need to read the rest of the clause.
+        RowColumnPosition? pos = p.GetRowColumn();
         (string name, List<string> columnList) = p.ReadFlatTerm("table");
         p.ReadExpectedToken(".", "table");
-        return ParseResult.Success(new TableStatement(name, columnList));
+        return ParseResult.Success(new TableStatement(name, columnList, pos));
     }
 }
