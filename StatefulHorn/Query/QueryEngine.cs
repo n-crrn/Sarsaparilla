@@ -168,7 +168,7 @@ public class QueryEngine
             return null;
         }
 
-        QueryNodeMatrix matrix = new(stateVars, When);
+        QueryNodeMatrix matrix = new(When);
         QueueSet<QueryNode> inProgressNodes = new();
         QueryNode kingNode = matrix.RequestNode(query, maxRank, Guard.Empty);
         inProgressNodes.Enqueue(kingNode);

@@ -1,21 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace StatefulHorn.Query;
 
 public class QueryNodeMatrix
 {
 
-    public QueryNodeMatrix(HashSet<IMessage> stateVariables, State? when)
+    public QueryNodeMatrix(State? when)
     {
-        StateVariables = stateVariables;
         When = when;
     }
-
-    private readonly HashSet<IMessage> StateVariables;
 
     private readonly State? When;
 

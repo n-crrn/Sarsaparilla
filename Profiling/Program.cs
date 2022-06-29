@@ -126,7 +126,7 @@ Translation t = Translation.From(rn, nw);
 
 QueryEngine qe2 = t.QueryEngines().First();
 
-void onAttackAssessed(Nession n, IReadOnlySet<HornClause> _, Attack? a)
+static void onAttackAssessed(Nession n, IReadOnlySet<HornClause> _, Attack? a)
 {
     if (a != null)
     {

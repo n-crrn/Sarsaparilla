@@ -10,6 +10,8 @@ using StatefulHorn.Messages;
 
 namespace AppliedPi;
 
+// Ignore "unnecessary" suppressions ... like the one that follows.
+#pragma warning disable IDE0079
 // Ignore that there is no Object.GetHashCode(), as it would be too computationally intensive.
 #pragma warning disable CS0659 
 
