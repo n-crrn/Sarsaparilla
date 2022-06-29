@@ -118,24 +118,10 @@
     overflow: auto;
 }
 
-.lower {
-    display: flex;
-    flex-direction: row;
-}
-
 .nession-view {
     flex-grow: 1;
     flex-shrink: 1;
     flex-basis: 50%;
-}
-
-.horn-clause-view {
-    border-left: solid 1px var(--foreground-theme-color, grey);
-    margin-left: 20px;
-    padding-left: 20px;
-    flex-basis: 50%;
-    flex-grow: 1;
-    flex-shrink: 1;
 }
 
 .horn-clause-item {

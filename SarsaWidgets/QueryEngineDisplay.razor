@@ -47,50 +47,47 @@
                     <div class='nession-attack-view-inner'>
                         @if (CurrentNession != null)
                         {
-                            <div class='upper'>
-                                @if (CurrentAttack != null)
-                                {
-                                    <p class='attack-intro'>Attack details as follows:</p>
-                                    <AttackDisplay Attack=@CurrentAttack Expanded=true/>
-                                }
-                                else
-                                {
-                                    <p class='nothing-message'>No attack found for this nession.</p>
-                                }
+                            @if (CurrentAttack != null)
+                            {
+                                <p class='attack-intro'>Attack details as follows:</p>
+                                <AttackDisplay Attack=@CurrentAttack Expanded=true/>
+                            }
+                            else
+                            {
+                                <p class='nothing-message'>No attack found for this nession.</p>
+                            }
+                            
+                            <div class='nession-view'>
+                                <NessionDisplay Nession=@CurrentNession/>
                             </div>
-                            <div class='lower'>
-                                <div class='nession-view'>
-                                    <NessionDisplay Nession=@CurrentNession/>
-                                </div>
 
-                                @if (CurrentHornClauses != null)
-                                {
-                                    <div class='horn-clause-view'>
-                                        <p class='description'>
-                                            Derived horn clauses as follows:
-                                        </p>
-                                        @foreach ((int rank, List<HornClause> clauseList) in HornClausesByRank)
+                            @if (CurrentHornClauses != null)
+                            {
+                                <div class='horn-clause-view'>
+                                    <h3>
+                                        Derived horn clauses as follows:
+                                    </h3>
+                                    @foreach ((int rank, List<HornClause> clauseList) in HornClausesByRank)
+                                    {
+                                        @if (rank == -1)
                                         {
-                                            @if (rank == -1)
-                                            {
-                                                <p>Always Applicable</p>
-                                            }
-                                            else
-                                            {
-                                                <p>Rank @rank</p>
-                                            }
-                                            <div class='clause-collection'>
-                                                @foreach (HornClause hc in clauseList)
-                                                {
-                                                    <div class='horn-clause-item'>
-                                                        <HornClauseDisplay HornClause=@hc/>
-                                                    </div>
-                                                }
-                                            </div>
+                                            <p>Always Applicable</p>
                                         }
-                                    </div>    
-                                }
-                            </div>
+                                        else
+                                        {
+                                            <p>Rank @rank</p>
+                                        }
+                                        <div class='clause-collection'>
+                                            @foreach (HornClause hc in clauseList)
+                                            {
+                                                <div class='horn-clause-item'>
+                                                    <RuleSourceDisplay Rule=@hc/>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>    
+                            }
                         }
                         else
                         {
