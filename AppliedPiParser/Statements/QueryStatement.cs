@@ -21,8 +21,6 @@ public class QueryStatement : IStatement
 
     #region IStatement implementation.
 
-    public string StatementType => "Query";
-
     public void ApplyTo(Network nw)
     {
         foreach (Term t in Terms)

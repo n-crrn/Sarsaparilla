@@ -11,6 +11,7 @@ namespace StatefulHorn;
 /// </summary>
 public abstract class Rule
 {
+
     /// <summary>
     /// Initialises the base members of the Rule class. This constructor is protected as Stateful
     /// Horn Clauses do not make sense without their results.
@@ -59,6 +60,13 @@ public abstract class Rule
     /// State Transferring Rules is the nature of the result.
     /// </remarks>
     public abstract ISigmaUnifiable Result { get; }
+
+    /// <summary>
+    /// A description of how the user specified the rule to the system. This may take the
+    /// form of a textual description of a Stateful Horn Clause, or it may be another
+    /// form that is translated to a Stateful Horn Clause.
+    /// </summary>
+    public UserDefinition? Definition { get; set; }
 
     /// <summary>
     /// True if this rule does not rely on state for its application.
@@ -524,4 +532,5 @@ public abstract class Rule
     }
 
     #endregion
+
 }

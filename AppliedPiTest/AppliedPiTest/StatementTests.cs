@@ -26,11 +26,9 @@ public class StatementTests
             "free c: channel.\n" +
             "free A, B: host [private].\n" +
             "type host.\n" +
-            "event beginB(host, host).\n" +
             "fun pk(skey): pkey.\n" +
             "reduc forall x: bitstring, y: skey; decrypt(encrypt(x, pk(y)),y) = x.\n" +
             "not attacker(new skA).\n" +
-            "table keys(host, pkey).\n" +
             "query attacker(pkB).\n" +
             "query attacker(new pkC); attacker(pk(D)).\n" +
             "const c1: tag [data].";
@@ -39,9 +37,8 @@ public class StatementTests
             new FreeStatement(new() { "c" }, "channel", false, null),
             new FreeStatement(new() { "A", "B" }, "host", true, null),
             new TypeStatement("host", null),
-            new PiEventStatement("beginB", new() { "host", "host" }, null),
-            new ConstructorStatement("pk", new() { "skey" }, "pkey", false, null),
-            new DestructorStatement(
+            new Constructor("pk", new() { "skey" }, "pkey", false, null),
+            new Destructor(
                 new("decrypt",
                     new()
                     {
@@ -57,10 +54,9 @@ public class StatementTests
                 new() { { "x", "bitstring" }, { "y", "skey" } },
                 null
             ),
-            new TableStatement("keys", new() { "host", "pkey" }, null),
             new QueryStatement(new List<Term>() { new("pkB") }, null),
             new QueryStatement(new List<Term>() { new("pkC"), new("pk", new() { new("D") })}, null),
-            new ConstantStatement("c1", "tag", "data", null)
+            new Constant("c1", "tag", "data", null)
         };
         Parser p = new(testSource);
 

@@ -30,13 +30,10 @@ public class ModelTests
             "type kitten.\n" +
             "type (* Random comment *) dog.\n" +
             "type host.\n" +
-            "event beginB(host, host).\n" +
-            "event endB(host, host).\n" +
             "(* Another surprise comment. *)\n" +
             "fun pk(skey): pkey.\n" +
             "fun sencrypt(bitstring,nonce): bitstring.\n" +
             "reduc forall x: bitstring, y: skey; decrypt(encrypt(x, y),y) = x.\n" +
-            "table keys(host, pkey).\n" +
             "query attacker(c2).\n" +
             "const c1: tag [data].\n" +
             "const c2: kitten.\n";
@@ -54,33 +51,25 @@ public class ModelTests
             { "C", new("C", "channel", false) },
             { "D", new("D", "kitten", true) }
         };
-        Dictionary<string, Event> expectedEvents = new()
-        {
-            { "beginB", new("beginB", new() { "host", "host" }) },
-            { "endB", new("endB", new() { "host", "host" }) }
-        };
         Dictionary<string, Constructor> expectedConstructors = new()
         {
-            { "pk", new("pk", new() { "skey" }, "pkey", false) },
-            { "sencrypt", new("sencrypt", new() { "bitstring", "nonce" }, "bitstring", false) }
+            { "pk", new("pk", new() { "skey" }, "pkey", false, null) },
+            { "sencrypt", new("sencrypt", new() { "bitstring", "nonce" }, "bitstring", false, null) }
         };
         HashSet<Destructor> expectedDestructors = new()
         {
-            new(new("decrypt", new() { new("encrypt", new() { new("x"), new("y") }), new("y") }),
+            new(new("decrypt", new() { new("encrypt", new() { new("x"), new("y") } ), new("y") }),
                 "x",
-                new() { { "x", "bitstring" }, { "y", "skey" } })
-        };
-        Dictionary<string, Table> expectedTables = new()
-        {
-            { "keys", new("keys", new() { "host", "pkey" }) }
+                new() { { "x", "bitstring" }, { "y", "skey" } },
+                null)
         };
         HashSet<AttackerQuery> expectedQueries = new()
         {
             new(new("c2"))
         };
         HashSet<Constant> expectedConstants = new() {
-            new("c1", "tag", "data"),
-            new("c2", "kitten", "")
+            new("c1", "tag", "data", null),
+            new("c2", "kitten", "", null)
         };
 
         Network nw = Network.CreateFromCode(testSource);
@@ -88,10 +77,8 @@ public class ModelTests
         // Go through and check that everything matches.
         Assert.IsTrue(expectedPiTypes.SetEquals(nw.PiTypes), "PiTypes don't match.");
         AssertDictionariesMatch(expectedFreeDecls, nw.FreeDeclarations, "Free Declarations");
-        AssertDictionariesMatch(expectedEvents, nw.Events, "Events");
         AssertDictionariesMatch(expectedConstructors, nw.Constructors, "Constructors");
         Assert.IsTrue(expectedDestructors.SetEquals(nw.Destructors), "Destructors");
-        AssertDictionariesMatch(expectedTables, nw.Tables, "Tables");
         Assert.IsTrue(expectedQueries.SetEquals(nw.Queries), "Queries don't match.");
         Assert.IsTrue(expectedConstants.SetEquals(nw.Constants), "Constants don't match.");
     }
@@ -252,7 +239,7 @@ public class ModelTests
     public void CallProcessModelTest()
     {
         string testSource = "let testProcA = in(c, A: bitstring).\n" +
-            "let testProcB(pkA: key, pkB: key) = event beginTest(pkA); out(c, pkB).\n" +
+            "let testProcB(pkA: key, pkB: key) = out(c, pkB).\n" +
             "process\n" +
             "  testProcA;\n" +
             "  testProcB(c, d).\n";
@@ -274,7 +261,6 @@ public class ModelTests
         ProcessGroup testProcBProcesses = new(
             new List<IProcess>()
             {
-                new PiEventProcess(new("beginTest", new() { new("pkA") }), null),
                 new OutChannelProcess("c", new("pkB"), null)
             },
             null);

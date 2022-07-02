@@ -6,12 +6,14 @@ using StatefulHorn;
 namespace AppliedPi.Translate.MutateRules;
 
 /// <summary>
-/// This rule allows for pass through from the translation method.
+/// There are circumstances, such as those with the "ProVerif-style" rules, where only a Horn
+/// Clause is required. A Basic Rule is used as a type of Mutate Rule where that Horn Clause
+/// can be passed directly through to the Query Engine.
 /// </summary>
-public class BasicRule : IMutateRule
+public class BasicRule : MutateRule
 {
 
-    public BasicRule(HashSet<Event> premises, IMessage result, string lbl = "")
+    public BasicRule(HashSet<Event> premises, IMessage result, string lbl)
     {
         Premises = new HashSet<Event>(premises);
         Result = Event.Know(result);
@@ -24,19 +26,11 @@ public class BasicRule : IMutateRule
 
     #region IMutateRules implementation.
 
-    public string Label { get; init; }
-
-    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
-
-    public Rule GenerateRule(RuleFactory factory)
+    public override Rule GenerateRule(RuleFactory factory)
     {
-        factory.SetNextLabel(Label);
         factory.RegisterPremises(Premises.ToArray());
-        factory.GuardStatements = Conditions?.CreateGuard();
-        return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateConsistentRule(Result));
+        return GenerateStateConsistentRule(factory, Result);
     }
-
-    public int RecommendedDepth => 0;
 
     #endregion
     #region Basic object override.

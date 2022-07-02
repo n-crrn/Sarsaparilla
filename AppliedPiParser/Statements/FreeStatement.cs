@@ -29,13 +29,14 @@ public class FreeStatement : IStatement
 
     #region IStatement implementation.
 
-    public string StatementType => "Free";
-
     public void ApplyTo(Network nw)
     {
         foreach (string n in Names)
         {
-            nw._FreeDeclarations[n] = new FreeDeclaration(n, Type, DeclaredPrivate);
+            nw._FreeDeclarations[n] = new FreeDeclaration(n, Type, DeclaredPrivate)
+            {
+                DefinedAt = DefinedAt
+            };
         }
     }
 

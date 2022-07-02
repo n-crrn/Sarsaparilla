@@ -63,36 +63,6 @@ else
                     }
                 </div>
             }
-        
-            @if (Network.Tables.Count > 0)
-            {
-                <div class='section'>
-                    <div class='section-header'>Tables</div>
-                    @foreach ((string _, Table t) in Network.Tables)
-                    {
-                        <div class='entry'>@t</div>
-                    }
-                </div>
-            }
-
-            @if (Network.Events.Count > 0)
-            {
-                <div class='section'>
-                    <div class='section-header'>Events</div>
-                    @foreach ((string _, Event ev) in Network.Events)
-                    {
-                        <div class='entry'>
-                            <span class='name'>@ev.Name</span>
-                            <span class='op'>(</span>
-                            @foreach (string t in ev.ParameterTypes)
-                            {
-                                <span class='type'>@t</span>
-                            }
-                            <span class='op'>)</span>
-                        </div>
-                    }
-                </div>
-            }
         </div>
 
         <div class='section-grouping'>

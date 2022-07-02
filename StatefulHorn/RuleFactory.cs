@@ -46,6 +46,7 @@ public class RuleFactory
         Snapshots.Clear();
         Premises.Clear();
         _GuardStatements = Guard.Empty;
+        OriginalDefinition = null;
     }
 
     private Guard _GuardStatements;
@@ -59,7 +60,7 @@ public class RuleFactory
         set => _GuardStatements = value ?? Guard.Empty;
     }
 
-    #region User-friendly labelling.
+    #region User-friendly labelling and annotation.
 
     /// <summary>
     /// Either set to the user's preferred label, or null. If set to null, an
@@ -98,6 +99,13 @@ public class RuleFactory
             return autoLabel;
         }
         return Label;
+    }
+
+    private UserDefinition? OriginalDefinition;
+
+    public void SetUserDefinition(UserDefinition? definition)
+    {
+        OriginalDefinition = definition;
     }
 
     #endregion
@@ -206,7 +214,10 @@ public class RuleFactory
         CheckResultEventIsValid(result);
         string lbl = GetValidLabel();
         SnapshotTree tree = new(Snapshots);
-        StateConsistentRule r = new(lbl, _GuardStatements, new(Premises), tree, result);
+        StateConsistentRule r = new(lbl, _GuardStatements, new(Premises), tree, result)
+        {
+            Definition = OriginalDefinition
+        };
         Reset();
         return r;
     }
@@ -233,7 +244,10 @@ public class RuleFactory
                 "transformations specified in snapshot tree.";
             throw new RuleConstructionException(emptyMsg);
         }
-        StateTransferringRule r = new(lbl, _GuardStatements, new(Premises), tree, result);
+        StateTransferringRule r = new(lbl, _GuardStatements, new(Premises), tree, result)
+        {
+            Definition = OriginalDefinition
+        };
         Reset();
         return r;
     }

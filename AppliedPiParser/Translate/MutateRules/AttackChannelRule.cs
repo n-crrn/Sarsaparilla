@@ -6,43 +6,50 @@ using StatefulHorn.Messages;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class AttackChannelRule : IMutateRule
+/// <summary>
+/// A Mutate Rule stating that a variable that reads from a socket can be set to an 
+/// abitrary value if the channel's name is known.
+/// </summary>
+public class AttackChannelRule : MutateRule
 {
 
     public AttackChannelRule(ReadSocket readSocket, string readVarName)
     {
         Socket = readSocket;
         VariableName = readVarName;
+        Label = $"Attack:{VariableName}";
     }
+
+    #region Properties
 
     public ReadSocket Socket { get; init; }
 
     public string VariableName { get; init; }
 
-    public static IEnumerable<IMutateRule> GenerateRulesForReceivePattern(
+    #endregion
+
+    public static IEnumerable<MutateRule> GenerateRulesForReceivePattern(
         ReadSocket socket,
         List<(string, string)> rxPattern,
-        IfBranchConditions conditions)
+        IfBranchConditions conditions,
+        UserDefinition? userDef)
     {
-        return from rx in rxPattern select new AttackChannelRule(socket, rx.Item1) { Conditions = conditions };
+        return from rx in rxPattern 
+               select new AttackChannelRule(socket, rx.Item1) 
+               { 
+                   Conditions = conditions,
+                   DefinedBy = userDef
+               };
     }
 
     #region IMutateRule implementation.
 
-    public string Label => $"Attack:{VariableName}";
-
-    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
-
-    public Rule GenerateRule(RuleFactory factory)
+    public override Rule GenerateRule(RuleFactory factory)
     {
-        factory.GuardStatements = Conditions?.CreateGuard();
         factory.RegisterPremise(Event.Know(new NameMessage(Socket.ChannelName)));
         factory.RegisterPremise(Event.Know(new VariableMessage(VariableName)));
-        Rule r = factory.CreateStateConsistentRule(ReadRule.VariableCellAsPremise(VariableName));
-        return IfBranchConditions.ApplyReplacements(Conditions, r);
+        return GenerateStateConsistentRule(factory, ReadRule.VariableCellAsPremise(VariableName));
     }
-
-    public int RecommendedDepth => 0;
 
     #endregion
     #region Basic object overrides.

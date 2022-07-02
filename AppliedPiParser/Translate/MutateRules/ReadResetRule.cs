@@ -1,17 +1,16 @@
-﻿using System.Diagnostics;
-
-using StatefulHorn;
+﻿using StatefulHorn;
 using StatefulHorn.Messages;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class ReadResetRule : IMutateRule
+public class ReadResetRule : MutateRule
 {
 
     public ReadResetRule(ReadSocket readSocket, PathSurveyor.Marker? marker = null)
     {
         Socket = readSocket;
         Marker = marker;
+        Label = $"ReadReset:{Socket}";
     }
 
     public ReadSocket Socket { get; private init; }
@@ -20,11 +19,7 @@ public class ReadResetRule : IMutateRule
 
     #region IMutate implementation.
 
-    public string Label => $"ReadReset:{Socket}";
-
-    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
-
-    public Rule GenerateRule(RuleFactory factory)
+    public override Rule GenerateRule(RuleFactory factory)
     {
         Snapshot priorReads;
         if (Marker != null)
@@ -36,10 +31,8 @@ public class ReadResetRule : IMutateRule
             priorReads = factory.RegisterState(Socket.ReadState(new VariableMessage("@v")));
         }
         priorReads.TransfersTo = Socket.WaitingState();
-        return factory.CreateStateTransferringRule();
+        return GenerateStateTransferringRule(factory);
     }
-
-    public int RecommendedDepth => 0; // The reset is counted as part of the initial read.
 
     #endregion
     #region Basic object overrides.

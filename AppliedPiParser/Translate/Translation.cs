@@ -58,13 +58,21 @@ public class Translation
         }
         factory.RegisterPremises(premises.ToArray());
         StatefulHorn.Event result = StatefulHorn.Event.Know(new FunctionMessage(ctr.Name, funcParam));
+        if (ctr.DefinedAt != null)
+        {
+            factory.SetUserDefinition(new(ctr.DefinedAt.Row, ctr.DefinedAt.Column, ctr.ToString()));
+        }
         return factory.CreateStateConsistentRule(result);
     }
 
-    private static IEnumerable<Rule> TranslateDestructor(Destructor dtr, ResolvedNetwork rn, RuleFactory factory)
+    private static IEnumerable<Rule> TranslateDestructor(
+        Destructor dtr, 
+        ResolvedNetwork rn, 
+        RuleFactory factory)
     {
         // The premises to the destructor rule.
         IMessage lhs = rn.TermToLooseMessage(dtr.LeftHandSide);
+        factory.SetUserDefinition(dtr.DefinedAt?.AsDefinition(dtr.ToString()));
         foreach (Term p in dtr.LeftHandSide.Parameters)
         {
             factory.RegisterPremise(StatefulHorn.Event.Know(rn.TermToLooseMessage(p)));
@@ -74,6 +82,7 @@ public class Translation
         // The destructor to value rule.
         IMessage rhs = new VariableMessage(dtr.RightHandSide);
         factory.RegisterPremises(StatefulHorn.Event.Know(lhs));
+        factory.SetUserDefinition(dtr.DefinedAt?.AsDefinition(dtr.ToString()));
         yield return factory.CreateStateConsistentRule(StatefulHorn.Event.Know(rhs));
     }
 
@@ -106,24 +115,32 @@ public class Translation
         {
             if (src == TermSource.Free)
             {
-                if (!nw.FreeDeclarations[term.Name].IsPrivate)
+                FreeDeclaration fd = nw.FreeDeclarations[term.Name];
+                if (!fd.IsPrivate)
                 {
-                    allRules.Add(factory.CreateStateConsistentRule(rn.TermToKnow(term)));
+                    Rule fRule = factory.CreateStateConsistentRule(rn.TermToKnow(term));
+                    fRule.Definition = fd.DefinedAt?.AsDefinition(fd.ToString());
+                    allRules.Add(fRule);
                 }
             }
             else if (src == TermSource.Constant)
             {
-                allRules.Add(factory.CreateStateConsistentRule(rn.TermToKnow(term)));
+                Rule cRule = factory.CreateStateConsistentRule(rn.TermToKnow(term));
+                Constant? c = nw.GetConstant(term.Name);
+                if (c != null)
+                {
+                    cRule.Definition = c.DefinedAt?.AsDefinition(c.ToString());
+                }
+                allRules.Add(cRule);
             }
         }
 
-        (HashSet<Socket> allSockets, List<IMutateRule> allMutateRules) = GenerateMutateRules(rn, nw);
+        (HashSet<Socket> allSockets, List<MutateRule> allMutateRules) = GenerateMutateRules(rn, nw);
         HashSet<State> initStates = new(from s in allSockets select s.InitialState());
 
         int recommendedDepth = 0;
-        foreach (IMutateRule r in allMutateRules)
+        foreach (MutateRule r in allMutateRules)
         {
-            factory.SetNextLabel(r.Label);
             allRules.Add(r.GenerateRule(factory));
             recommendedDepth += r.RecommendedDepth;
         }
@@ -131,7 +148,7 @@ public class Translation
         return new(initStates, allRules, rn.Queries, recommendedDepth);
     }
 
-    public static (HashSet<Socket>, List<IMutateRule>) GenerateMutateRules(ResolvedNetwork rn, Network nw)
+    public static (HashSet<Socket>, List<MutateRule>) GenerateMutateRules(ResolvedNetwork rn, Network nw)
     {
         HashSet<Term> cellsInUse = new();
         foreach ((Term term, (TermSource src, PiType type)) in rn.TermDetails)
@@ -145,7 +162,7 @@ public class Translation
         ProcessTree procTree = new(rn);
         int branchCounter = 0;
         BranchSummary rootSummary = PreProcessBranch(procTree.StartNode, new(), cellsInUse, ref branchCounter);
-        List<IMutateRule> allMutateRules = new(ProcessBranch(
+        List<MutateRule> allMutateRules = new(ProcessBranch(
             new TranslateFrame(
                 procTree.StartNode, 
                 rootSummary, 
@@ -376,9 +393,9 @@ public class Translation
         Network Nw
     );
 
-    private static IEnumerable<IMutateRule> ProcessBranch(TranslateFrame tf)
+    private static IEnumerable<MutateRule> ProcessBranch(TranslateFrame tf)
     {
-        HashSet<IMutateRule> rules = new();
+        HashSet<MutateRule> rules = new();
 
         // Open required reader and write sockets.
         List<Socket> toOpen = new(tf.Summary.Readers.Values);
@@ -413,29 +430,41 @@ public class Translation
             {
                 Term inChannelTerm = new(icp.Channel);
                 ReadSocket reader = tf.Summary.Readers[inChannelTerm];
+                UserDefinition? icpUserDef = icp.DefinedAt?.AsDefinition(icp.ToString());
                 if (reader.IsInfinite)
                 {
                     rules.Add(new ReadResetRule(reader)
                     {
-                        Conditions = tf.Conditions
+                        Conditions = tf.Conditions,
+                        DefinedBy = icpUserDef
                     });
-                    foreach (IMutateRule imr in ReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
+                    foreach (MutateRule imr in ReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
                     {
                         imr.Conditions = tf.Conditions;
+                        imr.DefinedBy = icpUserDef;
                         rules.Add(imr);
                     }
                 }
                 else
                 {
-                    rules.Add(new ReadResetRule(reader, tf.Surveyor.MarkPath()));
+                    rules.Add(new ReadResetRule(reader, tf.Surveyor.MarkPath())
+                    { 
+                        Conditions = tf.Conditions,
+                        DefinedBy = icpUserDef
+                    });
                     tf.Surveyor.AddInteractionFor(reader);
-                    foreach (IMutateRule mr in ReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
+                    foreach (MutateRule mr in ReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
                     {
                         mr.Conditions = tf.Conditions;
+                        mr.DefinedBy = icpUserDef;
                         rules.Add(mr);
                     }
                 }
-                rules.UnionWith(AttackChannelRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern, tf.Conditions));
+                rules.UnionWith(AttackChannelRule.GenerateRulesForReceivePattern(
+                    reader, 
+                    icp.ReceivePattern, 
+                    tf.Conditions, 
+                    icpUserDef));
 
                 foreach ((string varEntry, _) in icp.ReceivePattern)
                 {
@@ -447,6 +476,7 @@ public class Translation
                 Term outChannelTerm = new(ocp.Channel);
                 WriteSocket writer = tf.Summary.Writers[outChannelTerm];
                 IMessage resultMessage = tf.Rn.TermToMessage(ocp.SentTerm);
+                UserDefinition? ocpUserDef = ocp.DefinedAt?.AsDefinition(ocp.ToString());
 
                 if (tf.Replicated && tf.Rn.CheckTermType(ocp.SentTerm, PiType.Channel))
                 {
@@ -472,20 +502,22 @@ public class Translation
                     if (infReaders.TryGetValue(outChannelTerm, out ReadSocket? rxSocket))
                     {
                         // For every matching receive pattern, add an infinite cross link.
-                        List<IMutateRule> icls = new(InfiniteCrossLink.GenerateRulesForReceivePatterns(
+                        List<MutateRule> icls = new(InfiniteCrossLink.GenerateRulesForReceivePatterns(
                             writer,
                             rxSocket,
                             writeMarker,
                             tf.Premises,
                             resultMessage));
-                        foreach (IMutateRule iclR in icls)
+                        foreach (MutateRule iclR in icls)
                         {
                             iclR.Conditions = tf.Conditions;
+                            iclR.DefinedBy = ocpUserDef;
                             rules.Add(iclR);
                         }
                         rules.Add(new InfiniteWriteRule(writer, writeMarker, tf.Premises, resultMessage)
                         {
-                            Conditions = tf.Conditions
+                            Conditions = tf.Conditions,
+                            DefinedBy = ocpUserDef
                         });
                         
                         foundDestination = true;
@@ -494,7 +526,8 @@ public class Translation
                     {
                         rules.Add(new FiniteWriteRule(writer, writeMarker, tf.Premises, resultMessage)
                         {
-                            Conditions = tf.Conditions
+                            Conditions = tf.Conditions,
+                            DefinedBy = ocpUserDef
                         });
                         foundDestination = true;
                     }
@@ -507,7 +540,8 @@ public class Translation
                 {
                     rules.Add(new FiniteWriteRule(writer, writeMarker, tf.Premises, resultMessage)
                     {
-                        Conditions = tf.Conditions
+                        Conditions = tf.Conditions,
+                        DefinedBy = ocpUserDef
                     });
                     tf.Surveyor.AddInteractionFor(writer);
                 }
@@ -736,7 +770,7 @@ public class Translation
         TranslateFrame fromFrame, 
         string sentChannel, 
         StatefulHorn.Event sendPremise,
-        HashSet<IMutateRule> allRules)
+        HashSet<MutateRule> allRules)
     {
         if (fromFrame.PreviousControlSplit != null)
         {
@@ -756,7 +790,7 @@ public class Translation
         string sentChannel,
         ProcessTree.Node n,
         HashSet<StatefulHorn.Event> premises,
-        HashSet<IMutateRule> allRules,
+        HashSet<MutateRule> allRules,
         ResolvedNetwork rn,
         Network nw)
     {
@@ -775,7 +809,10 @@ public class Translation
             case OutChannelProcess ocp:
                 if (ocp.Channel == sentChannel)
                 {
-                    allRules.Add(new BasicRule(premises, rn.TermToMessage(ocp.SentTerm)));
+                    allRules.Add(new BasicRule(premises, rn.TermToMessage(ocp.SentTerm), $"Leak-Write-{ocp.SentTerm}")
+                    {
+                        DefinedBy = ocp.DefinedAt?.AsDefinition(ocp.ToString())
+                    });
                 }
                 if (n.Branches.Count > 0)
                 {
@@ -786,7 +823,7 @@ public class Translation
                 BranchRestrictionSet brs = BranchRestrictionSet.From(ifp.Comparison, rn, nw);
                 foreach (IfBranchConditions ic in brs.IfConditions)
                 {
-                    HashSet<IMutateRule> ifBranchRules = new();
+                    HashSet<MutateRule> ifBranchRules = new();
                     ProVerifTranslate(sentChannel, n.Branches[0], premises, ifBranchRules, rn, nw);
                     AddConditions(allRules, ic, ifBranchRules);
                 }
@@ -794,7 +831,7 @@ public class Translation
                 {
                     foreach (IfBranchConditions elseCond in brs.ElseConditions)
                     {
-                        HashSet<IMutateRule> elseRules = new();
+                        HashSet<MutateRule> elseRules = new();
                         ProVerifTranslate(sentChannel, n.Branches[1], premises, elseRules, rn, nw);
                         AddConditions(allRules, elseCond, elseRules);
                     }
@@ -807,7 +844,7 @@ public class Translation
                 {
                     StatefulHorn.Event.Know(lvsFactory.StoragePremiseMessage)
                 };
-                HashSet<IMutateRule> letGuardRules = new();
+                HashSet<MutateRule> letGuardRules = new();
                 ProVerifTranslate(sentChannel, n.Branches[0], guardedPremises, letGuardRules, rn, nw);
                 allRules.UnionWith(letGuardRules);
 
@@ -818,7 +855,7 @@ public class Translation
                     {
                         StatefulHorn.Event.Know(lvsFactory.EmptyStoragePremiseMessage)
                     };
-                    HashSet<IMutateRule> letElseRules = new();
+                    HashSet<MutateRule> letElseRules = new();
                     ProVerifTranslate(sentChannel, n.Branches[1], elsePremises, letElseRules, rn, nw);
                     AddConditions(allRules, elseConds, letElseRules);
                 }
@@ -838,9 +875,9 @@ public class Translation
         }
     }
 
-    private static void AddConditions(HashSet<IMutateRule> newRules, IfBranchConditions cond, HashSet<IMutateRule> smallSet)
+    private static void AddConditions(HashSet<MutateRule> newRules, IfBranchConditions cond, HashSet<MutateRule> smallSet)
     {
-        foreach (IMutateRule mr in smallSet)
+        foreach (MutateRule mr in smallSet)
         {
             mr.Conditions = mr.Conditions.And(cond);
             newRules.Add(mr);

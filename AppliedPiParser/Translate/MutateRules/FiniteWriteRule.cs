@@ -4,7 +4,7 @@ using StatefulHorn;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class FiniteWriteRule : IMutateRule
+public class FiniteWriteRule : MutateRule
 {
 
     public FiniteWriteRule(
@@ -17,6 +17,9 @@ public class FiniteWriteRule : IMutateRule
         Marker = marker;
         ValueToWrite = value;
         Premises = new(premises); // Copy, so that premises are not added afterwards.
+
+        Label = Socket.IsInfinite ? $"FinWrite-{ValueToWrite}-{Socket}" : $"FinWrite-{ValueToWrite}-{Socket}";
+        RecommendedDepth = 2;
     }
 
     public WriteSocket Socket { get; private init; }
@@ -29,21 +32,7 @@ public class FiniteWriteRule : IMutateRule
 
     #region IMutableRule implementation.
 
-    public string Label
-    {
-        get
-        {
-            if (Socket.IsInfinite)
-            {
-                return $"FinWrite-{ValueToWrite}-{Socket}";
-            }
-            return $"FinWrite-{ValueToWrite}-{Socket}";
-        }
-    } 
-
-    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
-
-    public Rule GenerateRule(RuleFactory factory)
+    public override Rule GenerateRule(RuleFactory factory)
     {
         IDictionary<Socket, Snapshot> sockSS = Marker.Register(factory);
         Snapshot latest;
@@ -57,11 +46,8 @@ public class FiniteWriteRule : IMutateRule
         }       
         factory.RegisterPremises(latest, Premises);
         latest.TransfersTo = Socket.WriteState(ValueToWrite);
-        factory.GuardStatements = Conditions?.CreateGuard();
-        return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateTransferringRule());
+        return GenerateStateTransferringRule(factory);
     }
-
-    public int RecommendedDepth => 2;
 
     #endregion
     #region Basic object override.

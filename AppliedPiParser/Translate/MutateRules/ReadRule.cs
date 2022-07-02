@@ -6,7 +6,7 @@ using StatefulHorn.Messages;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class ReadRule : IMutateRule
+public class ReadRule : MutateRule
 {
 
     public ReadRule(ReadSocket s, string varName)
@@ -18,6 +18,8 @@ public class ReadRule : IMutateRule
         Socket = s;
         VariableName = varName;
         ReceivePattern = rxPattern;
+        Label = $"FinRead:{Socket}-{VariableName}";
+        RecommendedDepth = 1;
     }
 
     public ReadSocket Socket { get; init; }
@@ -28,7 +30,7 @@ public class ReadRule : IMutateRule
 
     #region Static convenience methods.
 
-    public static IEnumerable<IMutateRule> GenerateRulesForReceivePattern(
+    public static IEnumerable<MutateRule> GenerateRulesForReceivePattern(
         ReadSocket readSocket,
         List<(string, string)> rxPattern)
     {
@@ -50,11 +52,7 @@ public class ReadRule : IMutateRule
     #endregion
     #region IMutateRules implementation.
 
-    public string Label => $"FinRead:{Socket}-{VariableName}";
-
-    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
-
-    public Rule GenerateRule(RuleFactory factory)
+    public override Rule GenerateRule(RuleFactory factory)
     {
         IMessage varMsg;
         if (ReceivePattern.Count == 1)
@@ -66,12 +64,8 @@ public class ReadRule : IMutateRule
             varMsg = new TupleMessage(from rx in ReceivePattern select new VariableMessage(rx));
         }
         factory.RegisterState(Socket.ReadState(varMsg));
-        factory.GuardStatements = Conditions?.CreateGuard();
-        Rule r = factory.CreateStateConsistentRule(VariableCellAsPremise(VariableName));
-        return IfBranchConditions.ApplyReplacements(Conditions, r);
+        return GenerateStateConsistentRule(factory, VariableCellAsPremise(VariableName));
     }
-
-    public int RecommendedDepth => 1; // Account for the reset of the read state.
 
     #endregion
     #region Basic object overrides.

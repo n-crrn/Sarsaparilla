@@ -16,6 +16,10 @@ public class FreeDeclaration
 
     public bool IsPrivate { get; init; }
 
+    public RowColumnPosition? DefinedAt { get; init; }
+
+    #region Basic object override.
+
     public override bool Equals(object? obj)
     {
         return obj != null &&
@@ -26,5 +30,9 @@ public class FreeDeclaration
     }
 
     public override int GetHashCode() => Name.GetHashCode();
+
+    public override string ToString() => $"free {Name}: {PiType}" + (IsPrivate ? "[private]" : "");
+
+    #endregion
 
 }

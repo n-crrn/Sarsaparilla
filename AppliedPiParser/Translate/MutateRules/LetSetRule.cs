@@ -8,7 +8,7 @@ using StatefulHorn;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class LetSetRule : IMutateRule
+public class LetSetRule : MutateRule
 {
 
     public LetSetRule(
@@ -26,7 +26,10 @@ public class LetSetRule : IMutateRule
         SocketStates.AddRange(from i in initSockets select i.InitialState());
         TriggerConditions = triggerConditions;
         SetKnow = setKnow;
+        Label = $"LetSet-{Designation}-{SetKnow.Message}";
     }
+
+    #region Properties.
 
     public string Designation { get; init; }
 
@@ -38,13 +41,10 @@ public class LetSetRule : IMutateRule
 
     public StatefulHorn.Event SetKnow { get; init; }
 
+    #endregion
     #region IMutableRule implementation.
 
-    public string Label => $"LetSet-{Designation}-{SetKnow.Message}";
-
-    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
-
-    public Rule GenerateRule(RuleFactory factory)
+    public override Rule GenerateRule(RuleFactory factory)
     {
         // Attach premises to the first state - though any state would be fine.
         IEnumerator<State> sIter = SocketStates.GetEnumerator();
@@ -66,8 +66,6 @@ public class LetSetRule : IMutateRule
         factory.GuardStatements = fullConditions?.CreateGuard();
         return IfBranchConditions.ApplyReplacements(fullConditions, factory.CreateStateConsistentRule(SetKnow));
     }
-
-    public int RecommendedDepth => 0;
 
     #endregion
     #region Basic object override.

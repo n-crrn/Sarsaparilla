@@ -41,8 +41,6 @@ public class LetStatement : IStatement
 
     #region IStatement implementation.
 
-    public string StatementType => "Let";
-
     public void ApplyTo(Network nw)
     {
         if (nw.LetDefinitions.ContainsKey(Name))

@@ -85,20 +85,6 @@ public class Network
     }
 
     #endregion
-    #region Table declarations.
-
-    internal Dictionary<string, Table> _Tables = new();
-
-    public IReadOnlyDictionary<string, Table> Tables { get => _Tables; }
-
-    #endregion
-    #region Event declarations.
-
-    internal Dictionary<string, Event> _Events = new();
-
-    public IReadOnlyDictionary<string, Event> Events { get => _Events; }
-
-    #endregion
     #region Query declarations.
 
     internal HashSet<AttackerQuery> _Queries = new();
@@ -265,8 +251,6 @@ public class Network
             _PiTypes.SetEquals(nw._PiTypes) &&
             DictionariesMatch(_FreeDeclarations, nw._FreeDeclarations) &&
             _Constants.SetEquals(nw._Constants) &&
-            DictionariesMatch(_Tables, nw._Tables) &&
-            DictionariesMatch(_Events, nw._Events) &&
             _Queries.SetEquals(nw._Queries) &&
             DictionariesMatch(_Constructors, nw._Constructors) &&
             _Destructors.SetEquals(nw._Destructors) &&

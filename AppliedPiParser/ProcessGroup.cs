@@ -207,7 +207,6 @@ public class ProcessGroup : IProcess
             "!" => ReadReplicateProcess(p),
             "in" => ReadInChannelProcess(p),
             "out" => ReadOutChannelProcess(p),
-            "event" => ReadEventProcess(p),
             "new" => ReadNewProcess(p),
             "let" => ReadLetProcess(p),
             "if" => ReadIfProcess(p),
@@ -286,14 +285,6 @@ public class ProcessGroup : IProcess
         Term sentTerm = Term.ReadTerm(p, stmtType);
         p.ReadExpectedToken(")", stmtType);
         return new OutChannelProcess(channelName, sentTerm, pos);
-    }
-
-    private static IProcess ReadEventProcess(Parser p)
-    {
-        string stmtType = "Event (process)";
-        RowColumnPosition pos = p.GetRowColumn();
-        Term t = Term.ReadTerm(p, stmtType);
-        return new PiEventProcess(t, pos);
     }
 
     private static IProcess ReadNewProcess(Parser p)

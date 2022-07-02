@@ -6,7 +6,7 @@ using StatefulHorn.Messages;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class InfiniteWriteRule : IMutateRule
+public class InfiniteWriteRule : MutateRule
 {
 
     public InfiniteWriteRule(
@@ -19,6 +19,9 @@ public class InfiniteWriteRule : IMutateRule
         Marker = marker;
         ValueToWrite = value;
         Premises = new(premises); // Copy, so that premises are not added afterwards.
+
+        Label = $"InfWrite-{ValueToWrite}-{Socket}";
+        RecommendedDepth = 2;
     }
 
     public WriteSocket Socket { get; private init; }
@@ -31,11 +34,7 @@ public class InfiniteWriteRule : IMutateRule
 
     #region IMutableRule implementation.
 
-    public string Label => $"InfWrite-{ValueToWrite}-{Socket}";
-
-    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
-
-    public Rule GenerateRule(RuleFactory factory)
+    public override Rule GenerateRule(RuleFactory factory)
     {
         IDictionary<Socket, Snapshot> sockSS = Marker.Register(factory);
         Snapshot latest;
@@ -49,12 +48,8 @@ public class InfiniteWriteRule : IMutateRule
         }
         factory.RegisterPremises(latest, Premises);
         factory.RegisterPremises(latest, Event.Know(new NameMessage(Socket.ChannelName)));
-        factory.GuardStatements = Conditions?.CreateGuard();
-        Rule r = factory.CreateStateConsistentRule(Event.Know(ValueToWrite));
-        return IfBranchConditions.ApplyReplacements(Conditions, r);
+        return GenerateStateConsistentRule(factory, Event.Know(ValueToWrite));
     }
-
-    public int RecommendedDepth => 2;
 
     #endregion
     #region Basic object override.

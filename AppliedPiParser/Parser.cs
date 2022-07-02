@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 
+using AppliedPi.Model;
 using AppliedPi.Statements;
 
 namespace AppliedPi;
-
 public class Parser
 {
     /// <summary>
@@ -421,17 +421,13 @@ public class Parser
             switch (nextToken)
             {
                 case "fun":
-                    return ConstructorStatement.CreateFromStatement(this);
+                    return Constructor.CreateFromStatement(this);
                 case "reduc":
-                    return DestructorStatement.CreateFromStatement(this);
+                    return Destructor.CreateFromStatement(this);
                 case "free":
                     return FreeStatement.CreateFromStatement(this);
                 case "const":
-                    return ConstantStatement.CreateFromStatement(this);
-                case "event":
-                    return PiEventStatement.CreateFromStatement(this);
-                case "table":
-                    return TableStatement.CreateFromStatement(this);
+                    return Constant.CreateFromStatement(this);
                 case "type":
                     return TypeStatement.CreateFromStatement(this);
                 case "query":

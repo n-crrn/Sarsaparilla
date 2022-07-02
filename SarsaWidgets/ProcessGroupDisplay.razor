@@ -41,7 +41,6 @@ else
         return proc switch
         {
             CallProcess cp => CallTemplate(cp),
-            PiEventProcess ep => EventTemplate(ep),
             IfProcess ip => IfTemplate(ip),
             InChannelProcess icp => InChannelTemplate(icp),
             LetProcess lp => LetTemplate(lp),
@@ -58,13 +57,6 @@ else
     {
         return
             @<div class='cell-process'>@cp.CallSpecification</div>
-        ;
-    }
-
-    private RenderFragment EventTemplate(PiEventProcess ep)
-    {
-        return
-            @<div class='event-process'>@ep.Event</div>
         ;
     }
 

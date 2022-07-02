@@ -7,7 +7,7 @@ using StatefulHorn.Messages;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class InfiniteCrossLink : IMutateRule
+public class InfiniteCrossLink : MutateRule
 {
 
     public InfiniteCrossLink(
@@ -17,13 +17,16 @@ public class InfiniteCrossLink : IMutateRule
         HashSet<Event> premises, 
         IMessage result)
     {
+        Debug.Assert(fromSocket.IsInfinite && toSocket.IsInfinite);
+
         From = fromSocket;
         To = toSocket;
         Marker = marker;
         Premises = premises;
         Result = Event.Know(result);
-        Debug.Assert(From.IsInfinite && To.IsInfinite);
-    }
+        
+        Label = $"InfXLink:{From}-{To}({Result})";
+}
 
     public WriteSocket From { get; private init; }
 
@@ -37,7 +40,7 @@ public class InfiniteCrossLink : IMutateRule
 
     private static int dId = 0;
 
-    public static IEnumerable<IMutateRule> GenerateRulesForReceivePatterns(
+    public static IEnumerable<MutateRule> GenerateRulesForReceivePatterns(
         WriteSocket from,
         ReadSocket to,
         PathSurveyor.Marker marker,
@@ -83,22 +86,15 @@ public class InfiniteCrossLink : IMutateRule
 
     #region IMutateRule implementation.
 
-    public string Label => $"InfXLink:{From}-{To}({Result})";
-
-    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
-
-    public Rule GenerateRule(RuleFactory factory)
+    public override Rule GenerateRule(RuleFactory factory)
     {
         Snapshot fromWait = factory.RegisterState(From.WaitingState());
         Marker.Register(factory);
         factory.RegisterPremises(fromWait, Premises);
         factory.RegisterState(From.WaitingState());
         factory.RegisterState(To.WaitingState());
-        factory.GuardStatements = Conditions?.CreateGuard();
-        return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateConsistentRule(Result));
+        return GenerateStateConsistentRule(factory, Result);
     }
-
-    public int RecommendedDepth => 0;
 
     #endregion
     #region Basic object overrides.

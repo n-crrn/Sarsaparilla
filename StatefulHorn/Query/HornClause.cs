@@ -612,7 +612,10 @@ public class HornClause
             return new(
                 scr.Result.Message,
                 from p in scr.Premises where p.IsKnow select p.Message,
-                scr.Guard);
+                scr.Guard)
+            {
+                Source = new KnowledgeRuleSource(scr)
+            };
         }
         return null;
     }

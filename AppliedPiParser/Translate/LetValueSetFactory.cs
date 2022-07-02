@@ -111,11 +111,11 @@ public class LetValueSetFactory
 
     public VariableMessage Variable => new(UniqueDesignation);
 
-    public IEnumerable<IMutateRule> GenerateSetRules() => InnerGenerateSetRules(Let.RightHandSide, IfBranchConditions.Empty);
+    public IEnumerable<MutateRule> GenerateSetRules() => InnerGenerateSetRules(Let.RightHandSide, IfBranchConditions.Empty);
 
     private static int dId = 0;
 
-    private IEnumerable<IMutateRule> InnerGenerateSetRules(ITermGenerator iGen, IfBranchConditions branchCond)
+    private IEnumerable<MutateRule> InnerGenerateSetRules(ITermGenerator iGen, IfBranchConditions branchCond)
     {
         string uniqueDesig = UniqueDesignation;
 
@@ -175,14 +175,14 @@ public class LetValueSetFactory
             BranchRestrictionSet brSet = BranchRestrictionSet.From(it.Comparison, ResolvedNetwork, Network);
             foreach (IfBranchConditions ifCond in brSet.IfConditions)
             {
-                foreach (IMutateRule imr in InnerGenerateSetRules(it.TrueTermValue, branchCond.And(ifCond)))
+                foreach (MutateRule imr in InnerGenerateSetRules(it.TrueTermValue, branchCond.And(ifCond)))
                 {
                     yield return imr;
                 }
             }
             foreach (IfBranchConditions elseCond in brSet.ElseConditions)
             {
-                foreach (IMutateRule emr in InnerGenerateSetRules(it.FalseTermValue, branchCond.And(elseCond)))
+                foreach (MutateRule emr in InnerGenerateSetRules(it.FalseTermValue, branchCond.And(elseCond)))
                 {
                     yield return emr;
                 }

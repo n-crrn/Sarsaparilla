@@ -12,8 +12,6 @@ public class TypeStatement : IStatement
 
     #region IStatement implementation.
 
-    public string StatementType => "Type";
-
     public void ApplyTo(Network nw)
     {
         nw._PiTypes.Add(Name);

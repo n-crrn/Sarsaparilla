@@ -10,11 +10,9 @@ public class ProcessStatement : IStatement
         DefinedAt = definedAt;
     }
 
-    public ProcessGroup SubProcesses { get; init; }
+    public ProcessGroup SubProcesses { get; private init; }
 
     #region IStatement implementation.
-
-    public string StatementType => "Process";
 
     public void ApplyTo(Network nw)
     {

@@ -1,14 +1,21 @@
-﻿using StatefulHorn.Messages;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+
+using StatefulHorn.Messages;
 
 namespace StatefulHorn;
 
 public class StateConsistentRule : Rule
 {
-    public StateConsistentRule(string label, Guard g, HashSet<Event> prems, SnapshotTree ss, Event res) : base(label, g, prems, ss)
+
+    public StateConsistentRule(
+        string label, 
+        Guard g, 
+        HashSet<Event> prems, 
+        SnapshotTree ss, 
+        Event res) 
+        : base(label, g, prems, ss)
     {
         Result = res;
         GenerateHashCode();
@@ -34,7 +41,16 @@ public class StateConsistentRule : Rule
 
     protected override bool ResultContainsState(State st) => false;
 
-    public bool IsFact => Premises.Count == 0 && Snapshots.IsEmpty && Result.IsKnow && !Result.ContainsVariables;
+    public bool IsFact
+    {
+        get
+        {
+            return Premises.Count == 0 
+                && Snapshots.IsEmpty 
+                && Result.IsKnow 
+                && !Result.ContainsVariables;
+        }
+    }
 
     public bool IsResolved
     {
@@ -67,7 +83,10 @@ public class StateConsistentRule : Rule
         return true;
     }
 
-    private static bool IsPremiseKnown(HashSet<IMessage> rs1, HashSet<IMessage> rs2, IMessage premiseMessage)
+    private static bool IsPremiseKnown(
+        HashSet<IMessage> rs1, 
+        HashSet<IMessage> rs2, 
+        IMessage premiseMessage)
     {
         bool predicate(IMessage msg) => IsPremiseKnown(rs1, rs2, msg);
         return
@@ -123,7 +142,12 @@ public class StateConsistentRule : Rule
 
     #endregion
 
-    public override Rule CreateDerivedRule(string label, Guard g, HashSet<Event> prems, SnapshotTree ss, SigmaMap substitutions)
+    public override Rule CreateDerivedRule(
+        string label, 
+        Guard g, 
+        HashSet<Event> prems, 
+        SnapshotTree ss, 
+        SigmaMap substitutions)
     {
         return new StateConsistentRule(label, g, prems, ss, Result.Substitute(substitutions));
     }
@@ -255,7 +279,10 @@ public class StateConsistentRule : Rule
 
     public IEnumerable<Event> NewEvents => from p in Premises where p.IsNew select p;
 
-    private bool CanComposeUpon(StateConsistentRule r, out SigmaFactory? sf, out List<(Snapshot, int, int)>? overallCorrespondence)
+    private bool CanComposeUpon(
+        StateConsistentRule r, 
+        out SigmaFactory? sf, 
+        out List<(Snapshot, int, int)>? overallCorrespondence)
     {
         overallCorrespondence = null;
         foreach (Event premise in r.Premises)
@@ -409,4 +436,5 @@ public class StateConsistentRule : Rule
 
         return output;
     }
+
 }

@@ -25,13 +25,11 @@ public class ResolveTests
         @"(* Full test of basic processes - that is, excluding CallProcess. *)
 free c: channel.
 type key.
-event gotKey(key).
 
 process
     new Kas: key;
     out(c, Kas);
-    in(c, tv: key);
-    event gotKey(tv).
+    in(c, tv: key).
 ";
         Network nw = Network.CreateFromCode(basicSource);
         ResolvedNetwork resNw = ResolvedNetwork.From(nw);
@@ -47,8 +45,7 @@ process
         {
             new NewProcess("Kas", "key", null),
             new OutChannelProcess("c", new("Kas"), null),
-            new InChannelProcess("c", new() { ("tv", "key") }, null),
-            new PiEventProcess(new("gotKey", new() { new("tv") }), null)
+            new InChannelProcess("c", new() { ("tv", "key") }, null)
         };
         ResolvedNetwork expectedResNw = new();
         expectedResNw.DirectSet(details, sequence);
@@ -69,12 +66,11 @@ free c: channel.
 type key.
 fun encrypt(bitstring, key): bitstring.
 reduc forall x: bitstring, y: key; decrypt(encrypt(x, y),y) = x.
-event gotValue(bitstring).
 const Good: bitstring.
 
 (* Sub-processes *)
 let rx(k: key) = in(c, value: bitstring);
-                 let x: bitstring = decrypt(value, k) in event gotValue(x).
+                 let x: bitstring = decrypt(value, k) in out(c, x).
 let send(k: key) = out(c, encrypt(Good, k)).
 let randomIntercept = in(c, iValue: bitstring).
 
@@ -116,7 +112,7 @@ process
                                 new LetProcess(
                                         TuplePattern.CreateSingle("rx@x", "bitstring"),
                                         new Term("decrypt", new() { new("rx@value"), new("kValue")}),
-                                        new PiEventProcess(new("gotValue", new() { new("rx@x") }), null),
+                                        new OutChannelProcess("c", new("rx@x"), null),
                                         null,
                                         null
                                     ),

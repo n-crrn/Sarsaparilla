@@ -1,5 +1,5 @@
 ﻿@*
- * A component dedicated to displaying a single rule in a visually-pleasing manner.
+ * A component dedicated to displaying a single Stateful Horn rule in a visually-pleasing manner.
  *@
 @using System.Text
 @using System.Net
@@ -9,7 +9,7 @@
 <div class='outer'>
     @if (Rule != null)
     {
-        <div class='label-sep'>
+        <div class='label-sep' title=@OriginDescription>
             @if (ShowLabel)
             {
                 <div class='rule-label'>
@@ -172,6 +172,18 @@
 
         return @<div>@parts[0]<LeftStateOperator/>@latterParts[0]<RightStateOperator/>@latterParts[1]</div>
     ;
+    }
+
+    private string OriginDescription
+    {
+        get
+        {
+            if (_Rule != null && _Rule.Definition != null)
+            {
+                return _Rule.Definition.ToString();
+            }
+            return "";
+        }
     }
 
 }

@@ -5,7 +5,7 @@ using StatefulHorn;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class OpenSocketsRule : IMutateRule
+public class OpenSocketsRule : MutateRule
 {
 
     public OpenSocketsRule(Socket open)
@@ -16,6 +16,8 @@ public class OpenSocketsRule : IMutateRule
     {
         SocketsRequiredOpen = open.ToHashSet();
         SocketsRequiredShut = shut.ToHashSet();
+        Label = $"OpenSockets-" + string.Join(":", SocketsRequiredOpen);
+        RecommendedDepth = 1;
     }
 
     public IReadOnlySet<Socket> SocketsRequiredOpen { get; init; }
@@ -24,11 +26,7 @@ public class OpenSocketsRule : IMutateRule
 
     #region IMutateRule implementation.
 
-    public string Label => $"OpenSockets-" + string.Join(":", SocketsRequiredOpen);
-
-    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
-
-    public Rule GenerateRule(RuleFactory factory)
+    public override Rule GenerateRule(RuleFactory factory)
     {
         foreach (Socket shutS in SocketsRequiredShut)
         {
@@ -39,11 +37,8 @@ public class OpenSocketsRule : IMutateRule
             Snapshot ss = factory.RegisterState(openS.InitialState());
             ss.TransfersTo = openS.WaitingState();
         }
-        factory.GuardStatements = Conditions?.CreateGuard();
-        return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateTransferringRule());
+        return GenerateStateTransferringRule(factory);
     }
-
-    public int RecommendedDepth => 1;
 
     #endregion
     #region Basic object overrides.

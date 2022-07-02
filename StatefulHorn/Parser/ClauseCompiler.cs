@@ -110,6 +110,7 @@ public class ClauseCompiler : IClauseCompiler
                 try
                 {
                     Rule result = parser.Parse(src);
+                    result.Definition = new UserDefinition(line, 0, src);
                     basisRules.Add(result);
                     OnRuleAddition?.Invoke(this, new(line, src, result, null));
                 }

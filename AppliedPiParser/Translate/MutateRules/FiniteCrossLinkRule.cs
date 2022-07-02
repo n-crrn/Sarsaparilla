@@ -1,17 +1,21 @@
-﻿using System.Diagnostics;
-
-using StatefulHorn;
+﻿using StatefulHorn;
 using StatefulHorn.Messages;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class FiniteCrossLinkRule : IMutateRule
+/// <summary>
+/// Represents a rule to transfer values between a Read Socket's state and a Write Socket's
+/// state.
+/// </summary>
+public class FiniteCrossLinkRule : MutateRule
 {
 
     public FiniteCrossLinkRule(WriteSocket fromSocket, ReadSocket toSocket)
     {
         From = fromSocket;
         To = toSocket;
+        Label = $"FinXLink:{From}-{To}";
+        RecommendedDepth = 1;
     }
 
     public WriteSocket From { get; init; }
@@ -20,22 +24,15 @@ public class FiniteCrossLinkRule : IMutateRule
 
     #region IMutableRule implementation.
 
-    public string Label => $"FinXLink:{From}-{To}";
-
-    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
-
-    public Rule GenerateRule(RuleFactory factory)
+    public override Rule GenerateRule(RuleFactory factory)
     {
         IMessage value = new VariableMessage("@v");
-        factory.GuardStatements = Conditions?.CreateGuard();
         Snapshot written = factory.RegisterState(From.WriteState(value));
         Snapshot waiting = factory.RegisterState(To.WaitingState());
         written.TransfersTo = From.WaitingState();
         waiting.TransfersTo = To.ReadState(value);
-        return IfBranchConditions.ApplyReplacements(Conditions, factory.CreateStateTransferringRule());
+        return GenerateStateTransferringRule(factory);
     }
-
-    public int RecommendedDepth => 1;
 
     #endregion
     #region Basic object overrides.

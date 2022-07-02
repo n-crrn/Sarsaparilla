@@ -3,7 +3,7 @@ using StatefulHorn.Messages;
 
 namespace AppliedPi.Translate.MutateRules;
 
-public class DeconstructionRule : IMutateRule
+public class DeconstructionRule : MutateRule
 {
 
     public DeconstructionRule(
@@ -15,6 +15,8 @@ public class DeconstructionRule : IMutateRule
         Id = uniqueId;
         SourceCell = new($"destr@{Id}", new() { lhs });
         DestinationCell = new(destCellName, new() { rhs });
+
+        Label = $"Deconst-{Id}-{DestinationCell.Name}";
     }
 
     private readonly string Id;
@@ -30,19 +32,11 @@ public class DeconstructionRule : IMutateRule
 
     #region IMutableRule implementation.
 
-    public string Label => $"Deconst-{Id}-{DestinationCell.Name}";
-
-    public IfBranchConditions Conditions { get; set; } = IfBranchConditions.Empty;
-
-    public Rule GenerateRule(RuleFactory factory)
+    public override Rule GenerateRule(RuleFactory factory)
     {
         factory.RegisterPremises(Event.Know(SourceCell));
-        factory.GuardStatements = Conditions?.CreateGuard();
-        Rule r = factory.CreateStateConsistentRule(Event.Know(DestinationCell));
-        return IfBranchConditions.ApplyReplacements(Conditions, r);
+        return GenerateStateConsistentRule(factory, Event.Know(DestinationCell));
     }
-
-    public int RecommendedDepth => 0; // Does not lead to new Frame creation.
 
     #endregion
     #region Basic object override.
