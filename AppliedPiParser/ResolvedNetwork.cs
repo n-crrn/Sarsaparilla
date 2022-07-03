@@ -102,7 +102,7 @@ public class ResolvedNetwork
         return new VariableMessage(t.Name);
     }
 
-    public StatefulHorn.Event TermToKnow(Term t) => StatefulHorn.Event.Know(TermToMessage(t));
+    public Event TermToKnow(Term t) => Event.Know(TermToMessage(t));
 
     public bool CheckTermType(Term t, PiType pt)
     {

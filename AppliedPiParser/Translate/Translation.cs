@@ -48,16 +48,16 @@ public class Translation
 
     private static Rule TranslateConstructor(Constructor ctr, RuleFactory factory)
     {
-        HashSet<StatefulHorn.Event> premises = new();
+        HashSet<Event> premises = new();
         List<IMessage> funcParam = new();
         for (int i = 0; i < ctr.ParameterTypes.Count; i++)
         {
             IMessage varMsg = new VariableMessage($"@v{i}");
-            premises.Add(StatefulHorn.Event.Know(varMsg));
+            premises.Add(Event.Know(varMsg));
             funcParam.Add(varMsg);
         }
         factory.RegisterPremises(premises.ToArray());
-        StatefulHorn.Event result = StatefulHorn.Event.Know(new FunctionMessage(ctr.Name, funcParam));
+        Event result = Event.Know(new FunctionMessage(ctr.Name, funcParam));
         if (ctr.DefinedAt != null)
         {
             factory.SetUserDefinition(new(ctr.DefinedAt.Row, ctr.DefinedAt.Column, ctr.ToString()));
@@ -75,15 +75,15 @@ public class Translation
         factory.SetUserDefinition(dtr.DefinedAt?.AsDefinition(dtr.ToString()));
         foreach (Term p in dtr.LeftHandSide.Parameters)
         {
-            factory.RegisterPremise(StatefulHorn.Event.Know(rn.TermToLooseMessage(p)));
+            factory.RegisterPremise(Event.Know(rn.TermToLooseMessage(p)));
         }
-        yield return factory.CreateStateConsistentRule(StatefulHorn.Event.Know(lhs));
+        yield return factory.CreateStateConsistentRule(Event.Know(lhs));
 
         // The destructor to value rule.
         IMessage rhs = new VariableMessage(dtr.RightHandSide);
-        factory.RegisterPremises(StatefulHorn.Event.Know(lhs));
+        factory.RegisterPremises(Event.Know(lhs));
         factory.SetUserDefinition(dtr.DefinedAt?.AsDefinition(dtr.ToString()));
-        yield return factory.CreateStateConsistentRule(StatefulHorn.Event.Know(rhs));
+        yield return factory.CreateStateConsistentRule(Event.Know(rhs));
     }
 
     public static Translation From(ResolvedNetwork rn, Network nw)
@@ -384,7 +384,7 @@ public class Translation
         List<BranchSummary> ParallelBranches,
         PathSurveyor Surveyor,
         IfBranchConditions Conditions,
-        HashSet<StatefulHorn.Event> Premises,
+        HashSet<Event> Premises,
         bool Replicated,
         Dictionary<string, int> LeakedSockets,
         TranslateFrame? PreviousControlSplit,
@@ -480,15 +480,18 @@ public class Translation
 
                 if (tf.Replicated && tf.Rn.CheckTermType(ocp.SentTerm, PiType.Channel))
                 {
-                    IMessage sendMessage = new NameMessage(GetNextSentSocketMarker(ocp.SentTerm.ToString(), tf.LeakedSockets));
-                    HashSet<StatefulHorn.Event> sendPremises = new(tf.Premises) { StatefulHorn.Event.Know(sendMessage) };
+                    NameMessage sendMessage = new(GetNextSentSocketMarker(ocp.SentTerm.ToString(), tf.LeakedSockets));
+                    HashSet<Event> sendPremises = new(tf.Premises) { Event.Know(sendMessage) };
                     string sendChannel = ocp.SentTerm.ToString();
                     if (n.Branches.Count > 0)
                     {
                         ProVerifTranslate(sendChannel, n.Branches[0], sendPremises, rules, tf.Rn, tf.Nw);
                     }
-                    ParallelProcessesProVerifTranslate(tf, sendChannel, StatefulHorn.Event.Know(sendMessage), rules);
-                    rules.Add(new BasicRule(new() { StatefulHorn.Event.Know(sendMessage) }, resultMessage, $"ChannelToken:{sendMessage}:{resultMessage}"));
+                    ParallelProcessesProVerifTranslate(tf, sendChannel, Event.Know(sendMessage), rules);
+                    rules.Add(new BasicRule(
+                        new() { Event.Know(sendMessage) }, 
+                        resultMessage, 
+                        $"ChannelToken:{sendMessage}:{resultMessage}"));
 
                     resultMessage = sendMessage;
                 }
@@ -680,7 +683,7 @@ public class Translation
                 ParallelBranches = childParallelLists[GuardedBranchOffset],
                 Surveyor = tf.Summary.Children[GuardedBranchOffset].NextSurveyor(tf.Surveyor),
                 Conditions = tf.Conditions,
-                Premises = new(tf.Premises) { StatefulHorn.Event.Know(lvsFactory.StoragePremiseMessage) },
+                Premises = new(tf.Premises) { Event.Know(lvsFactory.StoragePremiseMessage) },
                 PreviousControlSplit = tf,
                 WhichChild = GuardedBranchOffset
             };
@@ -696,7 +699,7 @@ public class Translation
                     ParallelBranches = childParallelLists[ElseBranchOffset],
                     Surveyor = tf.Summary.Children[ElseBranchOffset].NextSurveyor(tf.Surveyor),
                     Conditions = tf.Conditions.Not(lvsFactory.Variable, lvsFactory.StoragePremiseMessage),
-                    Premises = new(tf.Premises) { StatefulHorn.Event.Know(lvsFactory.EmptyStoragePremiseMessage) },
+                    Premises = new(tf.Premises) { Event.Know(lvsFactory.EmptyStoragePremiseMessage) },
                     PreviousControlSplit = tf,
                     WhichChild = ElseBranchOffset
                 };
@@ -769,13 +772,13 @@ public class Translation
     private static void ParallelProcessesProVerifTranslate(
         TranslateFrame fromFrame, 
         string sentChannel, 
-        StatefulHorn.Event sendPremise,
+        Event sendPremise,
         HashSet<MutateRule> allRules)
     {
         if (fromFrame.PreviousControlSplit != null)
         {
             TranslateFrame tf = fromFrame.PreviousControlSplit;
-            HashSet<StatefulHorn.Event> premises = new(tf.Premises) { sendPremise };
+            HashSet<Event> premises = new(tf.Premises) { sendPremise };
             for (int i = 0; i < tf.Node.Branches.Count; i++)
             {
                 if (i != tf.WhichChild)
@@ -789,7 +792,7 @@ public class Translation
     private static void ProVerifTranslate(
         string sentChannel,
         ProcessTree.Node n,
-        HashSet<StatefulHorn.Event> premises,
+        HashSet<Event> premises,
         HashSet<MutateRule> allRules,
         ResolvedNetwork rn,
         Network nw)
@@ -840,9 +843,9 @@ public class Translation
             case LetProcess lp:
                 LetValueSetFactory lvsFactory = new(lp, rn, nw, Enumerable.Empty<Socket>(), Enumerable.Empty<Socket>(), premises);
                 allRules.UnionWith(lvsFactory.GenerateSetRules());
-                HashSet<StatefulHorn.Event> guardedPremises = new(premises)
+                HashSet<Event> guardedPremises = new(premises)
                 {
-                    StatefulHorn.Event.Know(lvsFactory.StoragePremiseMessage)
+                    Event.Know(lvsFactory.StoragePremiseMessage)
                 };
                 HashSet<MutateRule> letGuardRules = new();
                 ProVerifTranslate(sentChannel, n.Branches[0], guardedPremises, letGuardRules, rn, nw);
@@ -851,9 +854,9 @@ public class Translation
                 if (n.Branches.Count > 1)
                 {
                     IfBranchConditions elseConds = new(new(), new(lvsFactory.Variable, lvsFactory.StoragePremiseMessage));
-                    HashSet<StatefulHorn.Event> elsePremises = new(premises)
+                    HashSet<Event> elsePremises = new(premises)
                     {
-                        StatefulHorn.Event.Know(lvsFactory.EmptyStoragePremiseMessage)
+                        Event.Know(lvsFactory.EmptyStoragePremiseMessage)
                     };
                     HashSet<MutateRule> letElseRules = new();
                     ProVerifTranslate(sentChannel, n.Branches[1], elsePremises, letElseRules, rn, nw);

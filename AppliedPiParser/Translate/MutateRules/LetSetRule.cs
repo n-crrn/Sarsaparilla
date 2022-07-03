@@ -1,9 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 
-using AppliedPi;
-using AppliedPi.Model;
-using AppliedPi.Processes;
 using StatefulHorn;
 
 namespace AppliedPi.Translate.MutateRules;
@@ -13,14 +10,14 @@ public class LetSetRule : MutateRule
 
     public LetSetRule(
         string desig, 
-        IEnumerable<StatefulHorn.Event> premises, 
+        IEnumerable<Event> premises, 
         IEnumerable<Socket> shutSockets, 
         IEnumerable<Socket> initSockets,
         IfBranchConditions triggerConditions, 
-        StatefulHorn.Event setKnow)
+        Event setKnow)
     {
         Designation = desig;
-        Premises = new HashSet<StatefulHorn.Event>(premises);
+        Premises = new HashSet<Event>(premises);
         SocketStates = new List<State>();
         SocketStates.AddRange(from s in shutSockets select s.ShutState());
         SocketStates.AddRange(from i in initSockets select i.InitialState());
@@ -33,13 +30,13 @@ public class LetSetRule : MutateRule
 
     public string Designation { get; init; }
 
-    public IReadOnlySet<StatefulHorn.Event> Premises { get; init; }
+    public IReadOnlySet<Event> Premises { get; init; }
 
     public List<State> SocketStates { get; init; }
 
     public IfBranchConditions TriggerConditions { get; init; }
 
-    public StatefulHorn.Event SetKnow { get; init; }
+    public Event SetKnow { get; init; }
 
     #endregion
     #region IMutableRule implementation.

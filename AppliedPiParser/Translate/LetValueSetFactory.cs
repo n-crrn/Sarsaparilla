@@ -25,14 +25,14 @@ public class LetValueSetFactory
         Network nw, 
         IEnumerable<Socket> previousSockets, 
         IEnumerable<Socket> nextSockets,
-        HashSet<StatefulHorn.Event> premises)
+        HashSet<Event> premises)
     {
         Let = lp;
         ResolvedNetwork = rn;
         Network = nw;
         PreviousSockets = new List<Socket>(previousSockets);
         NextSockets = new List<Socket>(from ns in nextSockets where !ns.IsInfinite select ns);
-        Premises = new HashSet<StatefulHorn.Event>(premises);
+        Premises = new HashSet<Event>(premises);
     }
 
     private LetProcess Let { get; init; }
@@ -41,7 +41,7 @@ public class LetValueSetFactory
 
     private Network Network { get; init; }
 
-    public IReadOnlySet<StatefulHorn.Event> Premises { get; init; }
+    public IReadOnlySet<Event> Premises { get; init; }
 
     public IReadOnlyList<Socket> PreviousSockets { get; init; }
 
@@ -145,7 +145,7 @@ public class LetValueSetFactory
                             PreviousSockets,
                             NextSockets,
                             IfBranchConditions.Empty,
-                            StatefulHorn.Event.Know(dRule.SourceCellContaining(ResolvedNetwork.TermToMessage(t))));
+                            Event.Know(dRule.SourceCellContaining(ResolvedNetwork.TermToMessage(t))));
                     }
                 }
                 else
@@ -156,7 +156,7 @@ public class LetValueSetFactory
                             PreviousSockets,
                             NextSockets,
                             IfBranchConditions.Empty,
-                            StatefulHorn.Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })));
+                            Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })));
                 }
             }
             else
@@ -167,7 +167,7 @@ public class LetValueSetFactory
                     PreviousSockets,
                     NextSockets,
                     IfBranchConditions.Empty,
-                    StatefulHorn.Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })));
+                    Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })));
             }
         }
         else if (iGen is IfTerm it)
