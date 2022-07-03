@@ -396,7 +396,7 @@ process
             bool nessionAttackFound = false;
             void onAttackAssessedFound(Nession n, IReadOnlySet<HornClause> hs, Attack? a) => nessionAttackFound |= a != null;
 
-            foreach (QueryEngine qe in t.QE5s())
+            foreach (QueryEngine qe in t.QueryEngines())
             {
                 await qe.Execute(null, onAttackAssessedFound, null, t.RecommendedDepth);
 

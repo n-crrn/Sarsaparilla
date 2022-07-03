@@ -36,14 +36,6 @@ public class Translation
         }
     }
 
-    public IEnumerable<QueryEngine> QE5s()
-    {
-        foreach (IMessage queryMsg in Queries)
-        {
-            yield return new QueryEngine(InitialStates, queryMsg, null, Rules);
-        }
-    }
-
     public int RecommendedDepth { get; init; }
 
     private static Rule TranslateConstructor(Constructor ctr, RuleFactory factory)
