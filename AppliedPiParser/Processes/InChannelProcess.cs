@@ -15,6 +15,7 @@ public class InChannelProcess : IProcess
     {
         Channel = channelName;
         ReceivePattern = pattern;
+        DefinedAt = definedAt;
     }
 
     public string Channel { get; init; }
