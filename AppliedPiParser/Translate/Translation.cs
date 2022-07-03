@@ -439,11 +439,14 @@ public class Translation
                 }
                 else
                 {
-                    rules.Add(new ReadResetRule(reader, tf.Surveyor.MarkPath())
-                    { 
-                        Conditions = tf.Conditions,
-                        DefinedBy = icpUserDef
-                    });
+                    if (tf.Surveyor.HasInteractedWith(reader))
+                    {
+                        rules.Add(new ReadResetRule(reader, tf.Surveyor.MarkPath())
+                        {
+                            Conditions = tf.Conditions,
+                            DefinedBy = icpUserDef
+                        });
+                    }
                     tf.Surveyor.AddInteractionFor(reader);
                     foreach (MutateRule mr in ReadRule.GenerateRulesForReceivePattern(reader, icp.ReceivePattern))
                     {

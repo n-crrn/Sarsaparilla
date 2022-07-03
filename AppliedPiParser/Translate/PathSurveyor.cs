@@ -83,6 +83,15 @@ public class PathSurveyor
         return new List<Socket>(InteractionCount.Keys);
     }
 
+    /// <summary>
+    /// Returns whether the given socket has been interacted with during this branch of control.
+    /// An exception will be thrown if the socket is not an interactive socket within this 
+    /// instance.
+    /// </summary>
+    /// <param name="s">Socket to check.</param>
+    /// <returns>True if the socket has been interacted with (i.e.read or written to).</returns>
+    public bool HasInteractedWith(Socket s) => InteractionCount[s] > 0;
+
     #endregion
     #region Marker and marker creation.
 
