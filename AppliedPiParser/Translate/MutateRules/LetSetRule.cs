@@ -14,7 +14,8 @@ public class LetSetRule : MutateRule
         IEnumerable<Socket> shutSockets, 
         IEnumerable<Socket> initSockets,
         IfBranchConditions triggerConditions, 
-        Event setKnow)
+        Event setKnow,
+        UserDefinition? userDef)
     {
         Designation = desig;
         Premises = new HashSet<Event>(premises);
@@ -24,6 +25,7 @@ public class LetSetRule : MutateRule
         TriggerConditions = triggerConditions;
         SetKnow = setKnow;
         Label = $"LetSet-{Designation}-{SetKnow.Message}";
+        DefinedBy = userDef;
     }
 
     #region Properties.
@@ -59,9 +61,15 @@ public class LetSetRule : MutateRule
         {
             factory.RegisterPremises(Premises.ToArray());
         }
+
+        // Because the trigger conditions have to be incorporated,
+        // MutateRule.GenerateStateConsistentRule(...) is not suitable here.
         IfBranchConditions fullConditions = Conditions.And(TriggerConditions);
-        factory.GuardStatements = fullConditions?.CreateGuard();
-        return IfBranchConditions.ApplyReplacements(fullConditions, factory.CreateStateConsistentRule(SetKnow));
+        factory.GuardStatements = fullConditions.CreateGuard();
+        factory.SetNextLabel(Label);
+        factory.SetUserDefinition(DefinedBy);
+        Rule r = factory.CreateStateConsistentRule(SetKnow);
+        return r.Substitute(fullConditions.CreateSigmaMap());
     }
 
     #endregion

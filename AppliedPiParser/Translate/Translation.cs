@@ -663,7 +663,8 @@ public class Translation
                 tf.Nw, 
                 thisBranchSockets, 
                 tf.Summary.Children[GuardedBranchOffset].AllSockets(), 
-                tf.Premises
+                tf.Premises,
+                lp.DefinedAt?.AsDefinition(lp.ToString())
             );
             rules.UnionWith(lvsFactory.GenerateSetRules()); 
 
@@ -833,7 +834,14 @@ public class Translation
                 }
                 break;
             case LetProcess lp:
-                LetValueSetFactory lvsFactory = new(lp, rn, nw, Enumerable.Empty<Socket>(), Enumerable.Empty<Socket>(), premises);
+                LetValueSetFactory lvsFactory = new(
+                    lp, 
+                    rn, 
+                    nw, 
+                    Enumerable.Empty<Socket>(), 
+                    Enumerable.Empty<Socket>(), 
+                    premises,
+                    lp.DefinedAt?.AsDefinition(lp.ToString()));
                 allRules.UnionWith(lvsFactory.GenerateSetRules());
                 HashSet<Event> guardedPremises = new(premises)
                 {

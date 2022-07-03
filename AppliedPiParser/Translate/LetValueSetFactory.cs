@@ -25,7 +25,8 @@ public class LetValueSetFactory
         Network nw, 
         IEnumerable<Socket> previousSockets, 
         IEnumerable<Socket> nextSockets,
-        HashSet<Event> premises)
+        HashSet<Event> premises,
+        UserDefinition? userDef)
     {
         Let = lp;
         ResolvedNetwork = rn;
@@ -33,19 +34,22 @@ public class LetValueSetFactory
         PreviousSockets = new List<Socket>(previousSockets);
         NextSockets = new List<Socket>(from ns in nextSockets where !ns.IsInfinite select ns);
         Premises = new HashSet<Event>(premises);
+        Definition = userDef;
     }
 
-    private LetProcess Let { get; init; }
+    private readonly LetProcess Let;
 
-    private ResolvedNetwork ResolvedNetwork { get; init; }
+    private readonly ResolvedNetwork ResolvedNetwork;
 
-    private Network Network { get; init; }
+    private readonly Network Network;
 
-    public IReadOnlySet<Event> Premises { get; init; }
+    public readonly IReadOnlySet<Event> Premises;
 
-    public IReadOnlyList<Socket> PreviousSockets { get; init; }
+    public readonly IReadOnlyList<Socket> PreviousSockets;
 
-    public IReadOnlyList<Socket> NextSockets { get; init; }
+    public readonly IReadOnlyList<Socket> NextSockets;
+
+    private readonly UserDefinition? Definition;
 
     /// <summary>
     /// This is the specific premise, which can be used in the guarded branch of the let process.
@@ -136,7 +140,10 @@ public class LetValueSetFactory
                     {
                         IMessage lhs = ResolvedNetwork.TermToLooseMessage(d.LeftHandSide);
                         IMessage rhs = ResolvedNetwork.TermToLooseMessage(new(d.RightHandSide));
-                        DeconstructionRule dRule = new($"lvs{dId}", lhs, rhs, CellName);
+                        DeconstructionRule dRule = new($"lvs{dId}", lhs, rhs, CellName)
+                        {
+                            DefinedBy = Definition
+                        };
                         dId++;
                         yield return dRule;
                         yield return new LetSetRule(
@@ -145,7 +152,8 @@ public class LetValueSetFactory
                             PreviousSockets,
                             NextSockets,
                             IfBranchConditions.Empty,
-                            Event.Know(dRule.SourceCellContaining(ResolvedNetwork.TermToMessage(t))));
+                            Event.Know(dRule.SourceCellContaining(ResolvedNetwork.TermToMessage(t))),
+                            Definition);
                     }
                 }
                 else
@@ -156,7 +164,8 @@ public class LetValueSetFactory
                             PreviousSockets,
                             NextSockets,
                             IfBranchConditions.Empty,
-                            Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })));
+                            Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })),
+                            Definition);
                 }
             }
             else
@@ -167,7 +176,8 @@ public class LetValueSetFactory
                     PreviousSockets,
                     NextSockets,
                     IfBranchConditions.Empty,
-                    Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })));
+                    Event.Know(new FunctionMessage(CellName, new() { ResolvedNetwork.TermToMessage(t) })),
+                    Definition);
             }
         }
         else if (iGen is IfTerm it)

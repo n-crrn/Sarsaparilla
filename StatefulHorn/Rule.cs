@@ -330,7 +330,9 @@ public abstract class Rule
         {
             newPremises.Add(p.Substitute(sigma));
         }
-        return CreateDerivedRule(newLabel, newG, newPremises, newTree, sigma);
+        Rule sr = CreateDerivedRule(newLabel, newG, newPremises, newTree, sigma);
+        sr.Definition = Definition;
+        return sr;
     }
 
     /// <summary>
@@ -369,7 +371,9 @@ public abstract class Rule
     /// <returns>New rule with premises and snapshots also fully duplicated.</returns>
     public Rule Clone()
     {
-        return CreateDerivedRule(Label, Guard, new(Premises), Snapshots.CloneTree(), SigmaMap.Empty);
+        Rule r = CreateDerivedRule(Label, Guard, new(Premises), Snapshots.CloneTree(), SigmaMap.Empty);
+        r.Definition = Definition;
+        return r;
     }
 
     #endregion
