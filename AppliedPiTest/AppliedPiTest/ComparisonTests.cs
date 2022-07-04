@@ -12,13 +12,21 @@ using StatefulHorn.Messages;
 
 namespace SarsaparillaTests.AppliedPiTest;
 
+/// <summary>
+/// Tests of the operations of IComparison implementations and of the ComparisonParser.
+/// </summary>
 [TestClass]
 public class ComparisonTests
 {
-    #region General comparison operations tests.
 
+    #region Comparison construction tests.
+
+    /// <summary>
+    /// Tests that groups of operations can be correctly translated from tokens into IComparison
+    /// implementations.
+    /// </summary>
     [TestMethod]
-    public void ConstructionTest()
+    public void SimpleConstructionTest()
     {
         IComparison expectedCmp1 = new BooleanComparison(
             BooleanComparison.Type.And,
@@ -37,7 +45,6 @@ public class ComparisonTests
         DoConstructTest(new() { "(", "b", "<>", "c", "&&", "d", "=", "e", ")", "||", "a", "=", "b" }, expectedCmp2);
 
         IComparison expectedCmp3 = new NotComparison(new IsComparison("a"));
-        //DoConstructTest(new() { "not", "(", "a", ")" }, expectedCmp3);
         DoConstructTest(new() { "not", "a" }, expectedCmp3);
 
         IComparison expectedCmp4 = new BooleanComparison(
@@ -47,11 +54,34 @@ public class ComparisonTests
         DoConstructTest(new() { "not", "(", "a", "&&", "b", ")", "||", "c" }, expectedCmp4);
     }
 
+    /// <summary>
+    /// Tests that operations involving Pi-Calculus constructors and tuples can be correctly 
+    /// translated into IComparison implementations.
+    /// </summary>
+    [TestMethod]
+    public void ComplexConstructionTest()
+    {
+        // Note that tuples and function terms should not have any spaces in them, as none are 
+        // added by the conversion from tokens.
+
+        EqualityComparison expectedCmp1 = new(true, "(a,b)", "h(d,e)");
+        DoConstructTest(new() { "(", "a", ",", "b", ")", "=", "h", "(", "d", ",", "e", ")" }, expectedCmp1);
+
+        EqualityComparison expectedCmp2 = new(false, "(a,b,c)", "h(d)");
+        DoConstructTest(new() { "(", "a", ",", "b", ",", "c", ")", "<>", "h", "(", "d", ")" }, expectedCmp2);
+
+        EqualityComparison expectedCmp3 = new(true, "a", "h(b,c,d)");
+        DoConstructTest(new() { "a", "=", "h", "(", "b", ",", "c", ",", "d", ")" }, expectedCmp3);
+    }
+
     private static void DoConstructTest(List<string> tokens, IComparison expectedCmp)
     {
         IComparison parsedCmp = ComparisonParser.Parse(tokens);
         Assert.AreEqual(expectedCmp, parsedCmp);
     }
+
+    #endregion
+    #region General comparison operations tests.
 
     [TestMethod]
     public void TypeTest()
@@ -243,4 +273,5 @@ public class ComparisonTests
     }
 
     #endregion
+
 }

@@ -6,8 +6,28 @@ using AppliedPi.Model;
 using AppliedPi.Statements;
 
 namespace AppliedPi;
+
+/// <summary>
+/// A parser for a basic subset of the ProVerif Specification Language, which is itself a dialect
+/// of Applied Pi-Calculus.
+/// </summary>
 public class Parser
 {
+
+    /// <summary>
+    /// Creates a new Parser that retrieves statements and tokens from the given code.
+    /// </summary>
+    /// <param name="codeToParse">
+    /// Applied Pi-Calculus model to parse. Note that the model may not be parsed correctly if
+    /// there is an attempt to use a program with Unicode runes requiring more than two bytes.
+    /// </param>
+    public Parser(string codeToParse)
+    {
+        Code = codeToParse;
+    }
+
+    #region Properties.
+
     /// <summary>
     /// The Applied Pi Code that has been provided to the Parser for parsing. The program size
     /// expected is relatively small (typically less than 1kB) so there is nothing gained from
@@ -15,11 +35,72 @@ public class Parser
     /// </summary>
     public string Code { get; init; } = "";
 
+    /// <summary>
+    /// The previous character position parsed.
+    /// </summary>
     private int Offset = -1;
 
-    public Parser(string codeToParse)
+    #endregion
+    #region Public interface.
+
+    /// <summary>
+    /// Attempt to read the next Applied Pi-Calculus statement. Note that a statement means a
+    /// top-level construct such as a constructor definition or a let definition. Individual
+    /// sub-processes within a 'let' or 'process' statement are parsed elsewhere.
+    /// </summary>
+    /// <returns>
+    /// A ParseResult object, indicating (1) if the read was successful, (2) any errors
+    /// encountered during the read and (3) the statement that was read if the read was
+    /// successful.
+    /// </returns>
+    public ParseResult ReadNextStatement()
     {
-        Code = codeToParse;
+        SkipWhiteSpaceAndComments();
+        if (Offset >= Code.Length)
+        {
+            return ParseResult.Finished();
+        }
+        try
+        {
+            string nextToken = ReadNextToken();
+            switch (nextToken)
+            {
+                case "fun":
+                    return Constructor.CreateFromStatement(this);
+                case "reduc":
+                    return Destructor.CreateFromStatement(this);
+                case "free":
+                    return FreeStatement.CreateFromStatement(this);
+                case "const":
+                    return Constant.CreateFromStatement(this);
+                case "type":
+                    return TypeStatement.CreateFromStatement(this);
+                case "query":
+                    return QueryStatement.CreateFromStatement(this);
+                case "not": // Fallthrough...
+                case "set":
+                    ReadThroughIgnoreableStatement(); // Skip the ignoreable statement and...
+                    return ReadNextStatement();       // recurse.
+                case "let":
+                    return LetStatement.CreateFromStatement(this);
+                case "process":
+                    return ProcessStatement.CreateFromStatement(this);
+                default:
+                    return ParseResult.Failure(this, $"The Statement parsing for {nextToken} is not implemented.");
+            }
+        }
+        catch (UnexpectedTokenException utEx)
+        {
+            return ParseResult.Failure(this, utEx.Message);
+        }
+        catch (InvalidNameTokenException intEx)
+        {
+            return ParseResult.Failure(this, intEx.Message);
+        }
+        catch (EndOfCodeException)
+        {
+            return ParseResult.Failure(this, "Code ended before the statement did.");
+        }
     }
 
     public RowColumnPosition GetRowColumn()
@@ -36,6 +117,8 @@ public class Parser
         }
         return new(row, Offset - lastNextLine);
     }
+
+    #endregion
 
     internal (char, char) ReadNext()
     {
@@ -341,12 +424,12 @@ public class Parser
         "reduc",
         "forall",
         "free",
-        "event",
-        "table",
+        "event", // Reserved for future use.
+        "table", // Reserved for future use.
         "type",
         "query",
-        "not",
-        "set",
+        "not",   // Reserved for future use.
+        "set",   // Reserved for future use.
         "let",
         "process",
         "insert",
@@ -356,8 +439,7 @@ public class Parser
         "out",
         "if",
         "then",
-        "else",
-        "state"
+        "else"
     };
 
     internal static bool IsValidName(string token)
@@ -406,56 +488,6 @@ public class Parser
         }
         // If Offset becomes greater than Code.Length, this is not a problem
         // as it will be caught by the next Read* method call.
-    }
-
-    public ParseResult ReadNextStatement()
-    {
-        SkipWhiteSpaceAndComments();
-        if (Offset >= Code.Length)
-        {
-            return ParseResult.Finished();
-        }
-        try
-        {
-            string nextToken = ReadNextToken();
-            switch (nextToken)
-            {
-                case "fun":
-                    return Constructor.CreateFromStatement(this);
-                case "reduc":
-                    return Destructor.CreateFromStatement(this);
-                case "free":
-                    return FreeStatement.CreateFromStatement(this);
-                case "const":
-                    return Constant.CreateFromStatement(this);
-                case "type":
-                    return TypeStatement.CreateFromStatement(this);
-                case "query":
-                    return QueryStatement.CreateFromStatement(this);
-                case "not": // Fallthrough...
-                case "set":
-                    ReadThroughIgnoreableStatement(); // Skip the ignoreable statement and...
-                    return ReadNextStatement();       // recurse.
-                case "let":
-                    return LetStatement.CreateFromStatement(this);
-                case "process":
-                    return ProcessStatement.CreateFromStatement(this);
-                default:
-                    return ParseResult.Failure(this, $"The Statement parsing for {nextToken} is not implemented.");
-            }
-        }
-        catch (UnexpectedTokenException utEx)
-        {
-            return ParseResult.Failure(this, utEx.Message);
-        }
-        catch (InvalidNameTokenException intEx)
-        {
-            return ParseResult.Failure(this, intEx.Message);
-        }
-        catch (EndOfCodeException)
-        {
-            return ParseResult.Failure(this, "Code ended before the statement did.");
-        }
     }
 
 }
