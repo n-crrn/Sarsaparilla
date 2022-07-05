@@ -72,6 +72,10 @@ public class ComparisonTests
 
         EqualityComparison expectedCmp3 = new(true, "a", "h(b,c,d)");
         DoConstructTest(new() { "a", "=", "h", "(", "b", ",", "c", ",", "d", ")" }, expectedCmp3);
+
+        EqualityComparison nestedCmp1 = new(true, "((a,b),c)", "h(h(d,e),f)");
+        DoConstructTest(new() { "(", "(", "a", ",", "b", ")", ",", "c", ")", "=", "h", "(", 
+                                "h", "(", "d", ",", "e", ")", ",", "f", ")" }, nestedCmp1);
     }
 
     private static void DoConstructTest(List<string> tokens, IComparison expectedCmp)

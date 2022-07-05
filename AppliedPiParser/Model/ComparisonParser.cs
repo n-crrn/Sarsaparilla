@@ -34,51 +34,65 @@ public static class ComparisonParser
     {
         List<string> updatedTkns = new(tokens);
 
-        // If there is a comma, then the text on either side belongs together.
-        for (int i = 1; i < updatedTkns.Count - 1; i++)
+        // If there are nested terms, then the following "token collection into term" process 
+        // needs to be repeated several times.
+        bool changed;
+        do
         {
-            if (updatedTkns[i] == ",")
-            {
-                string replacement = updatedTkns[i - 1] + "," + updatedTkns[i + 1];
-                updatedTkns.RemoveRange(i - 1, 3);
-                updatedTkns.Insert(i - 1, replacement);
-                i--;
-            }
-        }
+            changed = false;
 
-        // Now that we've assembled the parameter lists and tuple internals, let's reassemble
-        // named terms. If we find brackets, we need to work out if they belong together with
-        // other pieces.
-        // FIXME: This is not quite working.
-        for (int i = 0; i < updatedTkns.Count - 3; i++)
-        {
-            if (!CompOps.Contains(updatedTkns[i]) && updatedTkns[i + 1] == "(" 
-                && !CompOps.Contains(updatedTkns[i + 2]) && updatedTkns[i + 3] == ")")
+            // If there is a comma, then the text on either side belongs together.
+            for (int i = 1; i < updatedTkns.Count - 1; i++)
             {
-                string termReplacement = updatedTkns[i] + "(" + updatedTkns[i + 2] + ")";
-                updatedTkns.RemoveRange(i, 4);
-                updatedTkns.Insert(i, termReplacement);
+                if (updatedTkns[i] == ","
+                    && !CompOps.Contains(updatedTkns[i - 1])
+                    && !CompOps.Contains(updatedTkns[i + 1]))
+                {
+                    string replacement = updatedTkns[i - 1] + "," + updatedTkns[i + 1];
+                    updatedTkns.RemoveRange(i - 1, 3);
+                    updatedTkns.Insert(i - 1, replacement);
+                    i--;
+                    changed = true;
+                }
             }
-        }
+        
+            // Now that we've assembled the parameter lists and tuple internals, let's reassemble
+            // named terms. If we find brackets, we need to work out if they belong together with
+            // other pieces.
+            for (int i = 0; i < updatedTkns.Count - 3; i++)
+            {
+                if (!CompOps.Contains(updatedTkns[i]) 
+                    && updatedTkns[i + 1] == "(" 
+                    && !CompOps.Contains(updatedTkns[i + 2]) 
+                    && updatedTkns[i + 3] == ")")
+                {
+                    string termReplacement = updatedTkns[i] + "(" + updatedTkns[i + 2] + ")";
+                    updatedTkns.RemoveRange(i, 4);
+                    updatedTkns.Insert(i, termReplacement);
+                    changed = true;
+                }
+            }
 
-        // See if we have any tuples to reassemble.
-        for (int i = 1; i < updatedTkns.Count - 1; i++)
-        {
-            if (updatedTkns[i - 1] == "(" 
-                && !CompOps.Contains(updatedTkns[i]) &&
-                updatedTkns[i + 1] == ")")
+            // See if we have any tuples to reassemble.
+            for (int i = 1; i < updatedTkns.Count - 1; i++)
             {
-                string tupleReplacement = "(" + updatedTkns[i] + ")";
-                updatedTkns.RemoveRange(i - 1, 3);
-                updatedTkns.Insert(i - 1, tupleReplacement);
+                if (updatedTkns[i - 1] == "(" 
+                    && !CompOps.Contains(updatedTkns[i]) &&
+                    updatedTkns[i + 1] == ")")
+                {
+                    string tupleReplacement = "(" + updatedTkns[i] + ")";
+                    updatedTkns.RemoveRange(i - 1, 3);
+                    updatedTkns.Insert(i - 1, tupleReplacement);
+                    changed = true;
+                }
             }
-        }
+        } while (changed);
 
         List<Node> nodes = new(from t in updatedTkns select new Node(t));
         return ParseNodes(nodes);
     }
 
-    private static readonly List<string> CompOps = new() { "&&", "||", "=", "<>" };
+    private static readonly List<string> CompOps = new() { "&&", "||", "=", "<>", ")", "(" };
 
     #endregion
     #region Parsing.
