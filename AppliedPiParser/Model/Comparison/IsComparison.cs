@@ -13,7 +13,7 @@ public class IsComparison : IComparison
     public IsComparison(string name)
     {
         Name = name;
-        AsTerm = Term.Parse(name);
+        AsTerm = Term.From(name);
     }
 
     private IsComparison(Term t)

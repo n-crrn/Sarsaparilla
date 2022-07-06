@@ -32,11 +32,6 @@ public class BooleanComparison : IComparison
 
     public IComparison RightInput { get; init; }
 
-    public static bool IsValidTypeString(string token)
-    {
-        return token == "&&" || token == "||";
-    }
-
     public static BooleanComparison.Type TypeFromString(string token)
     {
         if (token == "&&")
@@ -90,7 +85,10 @@ public class BooleanComparison : IComparison
 
     public override bool Equals(object? obj)
     {
-        return obj is BooleanComparison bc && Operator == bc.Operator && LeftInput.Equals(bc.LeftInput) && RightInput.Equals(bc.RightInput);
+        return obj is BooleanComparison bc 
+            && Operator == bc.Operator 
+            && LeftInput.Equals(bc.LeftInput) 
+            && RightInput.Equals(bc.RightInput);
     }
 
     public override int GetHashCode() => LeftInput.GetHashCode();
