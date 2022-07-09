@@ -49,6 +49,13 @@ public class Network
         return nw;
     }
 
+    #region User settable model properties.
+
+    internal Dictionary<string, string> _Properties = new();
+
+    public IReadOnlyDictionary<string, string> Properties => _Properties;
+
+    #endregion
     #region PiType declarations.
 
     public static readonly string ChannelType = "channel";
@@ -63,14 +70,14 @@ public class Network
 
     internal Dictionary<string, FreeDeclaration> _FreeDeclarations = new();
 
-    public IReadOnlyDictionary<string, FreeDeclaration> FreeDeclarations { get => _FreeDeclarations; }
+    public IReadOnlyDictionary<string, FreeDeclaration> FreeDeclarations => _FreeDeclarations;
 
     #endregion
     #region Constant declarations.
 
     internal HashSet<Constant> _Constants = new();
 
-    public IReadOnlySet<Constant> Constants { get => _Constants; }
+    public IReadOnlySet<Constant> Constants => _Constants;
 
     public Constant? GetConstant(string name)
     {
@@ -89,7 +96,7 @@ public class Network
 
     internal HashSet<AttackerQuery> _Queries = new();
 
-    public IReadOnlySet<AttackerQuery> Queries { get => _Queries; }
+    public IReadOnlySet<AttackerQuery> Queries => _Queries;
 
     #endregion
     #region Constructor and destructor declarations.

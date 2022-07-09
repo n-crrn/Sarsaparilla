@@ -34,6 +34,7 @@ public class StatementTests
             "const c1: tag [data].";
         List<IStatement> expectedStatements = new()
         {
+            new SetStatement("ignoreTypes", "false", null),
             new FreeStatement(new() { "c" }, "channel", false, null),
             new FreeStatement(new() { "A", "B" }, "host", true, null),
             new TypeStatement("host", null),

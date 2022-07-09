@@ -124,7 +124,7 @@ Translation t = Translation.From(rn, nw);
 
 // --- Executing the query ---
 
-QueryEngine qe2 = t.QueryEngines().First();
+QueryEngine qe2 = t.CreateQueryEngine()!;
 
 static void onAttackAssessed(Nession n, IReadOnlySet<HornClause> _, Attack? a)
 {

@@ -77,10 +77,11 @@ public class Parser
                     return TypeStatement.CreateFromStatement(this);
                 case "query":
                     return QueryStatement.CreateFromStatement(this);
-                case "not": // Fallthrough...
-                case "set":
+                case "not":
                     ReadThroughIgnoreableStatement(); // Skip the ignoreable statement and...
                     return ReadNextStatement();       // recurse.
+                case "set":
+                    return SetStatement.CreateFromStatement(this);
                 case "let":
                     return LetStatement.CreateFromStatement(this);
                 case "process":

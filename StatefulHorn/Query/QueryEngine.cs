@@ -9,22 +9,28 @@ namespace StatefulHorn.Query;
 public class QueryEngine
 {
 
+    public const int DefaultMaximumTerms = 1000;
+
     public QueryEngine(
         IReadOnlySet<State> states,
         IMessage query,
         State? when,
         IEnumerable<Rule> userRules,
-        int elaborationLimit = -1) : this(states, new List<IMessage>() { query }, when, userRules, elaborationLimit) { }
+        int elaborationLimit = -1,
+        int maximumTerms = DefaultMaximumTerms) 
+        : this(states, new List<IMessage>() { query }, when, userRules, elaborationLimit, maximumTerms) 
+    { }
 
     public QueryEngine(
-        IReadOnlySet<State> states,
-        List<IMessage> queries,
+        IEnumerable<State> states,
+        IEnumerable<IMessage> queries,
         State? when,
         IEnumerable<Rule> userRules,
-        int elaborationLimit = -1)
+        int elaborationLimit = -1,
+        int maximumTerms = DefaultMaximumTerms)
     {
-        Queries = queries;
-        InitStates = new(states);
+        Queries = new List<IMessage>(queries);
+        InitStates = new List<State>(states);
         When = when;
         KnowledgeRules = new();
         SystemRules = new();
@@ -49,23 +55,26 @@ public class QueryEngine
             }
         }
         ElaborationLimit = elaborationLimit;
+        MaximumTerms = maximumTerms;
     }
 
     #region Properties.
 
-    public List<IMessage> Queries { get; private init; }
+    public IReadOnlyList<IMessage> Queries { get; }
 
-    public List<State> InitStates { get; private init; }
+    public IReadOnlyList<State> InitStates { get; }
 
-    public State? When { get; private init; }
+    public State? When { get; }
 
-    public List<HornClause> KnowledgeRules { get; private init; }
+    public List<HornClause> KnowledgeRules { get; }
 
-    public List<StateConsistentRule> SystemRules { get; private init; }
+    public List<StateConsistentRule> SystemRules { get; }
 
-    public List<StateTransferringRule> TransferringRules { get; private init; }
+    public List<StateTransferringRule> TransferringRules { get; }
 
-    public int ElaborationLimit { get; private init; }
+    public int ElaborationLimit { get; }
+
+    public int MaximumTerms { get; }
 
     #endregion
     #region Highest level query management - multiple executions.
@@ -153,8 +162,6 @@ public class QueryEngine
     #endregion
     #region Individual query execution.
 
-    const int MaxTerms = 1000;
-
     private Attack? CheckQuery(IMessage query, HashSet<HornClause> clauses, HashSet<IMessage> stateVars)
     {
         int maxRank = 0;
@@ -173,7 +180,7 @@ public class QueryEngine
         QueryNode kingNode = matrix.RequestNode(query, maxRank, Guard.Empty);
         inProgressNodes.Enqueue(kingNode);
 
-        while (inProgressNodes.Count > 0 && matrix.TermCount < MaxTerms)
+        while (inProgressNodes.Count > 0 && matrix.TermCount < MaximumTerms)
         {
             QueryNode next = inProgressNodes.Dequeue()!;
             if (next.Status != QNStatus.InProgress)

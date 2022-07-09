@@ -11,32 +11,51 @@ using StatefulHorn.Query;
 
 namespace AppliedPi.Translate;
 
+/// <summary>
+/// Instances of this class contain the data required to conduct a query on a system of Stateful
+/// Horn clauses created from an Applied Pi Model.
+/// </summary>
 public class Translation
 {
 
-    private Translation(HashSet<State> initStates, HashSet<Rule> allRules, IReadOnlySet<IMessage> queries, int depth)
+    private Translation(
+        HashSet<State> initStates, 
+        HashSet<Rule> allRules, 
+        IReadOnlySet<IMessage> queries, 
+        int depth,
+        int maxTerms)
     {
         InitialStates = initStates;
         Rules = allRules;
         Queries = queries;
         RecommendedDepth = depth;
+        MaximumTerms = maxTerms;
     }
 
-    public IReadOnlySet<State> InitialStates { get; init; }
+    public IReadOnlySet<State> InitialStates { get; }
 
-    public IReadOnlySet<Rule> Rules { get; init; }
+    public IReadOnlySet<Rule> Rules { get; }
 
-    public IReadOnlySet<IMessage> Queries { get; init; }
+    public IReadOnlySet<IMessage> Queries { get; }
 
-    public IEnumerable<QueryEngine> QueryEngines()
+    public QueryEngine? CreateQueryEngine()
     {
-        foreach (IMessage queryMsg in Queries)
+        if (Queries.Count > 0)
         {
-            yield return new QueryEngine(InitialStates, queryMsg, null, Rules);
+            return new QueryEngine(
+                InitialStates,
+                Queries,
+                null,
+                Rules,
+                RecommendedDepth,
+                MaximumTerms);
         }
+        return null;
     }
 
-    public int RecommendedDepth { get; init; }
+    public int RecommendedDepth { get; }
+
+    public int MaximumTerms { get; }
 
     private static Rule TranslateConstructor(Constructor ctr, RuleFactory factory)
     {
@@ -77,6 +96,8 @@ public class Translation
         factory.SetUserDefinition(dtr.DefinedAt?.AsDefinition(dtr.ToString()));
         yield return factory.CreateStateConsistentRule(Event.Know(rhs));
     }
+
+    public const string MaximumTermsPropertyName = "maximumTerms";
 
     public static Translation From(ResolvedNetwork rn, Network nw)
     {
@@ -137,7 +158,15 @@ public class Translation
             recommendedDepth += r.RecommendedDepth;
         }
 
-        return new(initStates, allRules, rn.Queries, recommendedDepth);
+        int maxTerms = QueryEngine.DefaultMaximumTerms;
+        if (nw.Properties.TryGetValue(MaximumTermsPropertyName, out string? maxTermsValue))
+        {
+            if (!int.TryParse(maxTermsValue, out maxTerms))
+            {
+                throw new ArgumentException($"Property {maxTerms} must be a positive integer greater than zero.");
+            }
+        }
+        return new(initStates, allRules, rn.Queries, recommendedDepth, maxTerms);
     }
 
     public static (HashSet<Socket>, List<MutateRule>) GenerateMutateRules(ResolvedNetwork rn, Network nw)

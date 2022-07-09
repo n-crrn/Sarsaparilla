@@ -162,12 +162,8 @@
                 FullyResolvedNetwork = ResolvedNetwork.From(ParsedNetwork);
                 Translation = Translation.From(FullyResolvedNetwork, ParsedNetwork);
 
-                List<QueryEngine> engines = new(Translation.QueryEngines());
-                if (engines.Count > 0)
-                {
-                    Engine = engines[0];
-                }
-                else
+                Engine = Translation.CreateQueryEngine();
+                if (Engine == null)
                 {
                     ErrorMessage = "No query specified.";
                 }
