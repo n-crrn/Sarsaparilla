@@ -33,13 +33,10 @@
             "type kitten.\n" +
             "type (* Random comment *) dog.\n" +
             "type host.\n" +
-            "event beginB(host, host).\n" +
-            "event endB(host, host).\n" +
             "(* Another surprise comment. *)\n" +
             "fun pk(skey): pkey.\n" +
             "fun sencrypt(bitstring,nonce): bitstring.\n" +
             "reduc forall x: bitstring, y: skey; decrypt(encrypt(x, y),y) = x.\n" +
-            "table keys(host, pkey).\n" +
             "query attacker(D).\n" +
             "const c1: tag [data].\n" +
             "\n" +
@@ -58,16 +55,15 @@ free c: channel.
 type key.
 fun encrypt(bitstring, key): bitstring.
 reduc forall x: bitstring, y: key; decrypt(encrypt(x, y),y) = x.
-event gotValue(bitstring).
-event anotherValue(bool).
 const Good: bitstring.
+const Bad: bitstring.
 
 (* Sub-processes *)
 let rx(k: key) = in(c, value: bitstring);
-                 let x: bitstring = decrypt(value, k) in event gotValue(x) else event gotValue(Good).
+                 let x: bitstring = decrypt(value, k) in out(c, true) else out(c, false).
 let send(k: key) = out(c, encrypt(Good, k));
                    in(c, z: bool);
-                   if z then event anotherValue(z) else out(c, z).
+                   if z then out(c, Bad) else out(c, z).
 
 (* Main *)
 process
