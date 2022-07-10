@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -45,7 +41,7 @@ let SD(b: channel, sk: key) =
   new mStart: bitstring;   (* State value of the security device. *)
   in(b, x: bitstring);     (* Arbitrary value. *)
   let mUpdated: bitstring = h(mStart, x) in
-  out(b, mUpdated);          (* Send state value, simulate read. *)
+  out(b, mUpdated);        (* Send state value, simulate read. *)
   in(b, enc_rx: bitstring);
   let (m_f: bitstring, s_l: bitstring, s_r: bitstring) = dec(enc_rx, sk) in
   if m_f = h(mUpdated, left) then
