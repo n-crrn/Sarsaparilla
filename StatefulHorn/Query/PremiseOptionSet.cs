@@ -58,7 +58,13 @@ public class PremiseOptionSet
 
     public IReadOnlyList<QueryNode> Nodes { get; }
 
-    public IEnumerable<QueryNode> InProgressNodes => from n in Nodes where n.Status == QNStatus.InProgress select n;
+    public IEnumerable<QueryNode> InProgressNodes
+    {
+        get
+        {
+            return from n in Nodes where n.Status == QueryNode.NStatus.InProgress select n;
+        }
+    }
 
     private readonly SigmaFactory SigmaFactory;
 
@@ -66,9 +72,9 @@ public class PremiseOptionSet
 
     public bool IsEmpty => Nodes.Count == 0;
 
-    public bool HasSucceeded => Nodes.Count == 0 || Nodes.All((qn) => qn.ResultSucceeded);
+    public bool HasSucceeded => Nodes.Count == 0 || Nodes.All((qn) => qn.Status == QueryNode.NStatus.Proven);
 
-    public bool HasFailed => (from qn in Nodes where qn.ResultFailed select qn).Any();
+    public bool HasFailed => (from qn in Nodes where qn.Status == QueryNode.NStatus.Failed select qn).Any();
 
     public Attack? CreateSuccessResult(
         IMessage query,
@@ -97,7 +103,7 @@ public class PremiseOptionSet
         for (int i = 0; i < Nodes.Count; i++)
         {
             QueryNode n = Nodes[i];
-            if (n.Status != QNStatus.Unresolvable)
+            if (n.Status != QueryNode.NStatus.Unresolvable)
             {
                 Attack? possAttack = n.GetStateConsistentProof(stateVarValues);
                 if (possAttack == null)
@@ -138,9 +144,9 @@ public class PremiseOptionSet
             bool unresolvedSeen = false;
             foreach (QueryNode qn in Nodes)
             {
-                if (qn.Status == QNStatus.Unresolvable || qn.Status == QNStatus.Proven)
+                if (qn.Status == QueryNode.NStatus.Unresolvable || qn.Status == QueryNode.NStatus.Proven)
                 {
-                    unresolvedSeen |= qn.Status == QNStatus.Unresolvable;
+                    unresolvedSeen |= qn.Status == QueryNode.NStatus.Unresolvable;
                 }
                 else
                 {
@@ -164,7 +170,7 @@ public class PremiseOptionSet
         foreach (QueryNode n in Nodes)
         {
             fullOriginal.Add(n.Message);
-            if (n.Status == QNStatus.Proven)
+            if (n.Status == QueryNode.NStatus.Proven)
             {
                 original.Add(n.Message);
                 options = AddToOptionsList(options, n.GetPossibilities().ToList());
@@ -264,7 +270,7 @@ public class PremiseOptionSet
             else
             {
                 // If success was based on a rule, there won't be option sets.
-                hasGoodPos = n.Status == QNStatus.Unresolvable;
+                hasGoodPos = n.Status == QueryNode.NStatus.Unresolvable;
             }
 
             if (!hasGoodPos)

@@ -183,7 +183,7 @@ public class QueryEngine
         while (inProgressNodes.Count > 0 && matrix.TermCount < MaximumTerms)
         {
             QueryNode next = inProgressNodes.Dequeue()!;
-            if (next.Status != QNStatus.InProgress)
+            if (next.Status != QueryNode.NStatus.InProgress)
             {
                 continue;
             }
@@ -191,14 +191,16 @@ public class QueryEngine
             newNodes.AddRange(matrix.EnsureNodesUpdated(next));
             if (newNodes != null)
             {
-                foreach (QueryNode qn in from nn in newNodes where nn.Status == QNStatus.InProgress select nn)
+                foreach (QueryNode qn in from nn in newNodes 
+                                         where nn.Status == QueryNode.NStatus.InProgress 
+                                         select nn)
                 {
                     inProgressNodes.Enqueue(qn);
                 }
             }
         }
 
-        if (kingNode.Status != QNStatus.Proven)
+        if (kingNode.Status != QueryNode.NStatus.Proven)
         {
             kingNode.FinalAssess();
         }

@@ -1,22 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using StatefulHorn.Messages;
 
 namespace StatefulHorn.Query;
-
-public enum QNStatus
-{
-    InProgress,
-    Waiting,
-    Unresolvable,
-    Proven,
-    Failed,
-    TooComplex
-}
 
 public class QueryNode
 {
@@ -26,7 +13,7 @@ public class QueryNode
         Message = msg;
         if (msg is VariableMessage)
         {
-            Status = QNStatus.Unresolvable;
+            Status = NStatus.Unresolvable;
         }
         Rank = rank;
         Guard = g;
@@ -43,13 +30,16 @@ public class QueryNode
 
     private readonly State? When;
 
-    public QNStatus Status { get; private set; } = QNStatus.InProgress;
+    public enum NStatus
+    {
+        InProgress,
+        Waiting,
+        Unresolvable,
+        Proven,
+        Failed
+    }
 
-    public bool ResultSucceeded => Status == QNStatus.Proven;
-
-    public bool ResultFailed => Status == QNStatus.Failed || Status == QNStatus.TooComplex;
-
-    public bool Terminated => ResultSucceeded || ResultFailed;
+    public NStatus Status { get; private set; } = NStatus.InProgress;
 
     public readonly List<QueryNode> LeadingFrom = new();
 
@@ -73,7 +63,7 @@ public class QueryNode
                 yield return att.Actual;
             }
         }
-        if (Status == QNStatus.Unresolvable)
+        if (Status == NStatus.Unresolvable)
         {
             yield return Message;
         }
@@ -93,16 +83,16 @@ public class QueryNode
                 if (optionSet.Nodes.Count == 0)
                 {
                     SuccessfulOptionSets.Add(optionSet);
-                    Status = QNStatus.Proven;
+                    Status = NStatus.Proven;
                 }
-                else if (Status != QNStatus.Proven)
+                else if (Status != NStatus.Proven)
                 {
                     OptionSets.Add(optionSet);
                     premiseNodes.AddRange(optionSet.InProgressNodes);
                 }
             }
         }
-        if (Status == QNStatus.Proven)
+        if (Status == NStatus.Proven)
         {
             // No further processing required if there is a premise-less rule.
             OptionSets.Clear();
@@ -118,7 +108,7 @@ public class QueryNode
             premiseNodes.AddRange(pos.InProgressNodes);
         }
 
-        Status = OptionSets.Count > 0 ? QNStatus.Waiting : QNStatus.Failed;
+        Status = OptionSets.Count > 0 ? NStatus.Waiting : NStatus.Failed;
         Changed = true;
         return premiseNodes;
     }
@@ -133,7 +123,7 @@ public class QueryNode
 
     public void InnerFinalAssess(HashSet<QueryNode> previousNodes)
     {
-        if (Status != QNStatus.Waiting || previousNodes.Contains(this))
+        if (Status != NStatus.Waiting || previousNodes.Contains(this))
         {
             return;
         }
@@ -151,7 +141,7 @@ public class QueryNode
             PremiseOptionSet pos = OptionSets[i];
             if (pos.PartialSuccess)
             {
-                Status = QNStatus.Proven;
+                Status = NStatus.Proven;
                 OptionSets.RemoveAt(i);
                 SuccessfulOptionSets.Add(pos);
                 break;
@@ -178,7 +168,7 @@ public class QueryNode
             List<PremiseOptionSet> newAttempts = OptionSets[i].AttemptResolve(matrix, this);
             foreach (PremiseOptionSet pos in newAttempts)
             {
-                nodesToTry.AddRange(from n in pos.Nodes where n.Status == QNStatus.InProgress select n);
+                nodesToTry.AddRange(from n in pos.Nodes where n.Status == NStatus.InProgress select n);
             }
             resolvedAdditions.AddRange(newAttempts);
         }
@@ -206,16 +196,16 @@ public class QueryNode
         }
 
         // Final stage.
-        if (Status == QNStatus.InProgress || Status == QNStatus.Waiting)
+        if (Status == NStatus.InProgress || Status == NStatus.Waiting)
         {
             if (OptionSets.Count == 0 && SuccessfulOptionSets.Count == 0)
             {
-                Status = QNStatus.Failed;
+                Status = NStatus.Failed;
                 Changed = true;
             }
             else if (SuccessfulOptionSets.Count > 0)
             {
-                Status = QNStatus.Proven;
+                Status = NStatus.Proven;
                 Changed = true;
             }
         }
@@ -255,7 +245,7 @@ public class QueryNode
 
     public Attack? GetStateConsistentProof(IDictionary<IMessage, IMessage?> lookup) 
     { 
-        if (Status == QNStatus.Proven)
+        if (Status == NStatus.Proven)
         {
             foreach (PremiseOptionSet pos in SuccessfulOptionSets)
             {
