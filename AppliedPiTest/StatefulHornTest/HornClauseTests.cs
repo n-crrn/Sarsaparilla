@@ -129,7 +129,7 @@ public class HornClauseTests
         {
             found = hc1.ComposeUpon(hc2);
             Assert.IsNotNull(found);
-            Assert.AreEqual(found, expected, errMessage);
+            Assert.AreEqual(expected, found, errMessage);
         } 
         catch (Exception)
         {
