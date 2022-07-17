@@ -72,9 +72,34 @@ public class PremiseOptionSet
 
     public bool IsEmpty => Nodes.Count == 0;
 
-    public bool HasSucceeded => Nodes.Count == 0 || Nodes.All((qn) => qn.Status == QueryNode.NStatus.Proven);
+    public bool HasSucceeded
+    {
+        get { 
+            for (int i = 0; i < Nodes.Count; i++)
+            {
+                if (Nodes[i].Status != QueryNode.NStatus.Proven)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
 
-    public bool HasFailed => (from qn in Nodes where qn.Status == QueryNode.NStatus.Failed select qn).Any();
+    public bool HasFailed
+    {
+        get
+        {
+            for (int i = 0; i < Nodes.Count; i++)
+            {
+                if (Nodes[i].Status == QueryNode.NStatus.Failed)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
 
     public Attack? CreateSuccessResult(
         IMessage query,
@@ -142,8 +167,9 @@ public class PremiseOptionSet
         get
         {
             bool unresolvedSeen = false;
-            foreach (QueryNode qn in Nodes)
+            for (int i = 0; i < Nodes.Count; i++)
             {
+                QueryNode qn = Nodes[i];
                 if (qn.Status == QueryNode.NStatus.Unresolvable || qn.Status == QueryNode.NStatus.Proven)
                 {
                     unresolvedSeen |= qn.Status == QueryNode.NStatus.Unresolvable;

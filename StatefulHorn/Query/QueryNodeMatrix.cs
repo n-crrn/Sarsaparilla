@@ -21,8 +21,9 @@ public class QueryNodeMatrix
         // Try to grab the existing, correct node.
         if (FoundNodes.TryGetValue(result, out List<QueryNode>? nodeLine))
         {
-            foreach (QueryNode qn in nodeLine)
+            for (int i = 0; i < nodeLine.Count; i++)
             {
+                QueryNode qn = nodeLine[i];
                 if (qn.Rank == rank && qn.Guard.Equals(g))
                 {
                     if (requester != null)

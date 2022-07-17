@@ -23,11 +23,40 @@ public class HornClause
     /// <param name="guard">Restrictions on variables.</param>
     public HornClause(IMessage result, IEnumerable<IMessage> premises, Guard? guard = null)
     {
-        Premises = new SortedSet<IMessage>(premises, MessageUtils.SortComparer);
+        List<IMessage> premiseList = new(premises);
+        premiseList.Sort(MessageUtils.SortComparer);
+        FilterDuplicates(premiseList);
+
+        Premises = premiseList;
         Result = result;
         HashCode = result.GetHashCode();
         Variables = CollectVariables();
         Guard = guard == null ? Guard.Empty : guard.Filter(Variables);
+    }
+
+    /// <summary>
+    /// Remove duplicate messages from the given list.
+    /// </summary>
+    /// <param name="msgList">List to filter.</param>
+    private static void FilterDuplicates(List<IMessage> msgList)
+    {
+        if (msgList.Count == 0)
+        {
+            return;
+        }
+        IMessage buffer = msgList[0];
+        for (int i = 1; i < msgList.Count; i++)
+        {
+            if (msgList[i].Equals(buffer))
+            {
+                msgList.RemoveAt(i);
+                i--;
+            }
+            else 
+            {
+                buffer = msgList[i];
+            }
+        }
     }
 
     /// <summary>
@@ -37,9 +66,9 @@ public class HornClause
     private HashSet<IMessage> CollectVariables()
     {
         HashSet<IMessage> allVars = new();
-        foreach (IMessage premise in Premises)
+        for (int i = 0; i < Premises.Count; i++)
         {
-            premise.CollectVariables(allVars);
+            Premises[i].CollectVariables(allVars);
         }
         return allVars;
     }
@@ -55,8 +84,9 @@ public class HornClause
         {
             return false;
         }
-        foreach (IMessage msg in Premises)
+        for (int i = 0; i < Premises.Count; i++)
         {
+            IMessage msg = Premises[i];
             if (msg is not VariableMessage && Result.IsUnifiableWith(msg))
             {
                 return true;
@@ -74,7 +104,7 @@ public class HornClause
     public Guard Guard { get; private init; }
 
     /// <summary>Premises for the Clause.</summary>
-    public IReadOnlySet<IMessage> Premises { get; private init; }
+    public IReadOnlyList<IMessage> Premises { get; private init; }
 
     /// <summary>Result message of the Clause.</summary>
     public IMessage Result { get; private init; }
@@ -426,9 +456,7 @@ public class HornClause
     public bool CanResultIn(IMessage possResult, Guard bwdGuard, out SigmaFactory? sf)
     {
         sf = new();
-        if (Result.DetermineUnifiableSubstitution(possResult, Guard, bwdGuard, sf) 
-            && sf.ForwardIsValidByGuard(Guard) 
-            && sf.BackwardIsValidByGuard(bwdGuard))
+        if (Result.DetermineUnifiableSubstitution(possResult, Guard, bwdGuard, sf))
         {
             HashSet<IMessage> resultVars = new();
             Result.CollectVariables(resultVars);
@@ -585,7 +613,7 @@ public class HornClause
             Rank == hc.Rank &&
             Premises.Count == hc.Premises.Count &&
             Result.Equals(hc.Result) &&
-            Premises.SetEquals(hc.Premises) &&
+            Premises.SequenceEqual(hc.Premises) &&
             Guard.Equals(hc.Guard);
     }
 
