@@ -199,7 +199,7 @@ public class HornClause
     #region Operations.
 
     /// <summary>
-    /// Substitute messages within the Horn Clause as described in the provided Sigma Map.
+    /// Substitute variable messages within the Horn Clause as described in the provided Sigma Map.
     /// </summary>
     /// <param name="map">Substitutions to make.</param>
     /// <returns>
@@ -208,7 +208,7 @@ public class HornClause
     /// </returns>
     public HornClause Substitute(SigmaMap map)
     {
-        if (map.IsEmpty)
+        if (map.IsEmpty || Variables.Count == 0)
         {
             return this;
         }
