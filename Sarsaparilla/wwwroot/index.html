@@ -5,13 +5,58 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Sarsaparilla</title>
+
+    <link rel="icon" type="image/png" sizes="48x48" href="img/logo-small.png"/>
+    <link rel="apple-touch-icon" type="image/png" sizes="180x180" href="img/logo-large.png"/>
+
     <base href="/" />
     <link href="css/app.css" rel="stylesheet" />
     <link href="Sarsaparilla.styles.css" rel="stylesheet" />
-</head>
 
+    <style>
+        /* --- Loading display and animation --- */
+
+        .loading-display {
+            text-align: center;
+            padding-top: 50px;
+        }
+
+        img.loading-icon {
+            text-align: center;
+        }
+
+        @keyframes flash-loading {
+            0% {
+                opacity: 0;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        .loading-message {
+            margin-top: 20px;
+            text-align: center;
+            font-weight: bold;
+            animation-name: flash-loading;
+            animation-duration: 4s;
+            animation-iteration-count: infinite;
+            animation-timing-function: ease-in;
+        }
+    </style>
+</head>
 <body>
-    <div id="app">Loading...</div>
+    <div id="app">
+        <div class="loading-display">
+            <img class="loading-icon" src="img/logo-large.png" width="180" height="180" />
+            <div class="loading-message">Loading Sarsaparilla Verifier… </div>
+        </div>
+    </div>
 
     <div id="blazor-error-ui">
         An unhandled error has occurred.

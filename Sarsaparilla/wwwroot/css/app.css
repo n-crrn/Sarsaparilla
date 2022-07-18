@@ -1,14 +1,11 @@
 ﻿/* --- Theming --- */
 
 :root {
-    /* --- General theming --- */
     --page-background-theme-color: black;
     --background-theme-color: #222222;
     --foreground-theme-color: #EEEEEE;
     --highlight-background-theme-color: #220000;
     --highlight-foreground-theme-color: salmon;
-    /* --- Rule display --- */
-    /* FIXME: Add me. */
 }
 
 /* --- Site-wide layout --- */
