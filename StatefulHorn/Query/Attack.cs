@@ -32,17 +32,17 @@ public class Attack
 
     #region Properties.
 
-    public IMessage Query { get; private init; }
+    public IMessage Query { get; }
 
-    public IMessage Actual { get; private init; }
+    public IMessage Actual { get; }
 
-    public HornClause Clause { get; private init; }
+    public HornClause Clause { get; }
 
-    public SigmaFactory Transformation { get; private init; }
+    public SigmaFactory Transformation { get; }
 
-    public IDictionary<IMessage, Attack> Premises { get; private init; }
+    public IDictionary<IMessage, Attack> Premises { get; }
 
-    public State? When { get; private init; }
+    public State? When { get; }
 
     #endregion
     #region String descriptions.
