@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using StatefulHorn.Messages;
 
@@ -106,8 +105,10 @@ public class QueryEngine
             bool atLeastOneAttack = false;
             foreach (IMessage q in Queries)
             {
-                foreach (Nession n in nextLevelNessions)
+                Task[] runningQueries = new Task[nextLevelNessions.Count];
+                for (int i = 0; i < nextLevelNessions.Count; i++)
                 {
+                    Nession n = nextLevelNessions[i];
                     // Update the query to handle the query when construct.
                     Nession? queryNession;
                     IMessage query = q;
@@ -128,14 +129,23 @@ public class QueryEngine
                     }
 
                     // Collect horn clauses for submission to query engine.
-                    HashSet<HornClause> clauses = new();
-                    queryNession.CollectHornClauses(clauses);
-                    clauses.UnionWith(KnowledgeRules);
-                    Attack? foundAttack = CheckQuery(query, clauses, n.FindStateVariables());
-                    queryNession.FoundAttack = foundAttack;
-                    queryNession.FoundSystemClauses = clauses;
-                    atLeastOneAttack |= foundAttack != null;
+                    runningQueries[i] = Task.Factory.StartNew(() =>
+                    {
+                        HashSet<HornClause> clauses = new();
+                        queryNession.CollectHornClauses(clauses);
+                        clauses.UnionWith(KnowledgeRules);
+
+                        Attack? foundAttack = CheckQuery(query, clauses, n.FindStateVariables());
+                        queryNession.FoundAttack = foundAttack;
+                        queryNession.FoundSystemClauses = clauses;
+                        if (foundAttack != null)
+                        {
+                            atLeastOneAttack = true;
+                        }
+                    });
                 }
+                Task.WaitAll(runningQueries);
+            
                 if (atLeastOneAttack)
                 {
                     break;
