@@ -45,6 +45,10 @@
         color: black;
     }
 
+    .page-actions > a:visited {
+        color: black;
+    }
+
 .page {
     flex-grow: 1;
     flex-shrink: 2;

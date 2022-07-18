@@ -30,3 +30,11 @@ img {
     align-items: center;
     overflow-y: scroll;
 }
+
+a {
+    color: cornflowerblue;
+}
+
+    a:visited {
+        color: cornflowerblue;
+    }
