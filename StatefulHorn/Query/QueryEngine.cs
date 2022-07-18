@@ -9,7 +9,7 @@ namespace StatefulHorn.Query;
 public class QueryEngine
 {
 
-    public const int DefaultMaximumTerms = 1000;
+    public const int DefaultMaximumTerms = 300;
 
     public QueryEngine(
         IReadOnlySet<State> states,
@@ -176,26 +176,33 @@ public class QueryEngine
         }
 
         QueryNodeMatrix matrix = new(When);
-        QueueSet<QueryNode> inProgressNodes = new();
+        PriorityQueueSet<QueryNode> inProgressNodes = new();
         QueryNode kingNode = matrix.RequestNode(query, maxRank, Guard.Empty);
         inProgressNodes.Enqueue(kingNode);
+        int termCounter = 0;
 
-        while (inProgressNodes.Count > 0 && matrix.TermCount < MaximumTerms)
+        while (inProgressNodes.Count > 0 && termCounter < MaximumTerms) // matrix.TermCount < MaximumTerms)
         {
+            termCounter++;
             QueryNode next = inProgressNodes.Dequeue()!;
-            if (next.Status != QueryNode.NStatus.InProgress)
+            if (next.Status == QueryNode.NStatus.InProgress)
             {
-                continue;
-            }
-            List<QueryNode> newNodes = next.AssessRules(clauses, matrix);
-            newNodes.AddRange(matrix.EnsureNodesUpdated(next));
-            if (newNodes != null)
-            {
-                foreach (QueryNode qn in from nn in newNodes 
-                                         where nn.Status == QueryNode.NStatus.InProgress 
-                                         select nn)
+                List<QueryNode> newNodes = next.AssessRules(clauses, matrix);
+                newNodes.AddRange(matrix.EnsureNodesUpdated(next));
+                if (kingNode.Status == QueryNode.NStatus.Proven)
                 {
-                    inProgressNodes.Enqueue(qn);
+                    break;
+                }
+                if (newNodes != null)
+                {
+                    for (int i = 0; i < newNodes.Count; i++)
+                    {
+                        QueryNode qn = newNodes[i];
+                        if (qn.Status == QueryNode.NStatus.InProgress)
+                        {
+                            inProgressNodes.Enqueue(qn);
+                        }
+                    }
                 }
             }
         }

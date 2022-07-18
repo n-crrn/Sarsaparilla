@@ -5,7 +5,7 @@ using StatefulHorn.Messages;
 
 namespace StatefulHorn.Query;
 
-public class QueryNode
+public class QueryNode : IPriorityQueueSetItem
 {
 
     public QueryNode(IMessage msg, int rank, Guard g, State? when)
@@ -48,6 +48,8 @@ public class QueryNode
     public readonly List<PremiseOptionSet> FailedOptionSets = new();
 
     public readonly List<PremiseOptionSet> SuccessfulOptionSets = new();
+
+    public int Priority => Message.FindMaximumDepth();
 
     #endregion
     #region Result generation.
