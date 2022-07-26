@@ -81,7 +81,7 @@ public class KnitPattern
             StateTransferringRule rule = strs[i];
             // Inefficient, but simple algorithm for creating bit lookup table for state usage.
             BitArray affectedStates = new(allStates.Count);
-            foreach (State s in rule.Snapshots.States)
+            foreach (State s in from rt in rule.Result.Transformations select rt.Condition)
             {
                 for (int searchI = 0; searchI < allStatesSorted.Count; searchI++)
                 {

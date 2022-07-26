@@ -51,6 +51,19 @@ public class RuleParser
     }
 
     #endregion
+    #region Convenience methods for multiple rule parsing.
+
+    public List<StateConsistentRule> ParseStateConsistentRules(IEnumerable<string> ruleSrcs)
+    {
+        return new(from rs in ruleSrcs select ParseStateConsistentRule(rs));
+    }
+
+    public List<StateTransferringRule> ParseStateTransferringRules(IEnumerable<string> ruleSrcs)
+    {
+        return new(from rs in ruleSrcs select ParseStateTransferringRule(rs));
+    }
+
+    #endregion
     #region Single rule parsing - actual work.
 
     public static readonly string GuardUnunifiedOp = "~/>";   // Indicates a cannot-be-unified guard relationship.

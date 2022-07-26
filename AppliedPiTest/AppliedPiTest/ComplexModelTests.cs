@@ -30,7 +30,7 @@ fun pk(key): key.
 fun enc(bitstring, key): bitstring.
 reduc forall x: bitstring, y: key; dec(enc(x, pk(y)), y) = x.
 
-set maximumTerms = 10000.
+set maximumTerms = 20000.
 query attacker(bobl).
 
 free publicChannel: channel.
