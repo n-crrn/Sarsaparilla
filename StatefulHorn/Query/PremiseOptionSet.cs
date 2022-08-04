@@ -70,6 +70,8 @@ public class PremiseOptionSet
 
     private readonly HornClause SourceClause;
 
+    private HashSet<SigmaFactory>? PreviousResolutions;
+
     public bool IsEmpty => Nodes.Count == 0;
 
     public bool HasSucceeded
@@ -190,6 +192,11 @@ public class PremiseOptionSet
             return new();
         }
 
+        if (PreviousResolutions == null)
+        {
+            PreviousResolutions = new();
+        }
+
         List<IMessage> fullOriginal = new();
         List<IMessage> original = new();
         List<List<IMessage>> options = new();
@@ -209,12 +216,15 @@ public class PremiseOptionSet
         foreach (List<IMessage> opt in options)
         {
             SigmaFactory sf = new();
-            if (sf.CanUnifyMessagesOneWay(original, opt, g) && !sf.IsEmpty)
+            if (sf.CanUnifyMessagesOneWay(original, opt, g) 
+                && !sf.IsEmpty 
+                && !PreviousResolutions.Contains(sf))
             {
                 SigmaMap sm = sf.CreateForwardMap();
                 List<IMessage> updated = new(from m in fullOriginal select m.Substitute(sm));
                 Guard updatedGuard = g.Substitute(sm);
                 optSet.Add(FromMessages(updated, updatedGuard, rank, SourceClause, qm, requester));
+                PreviousResolutions.Add(sf);
             }
         }
         return optSet;
