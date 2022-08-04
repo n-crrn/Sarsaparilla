@@ -142,6 +142,8 @@ public class FunctionMessage : IMessage
         return new FunctionMessage(Name, subsParams);
     }
 
+    public int CompareTo(IMessage? other) => MessageUtils.Compare(this, other);
+
     #endregion
     #region Basic object overrides.
 

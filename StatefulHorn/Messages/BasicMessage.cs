@@ -83,6 +83,8 @@ public abstract class BasicMessage : IMessage
 
     public abstract IMessage Substitute(SigmaMap sigma);
 
+    public int CompareTo(IMessage? other) => MessageUtils.Compare(this, other);
+
     public override abstract string ToString();
 
     public override bool Equals(object? obj)

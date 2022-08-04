@@ -158,6 +158,8 @@ public class TupleMessage : IMessage
         return new TupleMessage(subsParam);
     }
 
+    public int CompareTo(IMessage? other) => MessageUtils.Compare(this, other);
+
     #endregion
     #region Basic object overrides.
 

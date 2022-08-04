@@ -6,7 +6,7 @@ namespace StatefulHorn;
 /// <summary>
 /// A symbol representing data that can be generated or known, leading to other such symbols.
 /// </summary>
-public interface IMessage
+public interface IMessage : IComparable<IMessage>
 {
 
     // Though ToString() is a basic object method, this redefinition forces the return type to be
