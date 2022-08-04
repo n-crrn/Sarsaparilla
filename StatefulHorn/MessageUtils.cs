@@ -94,17 +94,17 @@ public static class MessageUtils
 
     public class Comparer : IComparer<IMessage>
     {
-        public int Compare(IMessage? m1, IMessage? m2) => Sort(m1, m2);
+        public int Compare(IMessage? m1, IMessage? m2) => MessageUtils.Compare(m1, m2);
     }
 
     /// <summary>
-    /// Sorting method for messages. This method is not attached to the IMessage implementations
+    /// Comparing method for messages. This method is not attached to the IMessage implementations
     /// as there is a need to have consistent sorting between different types of message.
     /// </summary>
     /// <param name="m1">First message to sort.</param>
     /// <param name="m2">Second message to sort.</param>
     /// <returns>Value in accordance with IComparable.CompareTo.</returns>
-    public static int Sort(IMessage? m1, IMessage? m2)
+    public static int Compare(IMessage? m1, IMessage? m2)
     {
         if (m1 == null)
         {
@@ -175,7 +175,7 @@ public static class MessageUtils
     {
         for (int i = 0; i < Math.Min(ml1.Count, ml2.Count); i++)
         {
-            int cmp = Sort(ml1[i], ml2[i]);
+            int cmp = Compare(ml1[i], ml2[i]);
             if (cmp != 0)
             {
                 return cmp;
