@@ -5,6 +5,9 @@ Representation In Latest Logic Analyser". The analyser is written by Nick Curran
 the aim of attaining a Master in Computer Science through The University of Queensland.
 Please note that this analyser is not yet fully functional.
 
+An online, deployed copy of Sarsaparilla can be found at https://www.sarsaparilla-verifier.net
+if you want to experiment with it without downloading this repository.
+
 ## Solution Structure
 
 The solution is written in C# using Microsoft's Blazor WebAssembly framework. It is 
