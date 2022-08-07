@@ -77,6 +77,18 @@ public class QueryNode : IPriorityQueueSetItem
     public List<QueryNode> AssessRules(IEnumerable<HornClause> systemRules, QueryNodeMatrix matrix)
     {
         List<QueryNode> premiseNodes = new();
+
+        // If the message is a tuple, then prioritise searching for individual tuple members.
+        if (Message is TupleMessage tMsg)
+        {
+            // Auto-generate a new horn clause for tuple assembly.
+            HornClause tupleHc = new(Message, tMsg.Members, Guard);
+            PremiseOptionSet pos = PremiseOptionSet.FromMessages(tMsg.Members, Guard, Rank, tupleHc, matrix, this);
+            OptionSets.Add(pos);
+            premiseNodes.AddRange(pos.InProgressNodes);
+        }
+
+        // Use the rule set to find premises.
         foreach (HornClause hc in systemRules)
         {
             PremiseOptionSet? optionSet = PremiseOptionSet.FromRule(Message, Guard, Rank, hc, matrix, this, out SigmaFactory? _);
@@ -99,15 +111,6 @@ public class QueryNode : IPriorityQueueSetItem
             // No further processing required if there is a premise-less rule.
             OptionSets.Clear();
             return new();
-        }
-
-        if (Message is TupleMessage tMsg)
-        {
-            // Auto-generate a new horn clause for tuple assembly.
-            HornClause tupleHc = new(Message, tMsg.Members, Guard);
-            PremiseOptionSet pos = PremiseOptionSet.FromMessages(tMsg.Members, Guard, Rank, tupleHc, matrix, this);
-            OptionSets.Add(pos);
-            premiseNodes.AddRange(pos.InProgressNodes);
         }
 
         Status = OptionSets.Count > 0 ? NStatus.Waiting : NStatus.Failed;

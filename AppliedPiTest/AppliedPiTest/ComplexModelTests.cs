@@ -85,7 +85,7 @@ free publicChannel: channel.
 free bobl: bitstring [private].
 free bobr: bitstring [private].
 
-set maximumTerms = 20000.
+set maximumTerms = 30000.
 query attacker((bobl, bobr)).
 
 let SD(b: channel, sk: key) =
@@ -121,7 +121,7 @@ process
     }
 
     [TestMethod]
-    public async Task DirectLeakTupleNameModelTest()
+    public async Task DirectLeakNameModelTest()
     {
         string piSource =
 @"type key.
@@ -138,7 +138,7 @@ free publicChannel: channel.
 free bobl: bitstring [private].
 free bobr: bitstring [private].
 
-set maximumTerms = 30000.
+set maximumTerms = 40000.
 query attacker(bobl).
 
 let SD(b: channel, sk: key) =

@@ -354,6 +354,65 @@ process
     }
 
     /// <summary>
+    /// Ensure that grouped tupled are detected.
+    /// </summary>
+    /// <returns></returns>
+    [TestMethod]
+    public async Task TupleTest()
+    {
+        string piSource1 =
+@"free c: channel.
+free s1: bitstring [private].
+free s2: bitstring [private].
+
+query attacker((s1, s2)).
+
+process out(c, s1) | out(c, s2) | !in(c, v: bitstring).
+";
+        await DoTest(piSource1, true);
+
+        string piSource2 =
+@"free c: channel.
+free s1: bitstring [private].
+free s2: bitstring [private].
+free v1: bitstring.
+free v2: bitstring.
+
+query attacker((s1, s2)).
+
+let test =
+    in(c, value: bitstring);
+    if value = v1 then
+        out(c, s1)
+    else if value = v2 then
+        out(c, s2).
+
+process test | out(c, v1) | out(c, v2) | !in(c, s: bitstring).
+";
+        await DoTest(piSource2, true);
+
+        string piSource3 =
+@"free c: channel.
+free s1: bitstring [private].
+free s2: bitstring [private].
+free v1: bitstring.
+free v2: bitstring.
+
+query attacker((s1, s2)).
+
+let test(which_value: bitstring) = 
+    in(c, value: bitstring);
+    if value = v1 then
+        out(c, s1)
+    else if value = v2 then
+        out(c, s2).
+
+process test(v1) | test(v2) | out(c, v1) | out(c, v2) | !in(c, s: bitstring).
+";
+        await DoTest(piSource3, true);
+    }
+
+    /// <summary>
     /// Conducts a full integration test, where source code is used to construct a Network to
     /// conduct a query upon. This is a public method as some other groups of tests
     /// (e.g. ThesisTests) need to exercise this functionality as well.
