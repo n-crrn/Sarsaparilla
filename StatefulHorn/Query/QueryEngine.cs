@@ -191,7 +191,7 @@ public class QueryEngine
         inProgressNodes.Enqueue(kingNode);
         int termCounter = 0;
 
-        while (inProgressNodes.Count > 0 && termCounter < MaximumTerms) // matrix.TermCount < MaximumTerms)
+        while (inProgressNodes.Count > 0 && termCounter < MaximumTerms)
         {
             termCounter++;
             QueryNode next = inProgressNodes.Dequeue()!;

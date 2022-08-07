@@ -109,11 +109,13 @@ public class PremiseOptionSet
         Guard g,
         IDictionary<IMessage, IMessage?> stateVarValues)
     {
+        // Check that this PremiseOptionSet MAY provide a successful result.
         if (!((HasSucceeded || PartialSuccess) && IsConsistentWithStateVariables(stateVarValues)))
         {
             return null;
         }
 
+        // If there are no premises, this PremiseOptionSet is a priori successful.
         if (Nodes.Count == 0)
         {
             return new Attack(
@@ -125,6 +127,7 @@ public class PremiseOptionSet
                 null);
         }
 
+        // Check that the premises are successful themselves.
         List<Attack> premiseAttacks = new();
         List<QueryNode> matchingNode = new();
         for (int i = 0; i < Nodes.Count; i++)
@@ -141,20 +144,26 @@ public class PremiseOptionSet
                 matchingNode.Add(n);
             }
         }
-        // All backward maps need to be applied for the final, actual value to be correct.
+
+        // All backward maps must be consistent. The quickest way to check this is to ensure that
+        // all premises can be derived with a consistent Sigma transformation.
         IMessage finalActual = query.Substitute(SigmaFactory.CreateBackwardMap());
-        // As there may be several layers of substitutions, this next Sigma Factory does 
-        // need to be generated from scratch.
-        SigmaFactory attackSF = new(SigmaFactory);
+        SigmaFactory subAttackSF = new(SigmaFactory);
         for (int i = 0; i < premiseAttacks.Count; i++)
         {
             Attack a = premiseAttacks[i];
             finalActual = finalActual.Substitute(a.Transformation.CreateBackwardMap());
-            if (!a.Actual.DetermineUnifiableSubstitution(a.Query, g, matchingNode[i].Guard, attackSF))
+            if (!a.Actual.DetermineUnifiableSubstitution(a.Query, g, matchingNode[i].Guard, subAttackSF))
             {
                 return null;
             }
         }
+
+        // As there may be several layers of substitutions, the transformation for the 
+        // attack needs to be generated from scratch directly between the query and the final
+        // actual resulting message.
+        SigmaFactory attackSF = new();
+        finalActual.DetermineUnifiableSubstitution(query, Guard.Empty, Guard.Empty, attackSF);
         return new Attack(
             query,
             finalActual,
