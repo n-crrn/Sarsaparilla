@@ -203,15 +203,12 @@ public class QueryEngine
                 {
                     break;
                 }
-                if (newNodes != null)
+                for (int i = 0; i < newNodes.Count; i++)
                 {
-                    for (int i = 0; i < newNodes.Count; i++)
+                    QueryNode qn = newNodes[i];
+                    if (qn.Status == QueryNode.NStatus.InProgress)
                     {
-                        QueryNode qn = newNodes[i];
-                        if (qn.Status == QueryNode.NStatus.InProgress)
-                        {
-                            inProgressNodes.Enqueue(qn);
-                        }
+                        inProgressNodes.Enqueue(qn);
                     }
                 }
             }
