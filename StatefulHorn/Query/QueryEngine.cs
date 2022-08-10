@@ -172,6 +172,15 @@ public class QueryEngine
     #endregion
     #region Individual query execution.
 
+    /// <summary>
+    /// Attempt to execute a single query.
+    /// </summary>
+    /// <param name="query">A message to prove the truth of.</param>
+    /// <param name="clauses">A series of HornClauses to describe the system.</param>
+    /// <param name="stateVars">
+    /// The variables in the clauses that must remain consistent throughout a full solution.
+    /// </param>
+    /// <returns>Any viable attack that is found. If null, then no attack was found.</returns>
     private Attack? CheckQuery(IMessage query, HashSet<HornClause> clauses, HashSet<IMessage> stateVars)
     {
         int maxRank = 0;
@@ -186,9 +195,11 @@ public class QueryEngine
         }
 
         QueryNodeMatrix matrix = new(When);
-        PriorityQueueSet<QueryNode> inProgressNodes = new();
         QueryNode kingNode = matrix.RequestNode(query, maxRank, Guard.Empty);
+
+        PriorityQueueSet<QueryNode> inProgressNodes = new();
         inProgressNodes.Enqueue(kingNode);
+        List<QueryNode> newNodes = new();
         int termCounter = 0;
 
         while (inProgressNodes.Count > 0 && termCounter < MaximumTerms)
@@ -197,8 +208,9 @@ public class QueryEngine
             QueryNode next = inProgressNodes.Dequeue()!;
             if (next.Status == QueryNode.NStatus.InProgress)
             {
-                List<QueryNode> newNodes = next.AssessRules(clauses, matrix);
-                newNodes.AddRange(matrix.EnsureNodesUpdated(next));
+                newNodes.Clear();
+                next.AssessRules(clauses, matrix, newNodes);
+                matrix.EnsureNodesUpdated(next, newNodes);
                 if (kingNode.Status == QueryNode.NStatus.Proven)
                 {
                     break;

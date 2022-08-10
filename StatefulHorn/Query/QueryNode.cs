@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 using StatefulHorn.Messages;
@@ -74,9 +75,23 @@ public class QueryNode : IPriorityQueueSetItem
     #endregion
     #region Rule assessment.
 
-    public List<QueryNode> AssessRules(IEnumerable<HornClause> systemRules, QueryNodeMatrix matrix)
+    /// <summary>
+    /// Assess the possibility of the message of the current node according to the given system 
+    /// rules.
+    /// </summary>
+    /// <param name="systemRules">Horn Clauses to check viability against.</param>
+    /// <param name="matrix">The node creation and maintenance matrix for the system.</param>
+    /// <param name="premiseNodes">
+    /// An empty list to be populated with additional nodes to be assessed to check the
+    /// possibility of this node. The purpose of this parameter is to minimise the 
+    /// creation of new List objects during a query.
+    /// </param>
+    public void AssessRules(
+        IEnumerable<HornClause> systemRules, 
+        QueryNodeMatrix matrix, 
+        List<QueryNode> premiseNodes)
     {
-        List<QueryNode> premiseNodes = new();
+        Debug.Assert(premiseNodes.Count == 0);
 
         // If the message is a tuple, then prioritise searching for individual tuple members.
         if (Message is TupleMessage tMsg)
@@ -110,12 +125,13 @@ public class QueryNode : IPriorityQueueSetItem
         {
             // No further processing required if there is a premise-less rule.
             OptionSets.Clear();
-            return new();
+            premiseNodes.Clear();
         }
-
-        Status = OptionSets.Count > 0 ? NStatus.Waiting : NStatus.Failed;
-        Changed = true;
-        return premiseNodes;
+        else
+        {
+            Status = OptionSets.Count > 0 ? NStatus.Waiting : NStatus.Failed;
+            Changed = true;
+        }
     }
 
     /// <summary>
