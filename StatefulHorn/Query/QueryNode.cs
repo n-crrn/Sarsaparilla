@@ -96,8 +96,16 @@ public class QueryNode : IPriorityQueueSetItem
             // Auto-generate a new horn clause for tuple assembly.
             HornClause tupleHc = new(Message, tMsg.Members, Guard);
             PremiseOptionSet pos = PremiseOptionSet.FromMessages(tMsg.Members, Guard, Rank, tupleHc, matrix, this);
-            OptionSets.Add(pos);
-            premiseNodes.AddRange(pos.InProgressNodes);
+            if (pos.HasSucceeded)
+            {
+                SuccessfulOptionSets.Add(pos);
+                Status = NStatus.Proven;
+            }
+            else
+            {
+                OptionSets.Add(pos);
+                premiseNodes.AddRange(pos.InProgressNodes);
+            }
         }
 
         // Use the rule set to find premises.
@@ -106,7 +114,7 @@ public class QueryNode : IPriorityQueueSetItem
             PremiseOptionSet? optionSet = PremiseOptionSet.FromRule(Message, Guard, Rank, hc, matrix, this, out SigmaFactory? _);
             if (optionSet != null)
             {
-                if (optionSet.Nodes.Count == 0)
+                if (optionSet.HasSucceeded) // Nodes may have already been assessed.
                 {
                     SuccessfulOptionSets.Add(optionSet);
                     Status = NStatus.Proven;
@@ -118,17 +126,11 @@ public class QueryNode : IPriorityQueueSetItem
                 }
             }
         }
-        if (Status == NStatus.Proven)
-        {
-            // No further processing required if there is a premise-less rule.
-            OptionSets.Clear();
-            premiseNodes.Clear();
-        }
-        else
+        if (Status != NStatus.Proven)
         {
             Status = OptionSets.Count > 0 ? NStatus.Waiting : NStatus.Failed;
-            Changed = true;
         }
+        Changed = true;
     }
 
     /// <summary>

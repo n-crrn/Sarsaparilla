@@ -197,6 +197,8 @@ public class QueryEngine
         QueryNodeMatrix matrix = new();
         QueryNode kingNode = matrix.RequestNode(query, maxRank, Guard.Empty);
 
+        matrix.PreSeed(clauses, maxRank);
+
         PriorityQueueSet<QueryNode> inProgressNodes = new();
         inProgressNodes.Enqueue(kingNode);
         List<QueryNode> newNodes = new();

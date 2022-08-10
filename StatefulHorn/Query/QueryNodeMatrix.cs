@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace StatefulHorn.Query;
 
@@ -12,6 +13,34 @@ public class QueryNodeMatrix
     /// Container for all of the nodes created by this Matrix.
     /// </summary>
     private readonly Dictionary<IMessage, List<QueryNode>> FoundNodes = new();
+
+    /// <summary>
+    /// Most rule sets will have "statements of fact" - that is, rules that have no premises,
+    /// but lead to a conclusion message. This method filters an enumeration of Horn Clauses,
+    /// and pre-populates QueryNodes into the matrix corresponding to these facts.
+    /// </summary>
+    /// <param name="clauses">Rules of the system.</param>
+    /// <param name="maxRank">
+    /// Maximum rank of the system. QueryNodes are generated from the rank of the rule it
+    /// corresponds with to the maximum rank of the system.
+    /// </param>
+    public void PreSeed(IEnumerable<HornClause> clauses, int maxRank)
+    {
+        List<QueryNode> newNodes = new(); // Passed as a dummy parameter, no nodes expected.
+        foreach (HornClause hc in clauses)
+        {
+            if (hc.Premises.Count == 0)
+            {
+                List<HornClause> oneRuleList = new() { hc };
+                for (int r = hc.Rank; r <= maxRank; r++)
+                {
+                    QueryNode qn = RequestNode(hc.Result, r, hc.Guard);
+                    qn.AssessRules(oneRuleList, this, newNodes); // Note node as proven.
+                }
+            }
+        }
+        Debug.Assert(newNodes.Count == 0);
+    }
 
     /// <summary>
     /// Return a QueryNode with the given parameters. If such a node has been created before

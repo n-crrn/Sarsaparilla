@@ -85,7 +85,7 @@ free publicChannel: channel.
 free bobl: bitstring [private].
 free bobr: bitstring [private].
 
-set maximumTerms = 30000.
+set maximumTerms = 12000.
 query attacker((bobl, bobr)).
 
 let SD(b: channel, sk: key) =
@@ -138,7 +138,7 @@ free publicChannel: channel.
 free bobl: bitstring [private].
 free bobr: bitstring [private].
 
-set maximumTerms = 40000.
+set maximumTerms = 30000.
 query attacker(bobl).
 
 let SD(b: channel, sk: key) =
