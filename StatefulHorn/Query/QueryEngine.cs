@@ -194,7 +194,7 @@ public class QueryEngine
             return null;
         }
 
-        QueryNodeMatrix matrix = new(When);
+        QueryNodeMatrix matrix = new();
         QueryNode kingNode = matrix.RequestNode(query, maxRank, Guard.Empty);
 
         PriorityQueueSet<QueryNode> inProgressNodes = new();
@@ -210,7 +210,7 @@ public class QueryEngine
             {
                 newNodes.Clear();
                 next.AssessRules(clauses, matrix, newNodes);
-                matrix.EnsureNodesUpdated(next, newNodes);
+                matrix.EnsureNodesUpdated(next, newNodes, When);
                 if (kingNode.Status == QueryNode.NStatus.Proven)
                 {
                     break;
@@ -230,7 +230,7 @@ public class QueryEngine
         {
             kingNode.FinalAssess();
         }
-        return kingNode.GetStateConsistentProof(stateVars);
+        return kingNode.GetStateConsistentProof(stateVars, When);
     }
 
     /// <summary>

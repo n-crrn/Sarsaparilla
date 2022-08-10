@@ -9,7 +9,7 @@ namespace StatefulHorn.Query;
 public class QueryNode : IPriorityQueueSetItem
 {
 
-    public QueryNode(IMessage msg, int rank, Guard g, State? when)
+    public QueryNode(IMessage msg, int rank, Guard g)
     {
         Message = msg;
         if (msg is VariableMessage)
@@ -18,7 +18,6 @@ public class QueryNode : IPriorityQueueSetItem
         }
         Rank = rank;
         Guard = g;
-        When = when;
     }
 
     #region Properties.
@@ -28,8 +27,6 @@ public class QueryNode : IPriorityQueueSetItem
     public Guard Guard { get; init; }
 
     public int Rank { get; init; }
-
-    private readonly State? When;
 
     public enum NStatus
     {
@@ -55,12 +52,12 @@ public class QueryNode : IPriorityQueueSetItem
     #endregion
     #region Result generation.
 
-    public IEnumerable<IMessage> GetPossibilities()
+    public IEnumerable<IMessage> GetPossibilities(State? when)
     {
         Dictionary<IMessage, IMessage?> emptyDict = new();
         foreach (PremiseOptionSet pos in SuccessfulOptionSets)
         {
-            Attack? att = pos.CreateSuccessResult(Message, When, Guard, emptyDict);
+            Attack? att = pos.CreateSuccessResult(Message, when, Guard, emptyDict);
             if (att != null)
             {
                 yield return att.Actual;
@@ -180,13 +177,13 @@ public class QueryNode : IPriorityQueueSetItem
         Changed = false;
     }
 
-    public bool RefreshState(QueryNodeMatrix matrix, List<QueryNode> nodesToTry)
+    public bool RefreshState(QueryNodeMatrix matrix, List<QueryNode> nodesToTry, State? when)
     {
         // Attempt to see if some sets can be resolved.
         List<PremiseOptionSet> resolvedAdditions = new();
         for (int i = 0; i < OptionSets.Count; i++)
         {
-            List<PremiseOptionSet> newAttempts = OptionSets[i].AttemptResolve(matrix, this);
+            List<PremiseOptionSet> newAttempts = OptionSets[i].AttemptResolve(matrix, this, when);
             foreach (PremiseOptionSet pos in newAttempts)
             {
                 nodesToTry.AddRange(from n in pos.Nodes where n.Status == NStatus.InProgress select n);
@@ -259,18 +256,18 @@ public class QueryNode : IPriorityQueueSetItem
     /// </summary>
     /// <param name="stateVars">Variable messages to keep consistent.</param>
     /// <returns>If an attack is found, it is returned. Otherwise, null.</returns>
-    public Attack? GetStateConsistentProof(HashSet<IMessage> stateVars)
+    public Attack? GetStateConsistentProof(HashSet<IMessage> stateVars, State? when)
     {
-        return GetStateConsistentProof(CreateStateVariablesLookup(stateVars));
+        return GetStateConsistentProof(CreateStateVariablesLookup(stateVars), when);
     }
 
-    public Attack? GetStateConsistentProof(IDictionary<IMessage, IMessage?> lookup) 
+    public Attack? GetStateConsistentProof(IDictionary<IMessage, IMessage?> lookup, State? when) 
     { 
         if (Status == NStatus.Proven)
         {
             foreach (PremiseOptionSet pos in SuccessfulOptionSets)
             {
-                Attack? att = pos.CreateSuccessResult(Message, When, Guard, lookup);
+                Attack? att = pos.CreateSuccessResult(Message, when, Guard, lookup);
                 if (att != null)
                 {
                     return att;

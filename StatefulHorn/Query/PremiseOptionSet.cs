@@ -135,7 +135,7 @@ public class PremiseOptionSet
             QueryNode n = Nodes[i];
             if (n.Status != QueryNode.NStatus.Unresolvable)
             {
-                Attack? possAttack = n.GetStateConsistentProof(stateVarValues);
+                Attack? possAttack = n.GetStateConsistentProof(stateVarValues, when);
                 if (possAttack == null)
                 {
                     return null;
@@ -194,7 +194,7 @@ public class PremiseOptionSet
         }
     }
 
-    public List<PremiseOptionSet> AttemptResolve(QueryNodeMatrix qm, QueryNode requester)
+    public List<PremiseOptionSet> AttemptResolve(QueryNodeMatrix qm, QueryNode requester, State? when)
     {
         if (!PartialSuccess)
         {
@@ -215,7 +215,7 @@ public class PremiseOptionSet
             if (n.Status == QueryNode.NStatus.Proven)
             {
                 original.Add(n.Message);
-                options = AddToOptionsList(options, n.GetPossibilities().ToList());
+                options = AddToOptionsList(options, n.GetPossibilities(when).ToList());
             }
         }
 

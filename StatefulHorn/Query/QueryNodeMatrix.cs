@@ -2,19 +2,16 @@
 
 namespace StatefulHorn.Query;
 
+/// <summary>
+/// Provides a means for caching the creation of nodes in a query.
+/// </summary>
 public class QueryNodeMatrix
 {
 
-    public QueryNodeMatrix(State? when)
-    {
-        When = when;
-    }
-
-    private readonly State? When;
-
+    /// <summary>
+    /// Container for all of the nodes created by this Matrix.
+    /// </summary>
     private readonly Dictionary<IMessage, List<QueryNode>> FoundNodes = new();
-
-    public int TermCount => FoundNodes.Count;
 
     /// <summary>
     /// Return a QueryNode with the given parameters. If such a node has been created before
@@ -56,7 +53,7 @@ public class QueryNodeMatrix
         }
 
         // None exists, create and submit one that is pre-assessment.
-        QueryNode newQn = new(result, rank, g, When);
+        QueryNode newQn = new(result, rank, g);
         nodeLine.Add(newQn);
         if (requester != null)
         {
@@ -75,15 +72,15 @@ public class QueryNodeMatrix
     /// the result of resolving variables within a PremiseOptionSet. The purpose of this parameter
     /// is to minimise the creation of new List objects during a query.
     /// </param>
-    /// <returns></returns>
-    public List<QueryNode> EnsureNodesUpdated(QueryNode startingNode, List<QueryNode> newNodes)
+    /// <param name="when">State under which query message must be true.</param>
+    public void EnsureNodesUpdated(QueryNode startingNode, List<QueryNode> newNodes, State? when)
     {
         Queue<QueryNode> toCheck = new();
         toCheck.Enqueue(startingNode);
 
         while (toCheck.TryDequeue(out QueryNode? next))
         {
-            if (next.RefreshState(this, newNodes))
+            if (next.RefreshState(this, newNodes, when))
             {
                 foreach (QueryNode n in next.LeadingFrom)
                 {
@@ -92,7 +89,6 @@ public class QueryNodeMatrix
             }
             next.ClearChanged();
         }
-        return newNodes;
     }
 
 }
