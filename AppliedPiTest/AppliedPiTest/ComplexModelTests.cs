@@ -74,6 +74,12 @@ process
         await IntegrationTests.DoTest(ModelSampleLibrary.LeakTupleNameModelCode, true);
     }
 
+    [TestMethod]
+    public async Task NoLeakTupleNameModelTest()
+    {
+        await IntegrationTests.DoTest(ModelSampleLibrary.NoLeakTupleNameModelCode, false);
+    }
+
     /// <summary>
     /// Model that should leak both bobl[] and bobr[] in the same session. However, unlike 
     /// LeakTupleNameModelTest, this leak is done directly by outputting a received value
@@ -85,7 +91,6 @@ process
     //[TestMethod]
 #pragma warning disable CA1822 // Mark members as static
     public async Task DirectLeakTupleNameModelTest()
-#pragma warning restore CA1822 // Mark members as static
     {
         string piSource =
 @"type key.
@@ -136,5 +141,6 @@ process
 ";
         await IntegrationTests.DoTest(piSource, true);
     }
+#pragma warning restore CA1822 // Mark members as static
 
 }
