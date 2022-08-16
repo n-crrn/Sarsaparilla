@@ -74,6 +74,10 @@ process
         await IntegrationTests.DoTest(ModelSampleLibrary.LeakTupleNameModelCode, true);
     }
 
+    /// <summary>
+    /// Model that should not leak nonces bobl and bobr in the same session.
+    /// </summary>
+    /// <returns>Awaitable Task.</returns>
     [TestMethod]
     public async Task NoLeakTupleNameModelTest()
     {
