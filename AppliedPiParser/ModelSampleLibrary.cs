@@ -121,7 +121,7 @@ query attacker(new value).
 type key.
 free theKey: key.
 
-fun enc(bitstring, bitstring): bitstring.
+fun enc(bitstring, key): bitstring.
 reduc forall x: bitstring, y: key; dec(enc(x, y), y) = x.
 
 process 

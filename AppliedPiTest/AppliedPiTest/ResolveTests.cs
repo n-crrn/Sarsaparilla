@@ -179,6 +179,54 @@ process (send | rx).";
         CheckResolvedNetworks(expectedResNw, resNw);
     }
 
+    /// <summary>
+    /// Check that errors in the selection of types for constructor and deconstructor calls are
+    /// caught.
+    /// </summary>
+    [TestMethod]
+    public void ConstructorResolutionTest()
+    {
+        // Model source set-up.
+        string prelude = 
+@"type key.
+free c: channel.
+free a: bitstring.
+free b: bitstring.
+free k: key.
+";
+        string[] errSources = new string[]
+        {
+            // 1. Hash function where no second parameter is provided.
+            "fun h(bitstring, bitstring): bitstring. process out(c, h(a)).",
+            // 2. Hash function where the type is wrong.
+            "fun h(bitstring): bitstring. process out(c, h(k)).",
+            // 3. Destructor type check.
+            "fun enc(bitstring): bitstring.\n"
+            + "reduc forall x: bitstring, y: key; dec(enc(x, y), y) = x.\n" 
+            + "process out(c, dec(k, k))."
+        };
+
+        // Test loop.
+        foreach (string errSource in errSources)
+        {
+            string fullSource = prelude + errSource;
+            Network nw = Network.CreateFromCode(fullSource);
+            try
+            {
+                Assert.ThrowsException<ArgumentException>(() => ResolvedNetwork.From(nw));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception was: {ex}");
+                Console.WriteLine("Following source expected to throw error regarding resolved types:");
+                Console.WriteLine(fullSource);
+                throw;
+            }
+        }
+    }
+
+    #region Convenience methods.
+
     private static void CheckResolvedNetworks(ResolvedNetwork expected, ResolvedNetwork result)
     {
         try
@@ -194,5 +242,7 @@ process (send | rx).";
             throw;
         }
     }
+
+    #endregion
 
 }

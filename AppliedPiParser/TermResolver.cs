@@ -5,9 +5,17 @@ using AppliedPi.Model;
 
 namespace AppliedPi;
 
+/// <summary>
+/// Instances of this class are used as an aid to determine the types of names in a Pi-Calculus
+/// network. It uses top-level data from the Network along with names encountered while parsing
+/// processes.
+/// </summary>
 public class TermResolver
 {
 
+    /// <summary>
+    /// Names and their types that are available to processes in all networks.
+    /// </summary>
     public static readonly Dictionary<Term, TermOriginRecord> BuiltInValues = new()
     {
         { new("true"), new(TermSource.Constant, PiType.Bool) },
@@ -18,6 +26,15 @@ public class TermResolver
     {
         Network = nw;
         Registered = new Dictionary<Term, TermOriginRecord>(BuiltInValues);
+
+        foreach ((string _, FreeDeclaration fd) in nw.FreeDeclarations)
+        {
+            Register(new(fd.Name), new(TermSource.Free, new(fd.PiType)));
+        }
+        foreach (Constant c in nw.Constants)
+        {
+            Register(new(c.Name), new(TermSource.Constant, new(c.PiType)));
+        }
     }
 
     private readonly Network Network;
@@ -35,26 +52,8 @@ public class TermResolver
         rec = null;
 
         // See if we can resolve from the Network.
-        if (t.Parameters.Count == 0)
-        {
-            string termName = t.Name;
-            // Check the free declarations ...
-            if (Network.FreeDeclarations.TryGetValue(termName, out FreeDeclaration? fd))
-            {
-                rec = new(TermSource.Free, new(fd.PiType));
-                Register(t, rec);
-                return true;
-            }
-            // ... then the constant declarations ...
-            Constant? possConst = Network.GetConstant(termName);
-            if (possConst != null)
-            {
-                rec = new(TermSource.Constant, new(possConst.PiType) );
-                Register(t, rec);
-                return true;
-            }
-        }
-        else
+        // Note that parameter-less items are added in the constructor.
+        if (t.Parameters.Count > 0) 
         {
             // Sub terms need to be resolved before we resolve this one.
             List<PiType> subTypes = new();
@@ -75,9 +74,22 @@ public class TermResolver
             }
             else
             {
-                // Check that the appropriate constructor exists.
+                // Check that the appropriate constructor exists. This includes checking that the
+                // argument types match.
                 if (Network.Constructors.TryGetValue(t.Name, out Constructor? c))
                 {
+                    if (c.ParameterTypes.Count != subTypes.Count)
+                    {
+                        return false;
+                    }
+                    for (int i = 0; i < subTypes.Count; i++)
+                    {
+                        if (!subTypes[i].ToString().Equals(c.ParameterTypes[i]) &&
+                            !(subTypes[i].IsTuple && c.ParameterTypes[i].Equals(PiType.BitString.ToString())))
+                        {
+                            return false;
+                        }
+                    }
                     rec = new(TermSource.Constructor, new(c.PiType));
                 }
                 else

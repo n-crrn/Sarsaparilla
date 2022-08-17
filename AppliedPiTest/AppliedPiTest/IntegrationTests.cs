@@ -252,7 +252,6 @@ free publicChannel: channel.
 free bobl: bitstring [private].
 free bobr: bitstring [private].
 free s: bitstring [private].
-free mStart: bitstring [private].
 
 let SD(b: channel, sk: key) =
   new mStart: bitstring;   (* State value of the security device. *)
@@ -291,7 +290,6 @@ free publicChannel: channel.
 free bobl: bitstring [private].
 free bobr: bitstring [private].
 free s: bitstring [private].
-free mStart: bitstring [private].
 
 let SD(b: channel, sk: key) =
   new mStart: bitstring;   (* State value of the security device. *)

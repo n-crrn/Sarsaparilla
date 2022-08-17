@@ -32,6 +32,8 @@ public class PiType
 
     public bool IsBool => this == Bool;
 
+    public bool IsTuple => Name.Length == 0 && Atoms.Count > 0;
+
     public bool IsBasicType(string typeName) => !IsComposite && typeName == Name;
 
     #region Inbuilt types.
