@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -18,6 +17,11 @@ namespace SarsaparillaTests.AppliedPiTest;
 [TestClass]
 public class IntegrationTests
 {
+
+    /// <summary>
+    /// Demonstrates that a query of an already publicly known free name will work.
+    /// </summary>
+    /// <returns>Awaitable Task.</returns>
     [TestMethod]
     public async Task TrivialTest()
     {
@@ -25,11 +29,16 @@ public class IntegrationTests
 @"free c: channel.
 free s: bitstring.
 query attacker(s).
-process in(c,x:bitstring) | out(c, s).
+process in(c, x:bitstring) | out(c, s).
 ";
         await DoTest(piSource, true);
     }
 
+    /// <summary>
+    /// Demonstrates that a private value can be found if it is transmitted on a publicly known
+    /// channel.
+    /// </summary>
+    /// <returns>Awaitable Task.</returns>
     [TestMethod]
     public async Task BasicChainTest()
     {
@@ -42,6 +51,10 @@ process ( out(c, s) | in(c, v: bitstring) ).
         await DoTest(piSource, true);
     }
 
+    /// <summary>
+    /// Demonstrates that a name leaked indirectly can be found.
+    /// </summary>
+    /// <returns>Awaitable Task.</returns>
     [TestMethod]
     public async Task ValueTransferTest()
     {
@@ -80,6 +93,10 @@ process
         await DoTest(piSource, true);
     }
 
+    /// <summary>
+    /// Demonstrate that a queried name that is only used wtihin a macro can still be found.
+    /// </summary>
+    /// <returns>Awaitable Task.</returns>
     [TestMethod]
     public async Task QueryInMacroTests()
     {
@@ -163,53 +180,21 @@ process
         await DoTest(piSource, true);
     }
 
+    /// <summary>
+    /// Tests the leaking of values that are sent over channels that are themselves leaked.
+    /// </summary>
+    /// <returns>Awaitable Task.</returns>
     [TestMethod]
-    public async Task LoopTest()
+    public async Task ChannelLeakTest()
     {
         // In this first example, there is a process that is capable of generating
         // h(h(value)) but it must be run at least twice to do so. This is a test
         // of a channel being made public from its inner scope.
-        string piSource1 =
-@"free pubC: channel.
-free value: bitstring.
-const holder: bitstring.
-
-fun h(bitstring): bitstring [private].
-
-query attacker(h(h(value))).
-
-process
-  ( in(pubC, aChannel: channel) ) (* Read anything from public channel. *)
-  | (! ( new c: channel;
-         out(pubC, c);
-         ( in(c, inRead: bitstring);
-           out(c, h(inRead)) )
-         | ( out(c, holder);
-             in(c, v: bitstring) ) ) ).
-";
-        await DoTest(piSource1, true);
+        await DoTest(ModelSampleLibrary.ChannelLeak1Code, true);
 
         // In this second example, the channel is again made public but the process
         // can only run once. Therefore, h(h(value)) cannot be generated.
-        string piSource2 =
-@"free pubC: channel.
-free value: bitstring.
-const holder: bitstring.
-
-fun h(bitstring): bitstring [private].
-
-query attacker(h(h(value))).
-
-process
-  ( in(pubC, aChannel: channel) ) (* Read anything from public channel. *)
-  | ( new c: channel;
-      out(pubC, c);
-      ( in(c, inRead: bitstring);
-        out(c, h(inRead)) )
-      | ( out(c, holder);
-          in(c, v: bitstring) ) ).
-";
-        await DoTest(piSource2, false); 
+        await DoTest(ModelSampleLibrary.ChannelLeak2Code, false); 
 
         // In this final example, the channel is made public and the process is replicated.
         // However, the magic transformation occurs in its concurrent process.
