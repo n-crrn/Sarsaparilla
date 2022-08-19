@@ -1,5 +1,8 @@
 ﻿@page "/pi"
 
+@using System.Text
+@using System.Xml
+
 @using AppliedPi
 @using AppliedPi.Translate
 @using StatefulHorn
@@ -41,6 +44,7 @@
 
     <Pane Title='Compiled π-Model'>
         <ButtonBarItems>
+            <button @onclick=ExportTranslation disabled=@QueryDisabled>Export Translation</button>
             <button @onclick=Query disabled=@QueryDisabled>Query</button>
         </ButtonBarItems>
         <Body>
@@ -133,7 +137,7 @@
         }
     }
 
-    private static readonly string DefaultSourceFilename = "source.txt";
+    private const string DefaultSourceFilename = "source.txt";
 
     public async void SaveSource()
     {
@@ -218,4 +222,26 @@
     }
 
     private void QueryFinished() => QueryRunning = false;
+
+    private const string DefaultExportTranslationFilename = "translation.xml";
+
+    private async void ExportTranslation()
+    {
+        XmlWriterSettings outputSettings = new()
+        {
+            Indent = true
+        };
+
+        MemoryStream exportBuffer;
+        using(exportBuffer = new()) {
+            XmlWriter writer = XmlWriter.Create(exportBuffer, outputSettings);
+            XmlDocument doc = new();
+            doc.AppendChild(Translation!.ToXmlElement(doc));
+            doc.Save(writer);
+        }
+        await UserFileHandling.SaveStringToFile(
+            JS, 
+            DefaultExportTranslationFilename, 
+            Encoding.UTF8.GetString(exportBuffer.ToArray()));
+    }
 }

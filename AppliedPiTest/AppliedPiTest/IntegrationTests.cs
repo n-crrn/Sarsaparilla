@@ -439,7 +439,7 @@ process test(v1) | test(v2) | out(c, v1) | out(c, v2) | !in(c, s: bitstring).
             void onAttackAssessedFound(Nession n, IReadOnlySet<HornClause> hs, Attack? a) => nessionAttackFound |= a != null;
 
             QueryEngine qe = t.CreateQueryEngine()!;
-            await qe.Execute(null, onAttackAssessedFound, null, t.RecommendedDepth);
+            await qe.Execute(null, onAttackAssessedFound, null, t.RecommendedElaborationLimit);
 
             Assert.AreEqual(expectNessionAttack, nessionAttackFound, "Non-global attack.");
         }

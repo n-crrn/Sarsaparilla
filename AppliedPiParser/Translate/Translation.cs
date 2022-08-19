@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml;
 
 using StatefulHorn;
 using StatefulHorn.Messages;
@@ -22,21 +23,30 @@ public class Translation
         HashSet<State> initStates, 
         HashSet<Rule> allRules, 
         IReadOnlySet<IMessage> queries, 
-        int depth,
+        int elaborations,
         int maxTerms)
     {
         InitialStates = initStates;
         Rules = allRules;
         Queries = queries;
-        RecommendedDepth = depth;
+        RecommendedElaborationLimit = elaborations;
         MaximumTerms = maxTerms;
     }
+
+    #region Properties.
 
     public IReadOnlySet<State> InitialStates { get; }
 
     public IReadOnlySet<Rule> Rules { get; }
 
     public IReadOnlySet<IMessage> Queries { get; }
+
+    public int RecommendedElaborationLimit { get; }
+
+    public int MaximumTerms { get; }
+
+    #endregion
+    #region Querying.
 
     public QueryEngine? CreateQueryEngine()
     {
@@ -47,15 +57,70 @@ public class Translation
                 Queries,
                 null,
                 Rules,
-                RecommendedDepth,
+                RecommendedElaborationLimit,
                 MaximumTerms);
         }
         return null;
     }
 
-    public int RecommendedDepth { get; }
+    #endregion
+    #region Serialisation.
 
-    public int MaximumTerms { get; }
+    /// <summary>
+    /// Identifying element name for translation details.
+    /// </summary>
+    public const string XmlElementName = "translation";
+
+    private const string InitialStatesAttrName = "initial_states";
+    private const string QueriedMessageAttrName = "queried_messages";
+    private const string RecommendedElaborationLimitAttrName = "recommended_elaboration_limit";
+    private const string MaximumTermsAttrName = "maximum_terms";
+    private const string RuleElementName = "rule";
+    private const string RuleSourceAttrName = "source";
+
+    /// <summary>
+    /// Creates an XmlElement containing the details of this translation. This method exists
+    /// as part of the serialisation functionality.
+    /// </summary>
+    /// <param name="doc">XmlDocument to use to create the XmlElements and XmlAttributes.</param>
+    /// <returns>
+    /// XmlElement that is the root of a tree containing all details of the translation, including 
+    /// Stateful Horn Clauses and query parameters.
+    /// </returns>
+    public XmlElement ToXmlElement(XmlDocument doc)
+    {
+        XmlElement tRoot = doc.CreateElement(XmlElementName);
+
+        XmlAttribute iniSAttr = doc.CreateAttribute(InitialStatesAttrName);
+        iniSAttr.Value = string.Join(",", InitialStates);
+        tRoot.Attributes.Append(iniSAttr);
+
+        XmlAttribute qMsgAttr = doc.CreateAttribute(QueriedMessageAttrName);
+        qMsgAttr.Value = string.Join(",", Queries);
+        tRoot.Attributes.Append(qMsgAttr);
+
+        XmlAttribute elabAttr = doc.CreateAttribute(RecommendedElaborationLimitAttrName);
+        elabAttr.Value = RecommendedElaborationLimit.ToString();
+        tRoot.Attributes.Append(elabAttr);
+
+        XmlAttribute maxTermsAttr = doc.CreateAttribute(MaximumTermsAttrName);
+        maxTermsAttr.Value = MaximumTerms.ToString();
+        tRoot.Attributes.Append(maxTermsAttr);
+
+        foreach (Rule r in Rules)
+        {
+            XmlElement ruleElement = doc.CreateElement(RuleElementName);
+            XmlAttribute srcAttr = doc.CreateAttribute(RuleSourceAttrName);
+            srcAttr.Value = r.ToString();
+            ruleElement.Attributes.Append(srcAttr);
+            tRoot.AppendChild(ruleElement);
+        }
+
+        return tRoot;
+    }
+
+    #endregion
+    #region Pi-Calculus to Stateful Horn Clause translation process.
 
     public const string MaximumTermsPropertyName = "maximumTerms";
 
@@ -949,5 +1014,7 @@ public class Translation
             newRules.Add(mr);
         }
     }
+
+    #endregion
 
 }
