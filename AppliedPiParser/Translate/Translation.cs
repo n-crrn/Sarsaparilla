@@ -57,46 +57,6 @@ public class Translation
 
     public int MaximumTerms { get; }
 
-    private static Rule TranslateConstructor(Constructor ctr, RuleFactory factory)
-    {
-        HashSet<Event> premises = new();
-        List<IMessage> funcParam = new();
-        for (int i = 0; i < ctr.ParameterTypes.Count; i++)
-        {
-            IMessage varMsg = new VariableMessage($"@v{i}");
-            premises.Add(Event.Know(varMsg));
-            funcParam.Add(varMsg);
-        }
-        factory.RegisterPremises(premises.ToArray());
-        Event result = Event.Know(new FunctionMessage(ctr.Name, funcParam));
-        if (ctr.DefinedAt != null)
-        {
-            factory.SetUserDefinition(new(ctr.DefinedAt.Row, ctr.DefinedAt.Column, ctr.ToString()));
-        }
-        return factory.CreateStateConsistentRule(result);
-    }
-
-    private static IEnumerable<Rule> TranslateDestructor(
-        Destructor dtr, 
-        ResolvedNetwork rn, 
-        RuleFactory factory)
-    {
-        // The premises to the destructor rule.
-        IMessage lhs = rn.TermToLooseMessage(dtr.LeftHandSide);
-        factory.SetUserDefinition(dtr.DefinedAt?.AsDefinition(dtr.ToString()));
-        foreach (Term p in dtr.LeftHandSide.Parameters)
-        {
-            factory.RegisterPremise(Event.Know(rn.TermToLooseMessage(p)));
-        }
-        yield return factory.CreateStateConsistentRule(Event.Know(lhs));
-
-        // The destructor to value rule.
-        IMessage rhs = new VariableMessage(dtr.RightHandSide);
-        factory.RegisterPremises(Event.Know(lhs));
-        factory.SetUserDefinition(dtr.DefinedAt?.AsDefinition(dtr.ToString()));
-        yield return factory.CreateStateConsistentRule(Event.Know(rhs));
-    }
-
     public const string MaximumTermsPropertyName = "maximumTerms";
 
     public static Translation From(ResolvedNetwork rn, Network nw)
@@ -121,9 +81,7 @@ public class Translation
             allRules.UnionWith(TranslateDestructor(dtr, rn, factory));
         }
 
-        // All channels are either free declarations or nonce declarations, so go through and
-        // collect the free declarations. While doing this, start creating the rules for the
-        // free declarations and the constants.
+        // Generate rules for the constants and free declarations.
         foreach ((Term term, (TermSource src, PiType type)) in rn.TermDetails)
         {
             if (src == TermSource.Free)
@@ -131,20 +89,13 @@ public class Translation
                 FreeDeclaration fd = nw.FreeDeclarations[term.Name];
                 if (!fd.IsPrivate)
                 {
-                    Rule fRule = factory.CreateStateConsistentRule(rn.TermToKnow(term));
-                    fRule.Definition = fd.DefinedAt?.AsDefinition(fd.ToString());
-                    allRules.Add(fRule);
+                    allRules.Add(CreateFact(term, rn, fd.DefinedAt?.AsDefinition(fd.ToString()), factory));
                 }
             }
             else if (src == TermSource.Constant)
             {
-                Rule cRule = factory.CreateStateConsistentRule(rn.TermToKnow(term));
                 Constant? c = nw.GetConstant(term.Name);
-                if (c != null)
-                {
-                    cRule.Definition = c.DefinedAt?.AsDefinition(c.ToString());
-                }
-                allRules.Add(cRule);
+                allRules.Add(CreateFact(term, rn, c?.DefinedAt?.AsDefinition(c!.ToString()), factory));
             }
         }
 
@@ -167,6 +118,86 @@ public class Translation
             }
         }
         return new(initStates, allRules, rn.Queries, recommendedDepth, maxTerms);
+    }
+
+    /// <summary>
+    /// Create a rule that corresponds to the given constructor. This rule will take the
+    /// constituent parameters and construct the final term from them.
+    /// </summary>
+    /// <param name="ctr">Constructor definition.</param>
+    /// <param name="factory">Rule construction helper.</param>
+    /// <returns>Stateful Horn translation of the constructor.</returns>
+    private static Rule TranslateConstructor(Constructor ctr, RuleFactory factory)
+    {
+        HashSet<Event> premises = new();
+        List<IMessage> funcParam = new();
+        for (int i = 0; i < ctr.ParameterTypes.Count; i++)
+        {
+            IMessage varMsg = new VariableMessage($"@v{i}");
+            premises.Add(Event.Know(varMsg));
+            funcParam.Add(varMsg);
+        }
+        factory.RegisterPremises(premises.ToArray());
+        Event result = Event.Know(new FunctionMessage(ctr.Name, funcParam));
+        if (ctr.DefinedAt != null)
+        {
+            factory.SetUserDefinition(new(ctr.DefinedAt.Row, ctr.DefinedAt.Column, ctr.ToString()));
+        }
+        return factory.CreateStateConsistentRule(result);
+    }
+
+    /// <summary>
+    /// Create a sequence of rules for a destructor. These rules allow for the identification
+    /// of destructor applications and the creation of reduced terms in the logic system.
+    /// </summary>
+    /// <param name="dtr">Destructor definition.</param>
+    /// <param name="rn">Resolved Network, required for term to event translation.</param>
+    /// <param name="factory">Rule construction helper.</param>
+    /// <returns>A sequence of Stateful Horn translations for the destructor.</returns>
+    private static IEnumerable<Rule> TranslateDestructor(
+        Destructor dtr,
+        ResolvedNetwork rn,
+        RuleFactory factory)
+    {
+        // The premises to the destructor rule.
+        IMessage lhs = rn.TermToLooseMessage(dtr.LeftHandSide);
+        factory.SetUserDefinition(dtr.DefinedAt?.AsDefinition(dtr.ToString()));
+        foreach (Term p in dtr.LeftHandSide.Parameters)
+        {
+            factory.RegisterPremise(Event.Know(rn.TermToLooseMessage(p)));
+        }
+        yield return factory.CreateStateConsistentRule(Event.Know(lhs));
+
+        // The destructor to value rule.
+        IMessage rhs = new VariableMessage(dtr.RightHandSide);
+        factory.RegisterPremises(Event.Know(lhs));
+        factory.SetUserDefinition(dtr.DefinedAt?.AsDefinition(dtr.ToString()));
+        yield return factory.CreateStateConsistentRule(Event.Know(rhs));
+    }
+
+    /// <summary>
+    /// Create a rule for a given term, where that term is known publicly. The resulting rule will
+    /// have a resulting know event for the term and no premises.
+    /// </summary>
+    /// <param name="factTerm">Term to know.</param>
+    /// <param name="rn">
+    /// The fully-resolved network, required for the correct translation of the term into an event.
+    /// </param>
+    /// <param name="knownFrom">
+    /// Where available, the link with where the user specified the term.
+    /// </param>
+    /// <param name="factory">Rule construction helper.</param>
+    /// <returns>Stateful Horn rule representing the term known from no premises.</returns>
+    private static Rule CreateFact(
+        Term factTerm,
+        ResolvedNetwork rn,
+        UserDefinition? knownFrom,
+        RuleFactory factory)
+    {
+        factory.SetNextLabel($"Fact:{factTerm}");
+        Rule r = factory.CreateStateConsistentRule(rn.TermToKnow(factTerm));
+        r.Definition = knownFrom;
+        return r;
     }
 
     public static (HashSet<Socket>, List<MutateRule>) GenerateMutateRules(ResolvedNetwork rn, Network nw)
