@@ -213,7 +213,7 @@ free k: key.
             Network nw = Network.CreateFromCode(fullSource);
             try
             {
-                Assert.ThrowsException<ArgumentException>(() => ResolvedNetwork.From(nw));
+                Assert.ThrowsExactly<ArgumentException>(() => ResolvedNetwork.From(nw));
             }
             catch (Exception ex)
             {

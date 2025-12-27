@@ -243,7 +243,7 @@ public class ParseTests
         foreach (string ts in testStrings)
         {
             string errMsg = $"Fails to throw RuleParseException when parsing '{ts}'.";
-            Assert.ThrowsException<RuleParseException>(() => parser.Parse(ts), errMsg);
+            Assert.ThrowsExactly<RuleParseException>(() => parser.Parse(ts), errMsg);
         }
     }
 
@@ -262,7 +262,7 @@ public class ParseTests
         foreach (string ts in testStrings)
         {
             string errMsg = $"Fails to throw RuleParsingException when parsing '{ts}'.";
-            Assert.ThrowsException<RuleParseException>(() => parser.Parse(ts), errMsg, errMsg);
+            Assert.ThrowsExactly<RuleParseException>(() => parser.Parse(ts), errMsg, errMsg);
         }
     }
 

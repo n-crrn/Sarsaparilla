@@ -1,4 +1,5 @@
 - Be succinct.
 - No emojis.
 - The project structure is documented in the README.md file at the repository root.
-- Tool usaged is also documented in that README.md file.
+- Tool usage is also documented in that README.md file.
+- When operating in a GitHub Codespaces environment, use command `dotnet run --project Sarsaparilla --urls http://localhost:5000` to prevent launch issues with the developer certificate for serving HTTPS.
