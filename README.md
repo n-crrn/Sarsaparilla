@@ -36,6 +36,24 @@ composed of the following projects:
 6. *Sarsaparilla*: This is the Blazor WebAssembly application intended to allow for
    research into new protocol representations.
 
+## Running Sarsaparilla
+
+To run Sarsaparilla locally, run the following commands in the root directory of this
+repository:
+
+```sh
+dotnet build
+dotnet run --project Sarsaparilla
+```
+
+Sarsaparilla should then be available at http://localhost:5146.
+
+Automated tests can be run using:
+
+```sh
+dotnet test
+```
+
 ## Licensing
 
 All files in this project are provided subject to the GNU General Public License version 3.
