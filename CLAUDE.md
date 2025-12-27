@@ -1,0 +1,4 @@
+- Be succinct.
+- No emojis.
+- The project structure is documented in the README.md file at the repository root.
+- Tool usaged is also documented in that README.md file.
