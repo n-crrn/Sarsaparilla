@@ -122,7 +122,7 @@ public class KnitTests
         List<List<StateTransferringRule>> expected,
         List<List<StateTransferringRule>> found)
     {
-        Assert.AreEqual(expected.Count, found.Count, "Groups not equal");
+        Assert.HasCount(expected.Count, found, "Groups not equal");
 
         List<List<StateTransferringRule>> scratchFound = new(found);
         for (int i = 0; i < expected.Count; i++)
