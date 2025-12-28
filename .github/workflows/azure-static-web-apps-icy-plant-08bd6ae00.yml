@@ -9,6 +9,10 @@ on:
     branches:
       - master
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 # To work with .NET 10, this workflow uses a workaround given at
 # https://github.com/Azure/static-web-apps/issues/1692#issuecomment-3568257932
 jobs:
