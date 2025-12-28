@@ -7,24 +7,16 @@
 </div>
 
 @code {
-    private string _Text = "";
-
     [Parameter]
-    public string Text
-    {
-        get => _Text;
-        set
-        {
-            if (_Text != value)
-            {
-                _Text = value;
-                TextChanged.InvokeAsync(_Text);
-            }
-        }
-    }
+    public string Text { get; set; } = "";
 
     [Parameter]
     public EventCallback<string> TextChanged { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        TextChanged.InvokeAsync(Text);
+    }
 
     private async void OnTextChanged()
     {

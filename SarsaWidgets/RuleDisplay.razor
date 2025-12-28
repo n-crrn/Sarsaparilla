@@ -148,16 +148,12 @@
 
     private string RuleText { get; set; } = "";
 
-    private Rule? _Rule;
-
     [Parameter]
-    public Rule? Rule {
-        get => _Rule;
-        set
-        {
-            RuleText = value == null ? "" : value.ToString();
-            _Rule = value;
-        }
+    public Rule? Rule { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        RuleText = Rule == null ? "" : Rule.ToString();
     }
 
     [Parameter]
@@ -178,9 +174,9 @@
     {
         get
         {
-            if (_Rule != null && _Rule.Definition != null)
+            if (Rule != null && Rule.Definition != null)
             {
-                return _Rule.Definition.ToString();
+                return Rule.Definition.ToString();
             }
             return "";
         }

@@ -20,36 +20,18 @@
     [Parameter]
     public bool Disabled { get; set; } = false;
 
-    private string _FilterText = "";
+    [Parameter]
+    public string FilterText { get; set; } = "";
 
     [Parameter]
-    public string FilterText {
-        get => _FilterText;
-        set
-        {
-            if (_FilterText != value)
-            {
-                _FilterText = value;
-                Filter = RuleFilter.CreateValid(_FilterText);
-            };
-        }
-    }
+    public RuleFilter? Filter { get; set; } = new("");
 
-    private RuleFilter? _Filter = new("");
-
-    [Parameter]
-    public RuleFilter? Filter {
-        get => _Filter;
-        set
+    protected override void OnParametersSet()
+    {
+        Filter = RuleFilter.CreateValid(FilterText);
+        if (Filter != null)
         {
-            if (_Filter != value)
-            {
-                _Filter = value;
-                if (value != null)
-                {
-                    FilterChanged?.InvokeAsync(value);
-                }
-            }
+            FilterChanged?.InvokeAsync(Filter);
         }
     }
 

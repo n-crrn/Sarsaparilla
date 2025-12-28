@@ -31,25 +31,20 @@ else
     [Parameter]
     public string Label { get; set; } = "Sample";
 
-    private ISampleLibrary? _Library = null;
-
     [Parameter]
-    public ISampleLibrary? Library {
-        get => _Library;
-        set
-        {
-            if (value != null)
-            {
-                (string title, string _) = value.GetListing().First();
-                SelectedModel = value.GetSample(title);
-            }
-            else
-            {
-                SelectedModel = "";
-            }
-            _Library = value;
-        }
+    public ISampleLibrary? Library { get; set; }
 
+    protected override void OnParametersSet()
+    {
+        if (Library != null)
+        {
+            (string title, string _) = Library.GetListing().First();
+            SelectedModel = Library.GetSample(title);
+        }
+        else
+        {
+            SelectedModel = "";
+        }
     }
 
     private string SelectedModel = "";

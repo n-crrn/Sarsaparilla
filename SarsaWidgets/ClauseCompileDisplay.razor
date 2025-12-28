@@ -61,39 +61,37 @@
 
     #region Compiler management.
 
-    private IClauseCompiler? _Compiler = null;
-
     [Parameter, EditorRequired]
-    public IClauseCompiler? Compiler
+    public IClauseCompiler? Compiler { get; set; }
+
+    private IClauseCompiler? _previousCompiler;
+
+    protected override void OnParametersSet()
     {
-        get => _Compiler;
-        set
+        // The following test is required as Compiler may be set again by the higher-level
+        // component after a run.
+        if (_previousCompiler == Compiler)
         {
-            // The following test is required as Compiler may be set again by the higher-level
-            // component after a run.
-            if (_Compiler == value)
-            {
-                return;
-            }
+            return;
+        }
 
-            if (_Compiler != null)
-            {
-                _Compiler.OnReset -= CompilerReset;
-                _Compiler.OnRuleAddition -= CompilerRuleAddition;
-                _Compiler.OnError -= CompilerError;
-                _Compiler.OnComplete -= CompilerComplete;
-            }
+        if (_previousCompiler != null)
+        {
+            _previousCompiler.OnReset -= CompilerReset;
+            _previousCompiler.OnRuleAddition -= CompilerRuleAddition;
+            _previousCompiler.OnError -= CompilerError;
+            _previousCompiler.OnComplete -= CompilerComplete;
+        }
 
-            CurrentStatus = Status.AwaitingCompile;
-            _Compiler = value;
+        CurrentStatus = Status.AwaitingCompile;
+        _previousCompiler = Compiler;
 
-            if (_Compiler != null)
-            {
-                _Compiler.OnReset += CompilerReset;
-                _Compiler.OnRuleAddition += CompilerRuleAddition;
-                _Compiler.OnError += CompilerError;
-                _Compiler.OnComplete += CompilerComplete;
-            }
+        if (Compiler != null)
+        {
+            Compiler.OnReset += CompilerReset;
+            Compiler.OnRuleAddition += CompilerRuleAddition;
+            Compiler.OnError += CompilerError;
+            Compiler.OnComplete += CompilerComplete;
         }
     }
 
