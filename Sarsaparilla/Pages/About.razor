@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using System.Reflection
 
 <PageTitle>Sarsaparilla Verifier</PageTitle>
 
@@ -92,7 +93,18 @@
             input on the <a href='/horn'>Horn Clause page</a>.
         </p>
 
+        <h2>This Deployment</h2>
+
+        <p class="build-info">This deployment was built @GetBuildTime().</p>
+
     </article>
 </div>
 
-@code { }
+@code {
+    private static string GetBuildTime()
+    {
+        return Assembly.GetExecutingAssembly()
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(a => a.Key == "BuildTime")?.Value ?? "Unknown";
+    }
+}
