@@ -29,7 +29,9 @@ jobs:
           dotnet restore Sarsaparilla
           dotnet build Sarsaparilla -c Release
           dotnet publish Sarsaparilla -c Release -o publish
-      - name: Build And Deploy
+      - name: Run Tests
+        run: dotnet test --logger "console;verbosity=detailed"
+      - name: Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
