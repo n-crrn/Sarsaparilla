@@ -109,6 +109,54 @@ may report an attack where a nonce is leaked despite
 the fact that the leak occurs well after the nonce ceased to be
 relevant.
 
+## Extending Horn Clauses for State
+
+In [^10], the concept of Horn Clauses are extended to
+support state. The central idea is that knowledge may be known by
+virtue of the global state or history of global state of a system,
+rather than just the messages that have been transmitted in
+public. Though the extended Clauses are not named within the paper,
+this document will refer to them as Stateful Horn Clauses.
+
+Stateful Horn Clauses operate on messages, which may be names,
+variables, nonces or even functions. There are two forms of Clause:
+State Consistent Rule and State Transferring Rule.
+
+A State Consistent Rule states that an event is triggered based upon a
+set of premises and given a history of global states. It takes the
+following form:
+
+> $[ G ]\ H : M$ `-[` $S : O$ `]->` $e$
+
+where:
+
+| | |
+| --- | --- |
+| $G$ | Guard statement, listing messages that cannot be unified. May be omitted if empty. |
+| $H$ | A set of premise events. |
+| $M$ | A set of pairs of references linking premise events to snapshots. |
+| $S$ | A set of snapshots. |
+| $O$ | A set of ordering relations between snapshots. |
+| $e$ | The resulting event. |
+
+A State Transferring Rule defines a next valid global state, based
+upon given premises and a given history of global states. It takes the
+form:
+
+> $[ G ]\ H : M$ `-[` $S : O$ `]->` T
+
+... where $G$, $H$, $M$, $S$ and $O$ are as described above. $T$
+is a set of state transformations: that is, sequence of two snapshots
+indicating how the global state may evolve.
+
+There are three types of ordering relations:
+
+| | |
+| --- | --- |
+| $a_i \leq a_j$ | Snapshot $a_i$ appears earlier than $a_j$. |
+| $a_i \lessdot a_j$ | The global state changes once between $a_i$ and $a_j$. |
+| $a_i \sim a_k$ | Means that the global state remains unchanged between $a_i$ and $a_j$. |
+
 ## Applied $\pi$-Calculus
 
 Applied $\pi$-Calculus is to $\pi$-Calculus what Lisp is to
@@ -169,3 +217,7 @@ Inc, 2016, pp. 1–135. doi: 10.1561/3300000004.
 [^9]: M. Arapinis, E. Ritter, and M. Ryan, “Statverif: Verification of stateful processes,” in
 2011 IEEE 24th Computer Security Foundations Symposium, 2011, pp. 33–47. doi: 10.
 1109/CSF.2011.10.
+
+[^10]: L. Li, N. Dong, J. Pang, J. Sun, G. Bai, Y. Liu, and J. S. Dong, “A verification framework
+for stateful security protocols,” in Formal Methods and Software Engineering, Springer
+International Publishing, 2017, pp. 262–280. doi: 10.1007/978-3-319-68690-5_16.
