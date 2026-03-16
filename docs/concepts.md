@@ -47,7 +47,7 @@ rather than **computational** behaviour[^5].
 >  reading or writing on a storage medium (tape or registers), or
 >  invoking a procedure with actual parameters. Instead, we shall work
 >  with a model whose basic action is to communicate across an
->  interface with a \textbf{handshake}, which means that the two
+>  interface with a **handshake**, which means that the two
 >  participants synchronise this action.
 
 A π-Calculus model is composed of processes, which communicate
@@ -65,6 +65,49 @@ As a full description of the semantics of π-Calculus cannot be
 included in this document. However, the
 [Wikipedia page](https://en.wikipedia.org/wiki/%CE%A0-calculus) has
 an excellent explanation with examples.
+
+## Translating $\pi$-Calculus into Horn Clauses
+
+A $\pi$-Calculus model may be translated into a set of Horn Clauses
+based on what messages may be sent - and therefore, what the attacker
+knows.[^7] A full algorithm for the translation
+is given in [^7] but a descriptive translation
+for each type of $\pi$-Calculus process is given in the following table:
+
+| $\pi$ Process | Syntax | ... triggers ... |
+| --- | --- | --- |
+| Nil process | $0$ | Nothing. |
+| Parallel composition | $P\ \|\ Q$ | Union of clauses of the sub-processes. |
+| Replication | $!P$ | Adding a fresh session identifier to the sequence list. |
+| Restriction | $\nu\ a$ | Replacing the restricted name with a name parameterised by the sequence list. |
+| Input | $c(a)$ | Adding the input message to the input set. |
+| Output | $\overline{c} \langle a \rangle$ | A Horn Clause is generated with the premises of the input set and an output message. |
+| Expression evaluation | * | Union of clauses where the evaluation succeeds and when it fails. |
+| Conditional | ** | If the conditional can be met, the union of both sub-processes. Otherwise, just the ``else'' sub-process. |
+
+\* let $x = g(M_1, ..., M_2)$ in $P$ else $Q$
+
+\** if $M = N$ then $P$ else $Q$
+
+To be able to use the Horn Clause representation for a protocol, there
+are two approximations that must be accepted:
+
+- "Freshness is modeled by letting new names be functions of
+  messages previously received by the creator of the name in the run
+  of the protocol." [^2] By freshness, this means
+  the creation of nonce values that are created during the run of the
+  protocol.
+- "A step of the protocol can be completed several times, as long
+  as the previous steps have been completed at least once between the
+  same principals." [^2]
+
+These approximations can result in false attacks as the set of
+derivable set of facts from a system is ever-increasing and not
+associated with the state where they arise.[^9] For
+example, [ProVerif](https://bblanche.gitlabpages.inria.fr/proverif/)
+may report an attack where a nonce is leaked despite
+the fact that the leak occurs well after the nonce ceased to be
+relevant.
 
 ## Applied $\pi$-Calculus
 
@@ -89,7 +132,9 @@ $\pi$-Calculus are:
 
 The ProVerif Specification language is the dialect of Applied
 $\pi$-Calculus used by the verification tool
-ProVerif.[^7]
+[ProVerif](https://bblanche.gitlabpages.inria.fr/proverif/).[^7]
+
+
 
 ---
 
@@ -120,3 +165,7 @@ doi: 10.1145/3127586.
 [^8]: B. Blanchet, “Modeling and verifying security protocols with the applied pi calculus and
 proverif,” in Foundations and Trends in Privacy and Security, 1–2, vol. 1, Now Publishers
 Inc, 2016, pp. 1–135. doi: 10.1561/3300000004.
+
+[^9]: M. Arapinis, E. Ritter, and M. Ryan, “Statverif: Verification of stateful processes,” in
+2011 IEEE 24th Computer Security Foundations Symposium, 2011, pp. 33–47. doi: 10.
+1109/CSF.2011.10.
